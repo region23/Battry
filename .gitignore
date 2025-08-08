@@ -1,0 +1,52 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+*.xcscmblueprint
+
+# Swift Package Manager
+/.swiftpm/
+Package.resolved
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Archives
+*.xcarchive
+
+# Asset catalogs
+*.xcassets
+
+# App icons
+*.appiconset
+
+# Temporary files
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Other
+*.orig
+*.old
+*.bak
+
+# User-specific files
+*.xcuserstate
