@@ -69,21 +69,6 @@ final class HistoryStore: ObservableObject {
         return out
     }
 
-    func exportCSV() -> URL? {
-        var csv = "timestamp,percentage,isCharging,voltage,temperature,maxCapacity,designCapacity\n"
-        let df = ISO8601DateFormatter()
-        for r in items {
-            csv += "\(df.string(from: r.timestamp)),\(r.percentage),\(r.isCharging),\(String(format: "%.3f", r.voltage)),\(String(format: "%.2f", r.temperature)),\(r.maxCapacity ?? 0),\(r.designCapacity ?? 0)\n"
-        }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("BatMon_Export_\(Int(Date().timeIntervalSince1970)).csv")
-        do {
-            try csv.write(to: url, atomically: true, encoding: .utf8)
-            return url
-        } catch {
-            return nil
-        }
-    }
-
     private func trimIfNeeded() {
         // Compact old data: keep full resolution for 7 days, then 5‑мин бакеты до 30 дней, остальное выбрасываем.
         let now = Date()

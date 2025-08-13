@@ -41,7 +41,7 @@
 |------|------|
 | `BatteryService.swift` | Низкоуровневое чтение состояния через IOKit (IOPowerSources + AppleSmartBattery) |
 | `BatteryViewModel.swift` | Периодический опрос (Timer), форматирование и паблиш снапшота в UI |
-| `HistoryStore.swift` | Персистентная история, тримминг + downsample, экспорт CSV |
+| `HistoryStore.swift` | Персистентная история, тримминг + downsample |
 | `AnalyticsEngine.swift` | Анализ трендов разряда, регрессия, оценка здоровья, аномалии, рекомендации |
 | `CalibrationEngine.swift` | Состояния калибровки, сбор непрерывного интервала 100%→20%, сериализация прогресса |
 | `ChartsPanel.swift` | Визуализация истории через Swift Charts |
@@ -66,7 +66,7 @@ HistoryStore.items -> AnalyticsEngine.analyze() -> UI / Report
 - Application Support / BatMon
   - `history.json` — временная серия показаний (сжатая по старым диапазонам)
   - `calibration.json` — состояние калибровки + последний результат
-- Временные файлы (`*.html`, `*.csv`) — в `NSTemporaryDirectory()`
+- Временные файлы (`*.html`) — в `NSTemporaryDirectory()`
 
 ## Аналитика здоровья
 
@@ -97,7 +97,7 @@ HistoryStore.items -> AnalyticsEngine.analyze() -> UI / Report
   - Последним результатом калибровки (если есть)
   - Спарклайном заряда
   - Таблицей последних измерений
-- CSV экспорт можно добавить (см. `HistoryStore.exportCSV()`), подключив кнопку в UI (roadmap).
+ 
 
 ## Roadmap / идеи
 
@@ -109,7 +109,7 @@ HistoryStore.items -> AnalyticsEngine.analyze() -> UI / Report
 
 ## Конфиденциальность
 
-Приложение работает полностью локально, не отправляет данные в сеть. Генерируемые отчёты и CSV остаются на вашем диске.
+Приложение работает полностью локально, не отправляет данные в сеть. Генерируемые отчёты остаются на вашем диске.
 
 ## Известные ограничения
 
