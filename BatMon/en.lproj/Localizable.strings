@@ -31,4 +31,7 @@
 "last.result.line" = "Avg: %@ %%/h • Runtime: %@ h";
 "recent.analyses" = "Recent Analyses";
 "recent.line" = "%@ → %@ • %@ %%/h";
+"panel.overview" = "Overview";
+"panel.charts" = "Charts";
+"panel.analysis" = "Analysis";
 

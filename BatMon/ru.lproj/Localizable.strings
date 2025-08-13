@@ -31,4 +31,7 @@
 "last.result.line" = "Средний: %@ %/ч • Автономность: %@ ч";
 "recent.analyses" = "Последние анализы";
 "recent.line" = "%@ → %@ • %@ %/ч";
+"panel.overview" = "Обзор";
+"panel.charts" = "Графики";
+"panel.analysis" = "Анализ";
 

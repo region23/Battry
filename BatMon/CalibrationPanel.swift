@@ -113,8 +113,10 @@ struct CalibrationPanel: View {
                         .foregroundStyle(.secondary)
                     ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { r in
                         HStack {
-                            Text(String(format: i18n.t("recent.line"), r.startedAt.formatted(date: .abbreviated, time: .shortened), r.finishedAt.formatted(time: .shortened), String(format: "%.1f", r.avgDischargePerHour)))
-                                .font(.caption)
+                            Text(String(format: i18n.t("recent.line"),
+                                        r.startedAt.formatted(date: .abbreviated, time: .shortened),
+                                        r.finishedAt.formatted(date: .omitted, time: .shortened),
+                                        String(format: "%.1f", r.avgDischargePerHour)))                                .font(.caption)
                             Spacer()
                             if let path = r.reportPath {
                                 Button(i18n.t("open.report")) {

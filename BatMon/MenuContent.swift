@@ -2,9 +2,9 @@ import SwiftUI
 import AppKit
 
 enum Panel: String, CaseIterable, Identifiable {
-    case overview = "Обзор"
-    case charts = "Графики"
-    case calibration = "Анализ"
+    case overview
+    case charts
+    case analysis
     var id: String { rawValue }
 }
 
@@ -20,12 +20,22 @@ struct MenuContent: View {
     var body: some View {
         VStack(spacing: 10) {
             header
-            Picker("", selection: $panel) {
-                ForEach(Panel.allCases) { p in
-                    Text(p.rawValue).tag(p)
+            HStack(spacing: 8) {
+                Picker("", selection: $panel) {
+                    ForEach(Panel.allCases) { p in
+                        Text(i18n.t("panel.\(p.rawValue)")).tag(p)
+                    }
                 }
+                .pickerStyle(.segmented)
+                Spacer(minLength: 8)
+                Picker("", selection: $i18n.language) {
+                    ForEach(AppLanguage.allCases) { lang in
+                        Text(lang.label).tag(lang)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 120)
             }
-            .pickerStyle(.segmented)
 
             Divider()
 
@@ -33,7 +43,7 @@ struct MenuContent: View {
                 switch panel {
                 case .overview: overview
                 case .charts: ChartsPanel(history: history)
-                case .calibration: CalibrationPanel(calibrator: calibrator, history: history, snapshot: battery.state)
+                case .analysis: CalibrationPanel(calibrator: calibrator, history: history, snapshot: battery.state)
                 }
             }
 
