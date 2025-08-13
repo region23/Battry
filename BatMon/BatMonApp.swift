@@ -7,6 +7,7 @@ struct BatMonApp: App {
     @StateObject private var history = HistoryStore()
     @StateObject private var analytics = AnalyticsEngine()
     @StateObject private var calibrator = CalibrationEngine()
+    @StateObject private var i18n = Localization.shared
 
     var body: some Scene {
         MenuBarExtra {

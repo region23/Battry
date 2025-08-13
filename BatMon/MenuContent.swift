@@ -13,6 +13,7 @@ struct MenuContent: View {
     @ObservedObject var history: HistoryStore
     @ObservedObject var analytics: AnalyticsEngine
     @ObservedObject var calibrator: CalibrationEngine
+    @ObservedObject var i18n: Localization = .shared
     @State private var isAnalyzing = false
     @State private var panel: Panel = .overview
 
@@ -54,7 +55,7 @@ struct MenuContent: View {
                     Text(getBatteryPercentageText())
                         .font(.system(size: 20, weight: .semibold))
                     if battery.state.isCharging {
-                        Label("Заряжается", systemImage: "bolt.fill")
+                        Label(i18n.t("charging"), systemImage: "bolt.fill")
                             .labelStyle(.titleAndIcon)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -83,45 +84,43 @@ struct MenuContent: View {
     }
     
     private func getBatteryPercentageText() -> String {
-        // Если устройство не имеет батареи, не показываем проценты
+        // Если устройство не имеет батареи, скрываем проценты
         if !battery.state.hasBattery {
             return ""
         }
-        
-        // Если устройство имеет батарею, показываем проценты
         return "\(battery.state.percentage)%"
     }
     
     private func getPowerSourceText() -> String {
         // Если питание от сети, независимо от наличия батареи, показываем "Питание от сети"
         if battery.state.powerSource == .ac {
-            return "Питание от сети"
+            return i18n.t("power.ac")
         }
         
         // На Mac Mini даже при отключенном питании важно показать правильный статус
         // Если устройство не имеет батареи, показываем "Питание от сети" как основное состояние
         if !battery.state.hasBattery {
-            return "Питание от сети"
+            return i18n.t("power.ac")
         }
         
         // Если устройство имеет батарею и питание не от сети
-        return "От батареи"
+        return i18n.t("power.battery")
     }
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                StatCard(title: "Циклы", value: battery.state.cycleCount == 0 ? "—" : "\(battery.state.cycleCount)")
-                StatCard(title: "Износ", value: String(format: "%.0f%%", battery.state.wearPercent))
-                StatCard(title: "Напряжение", value: battery.state.voltage > 0 ? String(format: "%.2f V", battery.state.voltage) : "—")
+                StatCard(title: i18n.t("cycles"), value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)")
+                StatCard(title: i18n.t("wear"), value: String(format: "%.0f%%", battery.state.wearPercent))
+                StatCard(title: i18n.t("voltage"), value: battery.state.voltage > 0 ? String(format: "%.2f V", battery.state.voltage) : i18n.t("dash"))
             }
             HStack {
-                StatCard(title: "Температура", value: battery.state.temperature > 0 ? String(format: "%.1f ℃", battery.state.temperature) : "—")
-                StatCard(title: "Max/Design", value:
+                StatCard(title: i18n.t("temperature"), value: battery.state.temperature > 0 ? String(format: "%.1f ℃", battery.state.temperature) : i18n.t("dash"))
+                StatCard(title: i18n.t("max.design"), value:
                          battery.state.designCapacity > 0 && battery.state.maxCapacity > 0
                          ? "\(battery.state.maxCapacity)/\(battery.state.designCapacity) mAh"
-                         : "—")
-                StatCard(title: "Разряд, %/ч", value: String(format: "%.1f", analytics.estimateDischargePerHour(history: history.recent(hours: 3))))
+                         : i18n.t("dash"))
+                StatCard(title: i18n.t("discharge.per.hour"), value: String(format: "%.1f", analytics.estimateDischargePerHour(history: history.recent(hours: 3))))
             }
             if let last = analytics.lastAnalysis {
                 HealthSummary(analysis: last)

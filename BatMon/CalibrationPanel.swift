@@ -4,19 +4,20 @@ struct CalibrationPanel: View {
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var history: HistoryStore
     let snapshot: BatterySnapshot
+    @ObservedObject var i18n: Localization = .shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             switch calibrator.state {
             case .idle:
-                Text("Анализ автономности: соберём непрерывный разряд **100% → 5%** и дадим понятный итоговый отчёт.")
+                Text(i18n.t("analysis.intro"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button {
                     calibrator.start()
                 } label: {
-                    Label("Начать анализ", systemImage: "target")
+                    Label(i18n.t("analysis.start"), systemImage: "target")
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -24,32 +25,39 @@ struct CalibrationPanel: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "battery.100.bolt")
                         .foregroundColor(.primary)
-                    Text("Зарядите до 100% и отключите питание. \nАнализ стартует автоматически.")
+                    Text(i18n.t("analysis.waiting.full"))
                         .font(.subheadline)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 HStack {
-                    Text("Текущий заряд: \(snapshot.percentage)%")
+                    Text(String(format: i18n.t("current.charge"), snapshot.percentage))
                     Spacer()
                 }
-                Button("Отмена", role: .destructive) {
+                Button(i18n.t("cancel"), role: .destructive) {
                     calibrator.stop()
                 }
                 .buttonStyle(.bordered)
 
             case .running(let start, let p):
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Идёт анализ…", systemImage: "hourglass")
+                    Label(i18n.t("analysis.running"), systemImage: "hourglass")
                     Text("Старт: \(start.formatted()) • c \(p)%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("Текущий заряд: \(snapshot.percentage)%")
-                    Text("Цель: 5% (не подключайте питание)")
+                    Text(String(format: i18n.t("current.charge"), snapshot.percentage))
+                    Text(i18n.t("analysis.target"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    ProgressView(value: Double(max(0, min(100, snapshot.percentage - 5))), total: 95)
+                        .progressViewStyle(.linear)
+                    if let eta = estimateETA(start: start, startPercent: p, currentPercent: snapshot.percentage) {
+                        Text(String(format: i18n.t("eta"), eta))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                Button("Прервать", role: .destructive) {
+                Button(i18n.t("stop"), role: .destructive) {
                     calibrator.stop()
                 }
                 .buttonStyle(.bordered)
@@ -58,30 +66,30 @@ struct CalibrationPanel: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "pause.circle")
                         .foregroundColor(.primary)
-                    Text("Анализ на паузе: питание подключено. \nОтключите питание и зарядите до 100% для перезапуска.")
+                    Text(i18n.t("analysis.paused"))
                         .font(.subheadline)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Button("Отмена", role: .destructive) {
+                Button(i18n.t("cancel"), role: .destructive) {
                     calibrator.stop()
                 }
                 .buttonStyle(.bordered)
 
             case .completed(let res):
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("Анализ завершён", systemImage: "checkmark.seal")
-                    Text("Длительность: \(String(format: "%.2f", res.durationHours)) ч")
-                    Text("Средний разряд: \(String(format: "%.1f", res.avgDischargePerHour)) %/ч")
-                    Text("Оценка автономности 100→0%: \(String(format: "%.1f", res.estimatedRuntimeFrom100To0Hours)) ч")
+                    Label(i18n.t("analysis.done"), systemImage: "checkmark.seal")
+                    Text(String(format: i18n.t("duration.hours"), String(format: "%.2f", res.durationHours)))
+                    Text(String(format: i18n.t("avg.discharge.per.hour.val"), String(format: "%.1f", res.avgDischargePerHour)))
+                    Text(String(format: i18n.t("runtime.100.0.val"), String(format: "%.1f", res.estimatedRuntimeFrom100To0Hours)))
                     if let path = res.reportPath {
-                        Button("Открыть HTML‑отчёт") {
+                        Button(i18n.t("open.report")) {
                             NSWorkspace.shared.open(URL(fileURLWithPath: path))
                         }
                     }
                     HStack {
-                        Button("Повторить анализ") { calibrator.start() }
-                        Button("Сбросить") { calibrator.stop() }.buttonStyle(.bordered)
+                        Button(i18n.t("analysis.repeat")) { calibrator.start() }
+                        Button(i18n.t("reset")) { calibrator.stop() }.buttonStyle(.bordered)
                     }
                 }
             }
@@ -89,27 +97,27 @@ struct CalibrationPanel: View {
             if let last = calibrator.lastResult {
                 Divider()
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Последний результат")
+                    Text(i18n.t("last.result"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("\(last.startedAt.formatted()) → \(last.finishedAt.formatted())")
-                    Text("Средний разряд: \(String(format: "%.1f", last.avgDischargePerHour)) %/ч • Автономность: \(String(format: "%.1f", last.estimatedRuntimeFrom100To0Hours)) ч")
+                    Text(String(format: i18n.t("last.result.line"), String(format: "%.1f", last.avgDischargePerHour), String(format: "%.1f", last.estimatedRuntimeFrom100To0Hours)))
                 }
             }
 
             if !calibrator.recentResults.isEmpty {
                 Divider()
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Последние анализы")
+                    Text(i18n.t("recent.analyses"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { r in
                         HStack {
-                            Text("\(r.startedAt.formatted(date: .abbreviated, time: .shortened)) → \(r.finishedAt.formatted(time: .shortened)) • \(String(format: "%.1f", r.avgDischargePerHour)) %/ч")
+                            Text(String(format: i18n.t("recent.line"), r.startedAt.formatted(date: .abbreviated, time: .shortened), r.finishedAt.formatted(time: .shortened), String(format: "%.1f", r.avgDischargePerHour)))
                                 .font(.caption)
                             Spacer()
                             if let path = r.reportPath {
-                                Button("Открыть отчёт") {
+                                Button(i18n.t("open.report")) {
                                     NSWorkspace.shared.open(URL(fileURLWithPath: path))
                                 }
                                 .font(.caption)
@@ -119,5 +127,18 @@ struct CalibrationPanel: View {
                 }
             }
         }
+    }
+
+    private func estimateETA(start: Date, startPercent: Int, currentPercent: Int) -> String? {
+        let elapsed = Date().timeIntervalSince(start) / 3600.0 // hours
+        let d = Double(max(0, startPercent - currentPercent))
+        guard elapsed > 0, d > 0 else { return nil }
+        let rate = d / elapsed // % per hour
+        guard rate > 0 else { return nil }
+        let remaining = Double(max(0, currentPercent - 5))
+        let hours = remaining / rate
+        let h = Int(hours)
+        let m = Int((hours - Double(h)) * 60)
+        return String(format: "%d:%02d", h, m)
     }
 }

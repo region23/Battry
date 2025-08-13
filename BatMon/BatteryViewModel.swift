@@ -29,13 +29,14 @@ final class BatteryViewModel: ObservableObject {
     }
 
     var timeRemainingText: String {
+        let L = Localization.shared
         if let tte = state.timeToEmptyMin, state.powerSource == .battery {
-            return "Осталось ~ \(format(minutes: tte))"
+            return String(format: L.t("time.remaining"), format(minutes: tte))
         }
         if let ttf = state.timeToFullMin, state.isCharging {
-            return "До 100% ~ \(format(minutes: ttf))"
+            return String(format: L.t("time.to.full"), format(minutes: ttf))
         }
-        return "—"
+        return L.t("dash")
     }
 
     func start() {

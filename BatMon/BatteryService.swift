@@ -55,23 +55,15 @@ enum BatteryService {
     }
 
     static func hasBattery() -> Bool {
+        // Надёжный способ: проверяем наличие AppleSmartBattery в IORegistry
+        if copySmartBatteryProperties() != nil { return true }
+        // На всякий случай дублируем проверку по IOPS только для internal battery
         let psInfo = IOPSCopyPowerSourcesInfo().takeRetainedValue()
         let list = IOPSCopyPowerSourcesList(psInfo).takeRetainedValue() as Array
         for item in list {
             guard let desc = IOPSGetPowerSourceDescription(psInfo, item).takeUnretainedValue() as? [String: Any] else { continue }
-            
-            if let transportType = desc[kIOPSTransportTypeKey] as? String {
-                // Если есть транспортный тип батареи, значит батарея присутствует
-                if transportType == kIOPSInternalBatteryType || transportType == kIOPSUSBTransportType || transportType == kIOPSNetworkTransportType {
-                    return true
-                }
-            }
-            
-            if let psType = desc[kIOPSTypeKey] as? String {
-                // Проверяем тип источника питания
-                if psType == kIOPSInternalBatteryType {
-                    return true
-                }
+            if let psType = desc[kIOPSTypeKey] as? String, psType == kIOPSInternalBatteryType {
+                return true
             }
         }
         return false
