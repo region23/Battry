@@ -4,7 +4,7 @@ import AppKit
 enum Panel: String, CaseIterable, Identifiable {
     case overview = "Обзор"
     case charts = "Графики"
-    case calibration = "Калибровка"
+    case calibration = "Анализ"
     var id: String { rawValue }
 }
 
@@ -132,18 +132,6 @@ struct MenuContent: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Button {
-                    isAnalyzing.toggle()
-                    analytics.setSessionActive(isAnalyzing)
-                    if isAnalyzing {
-                        _ = analytics.analyze(history: history.recent(hours: 24), snapshot: battery.state)
-                    }
-                } label: {
-                    Label(isAnalyzing ? "Остановить анализ" : "Анализ батареи",
-                          systemImage: isAnalyzing ? "stop.circle" : "play.circle")
-                }
-                .buttonStyle(.bordered)
-
                 Button {
                     let result = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
                     if let url = ReportGenerator.generateHTML(result: result,

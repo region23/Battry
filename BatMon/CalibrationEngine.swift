@@ -9,6 +9,7 @@ struct CalibrationResult: Codable, Equatable {
     var durationHours: Double
     var avgDischargePerHour: Double
     var estimatedRuntimeFrom100To0Hours: Double
+    var reportPath: String? = nil
 }
 
 enum CalibrationState: Equatable {
@@ -30,9 +31,11 @@ enum CalibrationState: Equatable {
 final class CalibrationEngine: ObservableObject {
     @Published private(set) var state: CalibrationState = .idle
     @Published private(set) var lastResult: CalibrationResult?
+    @Published private(set) var recentResults: [CalibrationResult] = []
 
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
+    private let endThresholdPercent: Int = 5
     private var storeURL: URL = {
         let dir = try! FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("BatMon", isDirectory: true)
@@ -95,23 +98,38 @@ final class CalibrationEngine: ObservableObject {
                                          designCapacity: snapshot.designCapacity)
             samples.append(reading)
 
-            // Добежали до 20% — завершаем
-            if snapshot.percentage <= 20 {
+            // Добежали до порога — завершаем
+            if snapshot.percentage <= endThresholdPercent {
                 let end = Date()
                 let dt = end.timeIntervalSince(start) / 3600.0
                 let dPercent = Double(startPercent - snapshot.percentage)
                 let dischargePerHour = dPercent / max(0.001, dt)
                 let runtime = dischargePerHour > 0 ? 100.0 / dischargePerHour : 0.0
 
-                let res = CalibrationResult(startedAt: start,
+                var res = CalibrationResult(startedAt: start,
                                             finishedAt: end,
                                             startPercent: startPercent,
                                             endPercent: snapshot.percentage,
                                             durationHours: dt,
                                             avgDischargePerHour: dischargePerHour,
                                             estimatedRuntimeFrom100To0Hours: runtime)
+
+                // Считаем аналитику и генерируем отчёт
+                let analytics = AnalyticsEngine()
+                let analysis = analytics.analyze(history: samples, snapshot: snapshot)
+                if let url = ReportGenerator.generateHTML(result: analysis,
+                                                          snapshot: snapshot,
+                                                          history: samples,
+                                                          calibration: res) {
+                    res.reportPath = url.path
+                }
+
                 state = .completed(result: res)
                 lastResult = res
+                recentResults.append(res)
+                if recentResults.count > 5 {
+                    recentResults = Array(recentResults.suffix(5))
+                }
                 save()
             }
 
@@ -147,6 +165,9 @@ final class CalibrationEngine: ObservableObject {
         if let lr = lastResult {
             obj["last"] = encode(lr)
         }
+        if !recentResults.isEmpty {
+            obj["recent"] = recentResults.map { encode($0) }
+        }
         do {
             let data = try JSONSerialization.data(withJSONObject: obj, options: [])
             try data.write(to: storeURL, options: .atomic)
@@ -161,6 +182,17 @@ final class CalibrationEngine: ObservableObject {
         if let lastDict = obj["last"] as? [String: Any],
            let lr: CalibrationResult = decode(lastDict) {
             lastResult = lr
+        }
+        if let recentArr = obj["recent"] as? [[String: Any]] {
+            var decoded: [CalibrationResult] = []
+            for d in recentArr {
+                if let r: CalibrationResult = decode(d) {
+                    decoded.append(r)
+                }
+            }
+            if !decoded.isEmpty {
+                recentResults = Array(decoded.suffix(5))
+            }
         }
         if let stateStr = obj["state"] as? String {
             switch stateStr {

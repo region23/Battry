@@ -18,9 +18,9 @@ enum ReportGenerator {
         var calibrationHTML = ""
         if let c = calibration {
             calibrationHTML = """
-            <div class="card" style="margin-bottom: 16px;">
-              <div class="muted">Калибровка</div>
-              <div>Проведена: \(df.string(from: c.startedAt)) → \(df.string(from: c.finishedAt))</div>
+            <div class=\"card\" style=\"margin-bottom: 16px;\">
+              <div class=\"muted\">Сеанс анализа</div>
+              <div>Проведён: \(df.string(from: c.startedAt)) → \(df.string(from: c.finishedAt))</div>
               <div>Средний разряд: \(String(format: "%.1f", c.avgDischargePerHour)) %/ч • Прогноз автономности: \(String(format: "%.1f", c.estimatedRuntimeFrom100To0Hours)) ч</div>
             </div>
             """
