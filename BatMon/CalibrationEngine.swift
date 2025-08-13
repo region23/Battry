@@ -32,10 +32,14 @@ final class CalibrationEngine: ObservableObject {
     @Published private(set) var state: CalibrationState = .idle
     @Published private(set) var lastResult: CalibrationResult?
     @Published private(set) var recentResults: [CalibrationResult] = []
+    @Published var autoResetDueToGap: Bool = false
 
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
     private let endThresholdPercent: Int = 5
+    private let maxResumeGap: TimeInterval = 300 // 5 минут допустимый разрыв между сэмплами
+    private var lastSampleAt: Date?
+    private var justBound = false
     private var storeURL: URL = {
         let dir = try! FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("BatMon", isDirectory: true)
@@ -50,6 +54,7 @@ final class CalibrationEngine: ObservableObject {
                 self?.handle(snapshot: snap)
             }
         load()
+        justBound = true
     }
 
     func unbind() {
@@ -61,16 +66,38 @@ final class CalibrationEngine: ObservableObject {
     func start() {
         state = .waitingFull
         samples.removeAll()
+        lastSampleAt = nil
+        autoResetDueToGap = false
         save()
     }
 
     func stop() {
         state = .idle
         samples.removeAll()
+        lastSampleAt = nil
+        autoResetDueToGap = false
         save()
     }
 
+    func acknowledgeAutoResetNotice() {
+        autoResetDueToGap = false
+    }
+
     private func handle(snapshot: BatterySnapshot) {
+        // При запуске приложения проверяем, можно ли корректно продолжить сессию
+        if justBound {
+            justBound = false
+            if case .running = state {
+                let gapIsAcceptable = (lastSampleAt != nil) && (Date().timeIntervalSince(lastSampleAt!) <= maxResumeGap)
+                if !gapIsAcceptable {
+                    state = .waitingFull
+                    samples.removeAll()
+                    autoResetDueToGap = true
+                    save()
+                    return
+                }
+            }
+        }
         switch state {
         case .idle:
             break
@@ -80,12 +107,15 @@ final class CalibrationEngine: ObservableObject {
             if snapshot.percentage >= 99 && !snapshot.isCharging && snapshot.powerSource == .battery {
                 state = .running(start: Date(), atPercent: snapshot.percentage)
                 samples.removeAll()
+                lastSampleAt = Date()
+                save()
             }
 
         case .running(let start, let startPercent):
             // Если подключено питание — пауза
             if snapshot.isCharging || snapshot.powerSource == .ac {
                 state = .paused
+                save()
                 return
             }
             // Сохраняем сэмпл
@@ -97,6 +127,8 @@ final class CalibrationEngine: ObservableObject {
                                          maxCapacity: snapshot.maxCapacity,
                                          designCapacity: snapshot.designCapacity)
             samples.append(reading)
+            lastSampleAt = reading.timestamp
+            save()
 
             // Добежали до порога — завершаем
             if snapshot.percentage <= endThresholdPercent {
@@ -138,6 +170,8 @@ final class CalibrationEngine: ObservableObject {
             if !snapshot.isCharging && snapshot.powerSource == .battery && snapshot.percentage >= 99 {
                 state = .running(start: Date(), atPercent: snapshot.percentage)
                 samples.removeAll()
+                lastSampleAt = Date()
+                save()
             }
 
         case .completed:
@@ -167,6 +201,9 @@ final class CalibrationEngine: ObservableObject {
         }
         if !recentResults.isEmpty {
             obj["recent"] = recentResults.map { encode($0) }
+        }
+        if let ls = lastSampleAt {
+            obj["lastSampleAt"] = ls.timeIntervalSince1970
         }
         do {
             let data = try JSONSerialization.data(withJSONObject: obj, options: [])
@@ -213,6 +250,9 @@ final class CalibrationEngine: ObservableObject {
             default:
                 state = .idle
             }
+        }
+        if let ls = obj["lastSampleAt"] as? TimeInterval {
+            lastSampleAt = Date(timeIntervalSince1970: ls)
         }
     }
 

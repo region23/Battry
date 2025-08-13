@@ -8,6 +8,18 @@ struct CalibrationPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if calibrator.autoResetDueToGap {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.yellow)
+                    Text(i18n.t("analysis.auto.reset"))
+                        .font(.caption)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button(i18n.t("got.it")) { calibrator.acknowledgeAutoResetNotice() }
+                    .buttonStyle(.bordered)
+            }
             switch calibrator.state {
             case .idle:
                 Text(i18n.t("analysis.intro"))

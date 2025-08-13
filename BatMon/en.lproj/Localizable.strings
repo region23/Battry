@@ -35,3 +35,6 @@
 "panel.charts" = "Charts";
 "panel.analysis" = "Analysis";
 
+"analysis.auto.reset" = "A long gap was detected. Analysis was reset and will start again at 99–100% on battery.";
+"got.it" = "Got it";
+
