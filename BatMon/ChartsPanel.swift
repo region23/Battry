@@ -60,21 +60,21 @@ struct ChartsPanel: View {
                     if showPercent {
                         ForEach(readings, id: \.timestamp) { r in
                             LineMark(x: .value("t", r.timestamp), y: .value("%", r.percentage))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(by: .value("series", "percent"))
                                 .interpolationMethod(.monotone)
                         }
                     }
                     if showTemp {
                         ForEach(readings, id: \.timestamp) { r in
                             LineMark(x: .value("t", r.timestamp), y: .value("°C", r.temperature))
-                                .foregroundStyle(.red)
+                                .foregroundStyle(by: .value("series", "temp"))
                                 .interpolationMethod(.monotone)
                         }
                     }
                     if showVolt {
                         ForEach(readings, id: \.timestamp) { r in
                             LineMark(x: .value("t", r.timestamp), y: .value("V", r.voltage))
-                                .foregroundStyle(.green)
+                                .foregroundStyle(by: .value("series", "volt"))
                                 .interpolationMethod(.monotone)
                         }
                     }
@@ -83,12 +83,18 @@ struct ChartsPanel: View {
                         ForEach(drains.indices, id: \.self) { i in
                             let d = drains[i]
                             LineMark(x: .value("t", d.0), y: .value("%/h", d.1))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(by: .value("series", "drain"))
                                 .interpolationMethod(.linear)
                         }
                     }
 					
                 }
+                .chartForegroundStyleScale([
+                    "percent": .blue,
+                    "temp": .red,
+                    "volt": .green,
+                    "drain": .orange
+                ])
                 .frame(height: 200)
             }
         }
