@@ -38,3 +38,25 @@
 "analysis.auto.reset" = "A long gap was detected. Analysis was reset and will start again at 99–100% on battery.";
 "got.it" = "Got it";
 
+// New keys for unified UX
+"panel.trends" = "Trends";
+"panel.test" = "Test";
+"health" = "Health";
+"capacity.fact.design" = "Capacity: actual/design, mAh";
+"badge.normal" = "Normal";
+"badge.hot" = "Hot";
+"badge.high.load" = "High load";
+"start.test" = "Start Test";
+"save.to.report" = "Save to Report";
+"precheck.title" = "Before starting, please check";
+"precheck.brightness" = "Set brightness to a fixed level (not auto)";
+"precheck.background" = "Close heavy background apps";
+"precheck.load" = "Avoid heavy load during the test";
+"trends.series.charge" = "Charge %";
+"trends.series.temperature" = "Temperature °C";
+"trends.series.voltage" = "Voltage V";
+"trends.series.drain" = "Discharge %/h";
+"avg.discharge.per.hour.short" = "Avg: %@ %%/h";
+"trend.discharge.per.hour.short" = "Trend: %@ %%/h";
+"charging.shade" = "Charging";
+"microdrop" = "Micro-drop";

@@ -38,3 +38,25 @@
 "analysis.auto.reset" = "Обнаружен большой разрыв в данных. Анализ сброшен и начнётся заново при 99–100% на батарее.";
 "got.it" = "Понятно";
 
+// New keys for unified UX
+"panel.trends" = "Тренды";
+"panel.test" = "Тест";
+"health" = "Здоровье";
+"capacity.fact.design" = "Ёмкость: факт/паспорт, мА·ч";
+"badge.normal" = "Норма";
+"badge.hot" = "Жарко";
+"badge.high.load" = "Высокая нагрузка";
+"start.test" = "Начать тест";
+"save.to.report" = "Сохранить в отчёт";
+"precheck.title" = "Перед стартом проверьте";
+"precheck.brightness" = "Задайте фиксированную яркость (не авто)";
+"precheck.background" = "Закройте тяжёлые фоновые приложения";
+"precheck.load" = "Избегайте высокой нагрузки во время теста";
+"trends.series.charge" = "Заряд %";
+"trends.series.temperature" = "Температура °C";
+"trends.series.voltage" = "Напряжение V";
+"trends.series.drain" = "Разряд %/ч";
+"avg.discharge.per.hour.short" = "Средний: %@ %/ч";
+"trend.discharge.per.hour.short" = "Тренд: %@ %/ч";
+"charging.shade" = "Зарядка";
+"microdrop" = "Микро‑просадка";

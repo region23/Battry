@@ -5,6 +5,9 @@ struct CalibrationPanel: View {
     @ObservedObject var history: HistoryStore
     let snapshot: BatterySnapshot
     @ObservedObject var i18n: Localization = .shared
+    @State private var confirmBrightness = false
+    @State private var confirmBackground = false
+    @State private var confirmLoad = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -26,11 +29,18 @@ struct CalibrationPanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(i18n.t("precheck.title")).font(.caption).foregroundStyle(.secondary)
+                    Toggle(i18n.t("precheck.brightness"), isOn: $confirmBrightness)
+                    Toggle(i18n.t("precheck.background"), isOn: $confirmBackground)
+                    Toggle(i18n.t("precheck.load"), isOn: $confirmLoad)
+                }
                 Button {
                     calibrator.start()
                 } label: {
                     Label(i18n.t("analysis.start"), systemImage: "target")
                 }
+                .disabled(!(confirmBrightness && confirmBackground && confirmLoad))
                 .buttonStyle(.borderedProminent)
 
             case .waitingFull:
@@ -98,6 +108,11 @@ struct CalibrationPanel: View {
                         Button(i18n.t("open.report")) {
                             NSWorkspace.shared.open(URL(fileURLWithPath: path))
                         }
+                    }
+                    Button(i18n.t("save.to.report")) {
+                        let analytics = AnalyticsEngine()
+                        let analysis = analytics.analyze(history: history.recent(days: 7), snapshot: snapshot)
+                        _ = ReportGenerator.generateHTML(result: analysis, snapshot: snapshot, history: history.recent(days: 7), calibration: res)
                     }
                     HStack {
                         Button(i18n.t("analysis.repeat")) { calibrator.start() }
