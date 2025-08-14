@@ -19,16 +19,18 @@ enum ReportGenerator {
             "<tr><td>\(df.string(from: r.timestamp))</td><td>\(r.percentage)%</td><td>\(r.isCharging ? "Да" : "Нет")</td><td>\(String(format: "%.2f", r.voltage)) V</td><td>\(String(format: "%.1f", r.temperature)) °C</td></tr>"
         }.joined()
 
-        // Prepare data for interactive charts
-        let jsonItems = recent.map { r in
-            "{" +
-            "\\"t\\":\\"\(df.string(from: r.timestamp))\\"," +
-            "\\"p\\":\(r.percentage)," +
-            "\\"c\\":\(r.isCharging ? "true" : "false")," +
-            "\\"v\\":\(String(format: \"%.3f\", r.voltage))," +
-            "\\"temp\\":\(String(format: \"%.2f\", r.temperature))" +
-            "}"
-        }.joined(separator: ",")
+        // Prepare data for interactive charts (safe JSON, no manual escaping)
+        let itemsForJson: [[String: Any]] = recent.map { r in
+            return [
+                "t": df.string(from: r.timestamp),
+                "p": r.percentage,
+                "c": r.isCharging,
+                "v": Double(String(format: "%.3f", r.voltage)) ?? r.voltage,
+                "temp": Double(String(format: "%.2f", r.temperature)) ?? r.temperature
+            ]
+        }
+        let jsonData: Data = (try? JSONSerialization.data(withJSONObject: ["items": itemsForJson], options: [])) ?? Data("{\"items\":[]}".utf8)
+        let jsonText: String = String(data: jsonData, encoding: String.Encoding.utf8) ?? "{\"items\":[]}"
         let eFullWh: String = {
             let cap = snapshot.maxCapacity
             let volt = snapshot.voltage
@@ -51,6 +53,17 @@ enum ReportGenerator {
             </div>
             """
         }
+
+        // Precompute text to simplify interpolation inside HTML literal
+        let wearText = String(format: "%.0f%%", snapshot.wearPercent)
+        let avgDisText = String(format: "%.1f", result.avgDischargePerHour)
+        let trendDisText = String(format: "%.1f", result.trendDischargePerHour)
+        let runtimeText = String(format: "%.1f", result.estimatedRuntimeFrom100To0Hours)
+        let anomaliesHTML: String = {
+            if result.anomalies.isEmpty { return "" }
+            let items = result.anomalies.map { "<li>\($0)</li>" }.joined()
+            return "<ul style='margin-top: 8px;'>" + items + "</ul>"
+        }()
 
         let html = """
         <!doctype html>
@@ -91,8 +104,8 @@ enum ReportGenerator {
                <div style=\"font-size:20px;font-weight:600;\">\(snapshot.percentage)%</div>
              </div>
              <div class=\"card\">
-               <div class=\"muted\">Износ</div>
-               <div style=\"font-size:20px;font-weight:600;\">\(String(format: \"%.0f%%\", snapshot.wearPercent))</div>
+              <div class=\"muted\">Износ</div>
+                 <div style=\"font-size:20px;font-weight:600;\">\(wearText)</div>
              </div>
              <div class=\"card\">
                <div class=\"muted\">Циклы</div>
@@ -104,16 +117,16 @@ enum ReportGenerator {
              </div>
            </div>
 
-           <div class=\"card\" style=\"margin-bottom: 16px;\">
-             <div class=\"muted\">Рекомендация</div>
-             <div style=\"font-size:16px;font-weight:600;\">\(result.recommendation)</div>
-             <div class=\"muted\" style=\"margin-top:8px;\">
-                Разряд: \(String(format: \"%.1f\", result.avgDischargePerHour)) %/ч • Тренд: \(String(format: \"%.1f\", result.trendDischargePerHour)) %/ч •
-                Прогноз автономности: \(String(format: \"%.1f\", result.estimatedRuntimeFrom100To0Hours)) ч •
-                Микро‑просадки: \(result.microDropEvents)
-             </div>
-             \(result.anomalies.isEmpty ? "" : "<ul style='margin-top: 8px;'>\(result.anomalies.map { "<li>\($0)</li>" }.joined())</ul>")
-           </div>
+             <div class=\"card\" style=\"margin-bottom: 16px;\"> 
+              <div class=\"muted\">Рекомендация</div>
+              <div style=\"font-size:16px;font-weight:600;\">\(result.recommendation)</div>
+              <div class=\"muted\" style=\"margin-top:8px;\"> 
+                 Разряд: \(avgDisText) %/ч • Тренд: \(trendDisText) %/ч •
+                 Прогноз автономности: \(runtimeText) ч •
+                 Микро‑просадки: \(result.microDropEvents)
+              </div>
+              \(anomaliesHTML)
+            </div>
 
            \(calibrationHTML)
 
@@ -121,8 +134,7 @@ enum ReportGenerator {
              <button class=\"tab active\" data-target=\"tab-pct\">Заряд</button>
              <button class=\"tab\" data-target=\"tab-rate\">Разряд %/ч</button>
              <button class=\"tab\" data-target=\"tab-vt\">V / °C</button>
-             <button class=\"tab\" data-target=\"tab-w\">Вт</button>
-             <button class=\"tab\" data-target=\"tab-table\">Таблица</button>
+              <button class=\"tab\" data-target=\"tab-w\">Вт</button>
            </div>
 
            <div class=\"card tabc active\" id=\"tab-pct\">
@@ -146,19 +158,7 @@ enum ReportGenerator {
              <div class=\"muted\" id=\"w-note\"></div>
            </div>
 
-           <div class=\"card tabc\" id=\"tab-table\">
-             <div class=\"muted\" style=\"margin-bottom:6px;\">Последние измерения</div>
-             <table>
-               <thead>
-                  <tr><th>Время</th><th>%</th><th>Зарядка</th><th>V</th><th>°C</th></tr>
-               </thead>
-               <tbody>
-                  \(rows)
-               </tbody>
-             </table>
-           </div>
-
-           <script type=\"application/json\" id=\"readings-json\">{\"items\":[\(jsonItems)]}</script>
+            <script type="application/json" id="readings-json">\(jsonText)</script>
          </div>
 
          <script>\(uplotJS)</script>
@@ -236,7 +236,7 @@ enum ReportGenerator {
 
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("BatMon_Report_\(Int(Date().timeIntervalSince1970)).html")
         do {
-            try html.write(to: url, atomically: true, encoding: .utf8)
+            try html.write(to: url, atomically: true, encoding: String.Encoding.utf8)
             return url
         } catch {
             return nil
