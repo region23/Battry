@@ -10,6 +10,7 @@
 "temperature" = "Температура";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Разряд, %/ч";
+"discharge.per.hour.3h" = "Разряд (3 ч), %/ч";
 "analysis.intro" = "Анализ автономности: соберём непрерывный разряд 100% → 5% и дадим понятный отчёт.";
 "analysis.start" = "Начать анализ";
 "analysis.waiting.full" = "Зарядите до 100% и отключите питание. Анализ стартует автоматически.";
@@ -42,11 +43,15 @@
 "panel.trends" = "Тренды";
 "panel.test" = "Тест";
 "health" = "Здоровье";
+"analysis.summary" = "Итог анализа";
+"avg.discharge.per.hour.7d" = "Разряд (7 д), %/ч";
+"runtime" = "Автономность";
 "capacity.fact.design" = "Ёмкость: факт/паспорт, мА·ч";
 "badge.normal" = "Норма";
 "badge.hot" = "Жарко";
 "badge.high.load" = "Высокая нагрузка";
 "start.test" = "Начать тест";
+"cancel.test" = "Отменить тест";
 "save.to.report" = "Сохранить в отчёт";
 "precheck.title" = "Перед стартом проверьте";
 "precheck.brightness" = "Задайте фиксированную яркость (не авто)";

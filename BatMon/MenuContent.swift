@@ -17,16 +17,11 @@ struct MenuContent: View {
     @State private var isAnalyzing = false
     @State private var panel: Panel = .overview
     @State private var overviewAnalysis: BatteryAnalysis? = nil
-    @State private var isOptionPressed: Bool = false
-    @State private var flagsMonitorLocal: Any? = nil
-    @State private var flagsMonitorGlobal: Any? = nil
+    
 
     var body: some View {
         VStack(spacing: 10) {
             header
-            if isOptionPressed {
-                quickStats
-            }
             HStack(spacing: 8) {
                 Picker("", selection: $panel) {
                     ForEach(Panel.allCases) { p in
@@ -35,15 +30,13 @@ struct MenuContent: View {
                 }
                 .pickerStyle(.segmented)
                 Spacer(minLength: 8)
-                Menu {
-                    ForEach(AppLanguage.allCases) { lang in
-                        Button(action: { i18n.language = lang }) {
-                            Text(lang.label)
-                            if i18n.language == lang { Image(systemName: "checkmark") }
-                        }
-                    }
+                Button {
+                    i18n.language = (i18n.language == .ru) ? .en : .ru
                 } label: {
-                    Image(systemName: "globe")
+                    HStack(spacing: 4) {
+                        Image(systemName: "globe")
+                        Text(i18n.language.label)
+                    }
                 }
                 .help("Language")
             }
@@ -66,23 +59,9 @@ struct MenuContent: View {
         .animation(.default, value: battery.state)
         .onAppear {
             overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
-            // Track Option key for quick metrics
-            flagsMonitorLocal = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { e in
-                isOptionPressed = e.modifierFlags.contains(.option)
-                return e
-            }
-            flagsMonitorGlobal = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { e in
-                isOptionPressed = e.modifierFlags.contains(.option)
-            }
         }
         .onChange(of: battery.state) { _, _ in
             overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
-        }
-        .onDisappear {
-            if let m = flagsMonitorLocal { NSEvent.removeMonitor(m) }
-            if let m = flagsMonitorGlobal { NSEvent.removeMonitor(m) }
-            flagsMonitorLocal = nil
-            flagsMonitorGlobal = nil
         }
     }
 
@@ -177,6 +156,7 @@ struct MenuContent: View {
     }
 
     private func dischargeBadge() -> (text: String?, color: Color) {
+        guard hasEnoughShortDischargeData() else { return (nil, .secondary) }
         let v = analytics.estimateDischargePerHour(history: history.recent(hours: 3))
         if v >= 10 {
             return (i18n.t("badge.high.load"), .orange)
@@ -184,38 +164,43 @@ struct MenuContent: View {
         return (i18n.t("badge.normal"), .green)
     }
 
-    private var quickStats: some View {
-        HStack(spacing: 8) {
-            Label(String(format: "%.1f ℃", battery.state.temperature), systemImage: "thermometer")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-            Label(String(format: "%.2f V", battery.state.voltage), systemImage: "bolt")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-            let d = analytics.estimateDischargePerHour(history: history.recent(hours: 3))
-            Label(String(format: "%.1f %%/ч", d), systemImage: "speedometer")
-                .foregroundStyle(.secondary)
-                .font(.caption)
-        }
-        .transition(.opacity)
+    private func hasEnoughShortDischargeData() -> Bool {
+        let discharging = history.recent(hours: 3).filter { !$0.isCharging }
+        guard discharging.count >= 2, let first = discharging.first, let last = discharging.last else { return false }
+        let span = last.timestamp.timeIntervalSince(first.timestamp)
+        return span >= 3600
+    }
+
+    private func hasEnoughAnalysisData() -> Bool {
+        let discharging = history.recent(days: 7).filter { !$0.isCharging }
+        guard discharging.count >= 4, let first = discharging.first, let last = discharging.last else { return false }
+        let span = last.timestamp.timeIntervalSince(first.timestamp)
+        return span >= 6 * 3600
+    }
+
+    private func shortDischargeValueText() -> String {
+        guard hasEnoughShortDischargeData() else { return i18n.t("dash") }
+        return String(format: "%.1f", analytics.estimateDischargePerHour(history: history.recent(hours: 3)))
     }
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                StatCard(title: i18n.t("health"), value: "\(overviewAnalysis?.healthScore ?? 100)/100")
                 StatCard(title: i18n.t("cycles"), value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)")
-                StatCard(title: i18n.t("wear"), value: String(format: "%.0f%%", battery.state.wearPercent))
+                StatCard(title: i18n.t("wear"), value:
+                         (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0)
+                         ? String(format: "%.0f%%", battery.state.wearPercent)
+                         : i18n.t("dash"))
             }
             HStack {
-                StatCard(title: i18n.t("temperature"), value: battery.state.temperature > 0 ? String(format: "%.1f ℃", battery.state.temperature) : i18n.t("dash"), badge: temperatureBadge().text, badgeColor: temperatureBadge().color)
+                StatCard(title: i18n.t("temperature"), value: battery.state.temperature > 0 ? String(format: "%.1f ℃", battery.state.temperature) : i18n.t("dash"), iconSystemName: "thermometer", badge: temperatureBadge().text, badgeColor: temperatureBadge().color)
                 StatCard(title: i18n.t("capacity.fact.design"), value:
                          battery.state.designCapacity > 0 && battery.state.maxCapacity > 0
                          ? "\(battery.state.maxCapacity)/\(battery.state.designCapacity) mAh"
-                         : i18n.t("dash"))
-                StatCard(title: i18n.t("discharge.per.hour"), value: String(format: "%.1f", analytics.estimateDischargePerHour(history: history.recent(hours: 3))), badge: dischargeBadge().text, badgeColor: dischargeBadge().color)
+                         : i18n.t("dash"), iconSystemName: "bolt")
+                StatCard(title: i18n.t("discharge.per.hour.3h"), value: shortDischargeValueText(), iconSystemName: "speedometer", badge: dischargeBadge().text, badgeColor: dischargeBadge().color)
             }
-            if let a = overviewAnalysis {
+            if let a = overviewAnalysis, hasEnoughAnalysisData() {
                 HealthSummary(analysis: a)
             }
         }
@@ -236,12 +221,24 @@ struct MenuContent: View {
                     Label("Отчёт", systemImage: "doc.text.image")
                 }
                 .buttonStyle(.bordered)
-                Button {
-                    panel = .test
-                } label: {
-                    Label(i18n.t("start.test"), systemImage: "target")
+                if panel != .test {
+                    if calibrator.state.isActive {
+                        Button(role: .destructive) {
+                            calibrator.stop()
+                        } label: {
+                            Label(i18n.t("cancel.test"), systemImage: "stop.circle")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                    } else {
+                        Button {
+                            panel = .test
+                        } label: {
+                            Label(i18n.t("start.test"), systemImage: "target")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
                 Spacer()
                 Button(role: .destructive) {
                     NSApplication.shared.terminate(nil)
@@ -257,12 +254,19 @@ struct MenuContent: View {
 struct StatCard: View {
     let title: String
     let value: String
+    var iconSystemName: String? = nil
     var badge: String? = nil
     var badgeColor: Color = .secondary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
+                if let icon = iconSystemName {
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
                 Text(value)
                     .font(.system(size: 15, weight: .semibold))
                     .accessibilityValue(value)
@@ -290,14 +294,15 @@ struct StatCard: View {
 
 struct HealthSummary: View {
     let analysis: BatteryAnalysis
+    @ObservedObject var i18n: Localization = .shared
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Итог анализа")
+            Text(i18n.t("analysis.summary"))
                 .font(.headline)
             HStack {
-                StatCard(title: "Здоровье", value: "\(analysis.healthScore)/100")
-                StatCard(title: "Разряд", value: String(format: "%.1f %%/ч", analysis.avgDischargePerHour))
-                StatCard(title: "Автономность", value: String(format: "%.1f ч", analysis.estimatedRuntimeFrom100To0Hours))
+                StatCard(title: i18n.t("health"), value: "\(analysis.healthScore)/100")
+                StatCard(title: i18n.t("avg.discharge.per.hour.7d"), value: i18n.language == .ru ? String(format: "%.1f %%/ч", analysis.avgDischargePerHour) : String(format: "%.1f %%/h", analysis.avgDischargePerHour))
+                StatCard(title: i18n.t("runtime"), value: i18n.language == .ru ? String(format: "%.1f ч", analysis.estimatedRuntimeFrom100To0Hours) : String(format: "%.1f h", analysis.estimatedRuntimeFrom100To0Hours))
             }
             if !analysis.anomalies.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {

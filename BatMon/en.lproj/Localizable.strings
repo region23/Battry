@@ -10,6 +10,7 @@
 "temperature" = "Temperature";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Discharge, %/h";
+"discharge.per.hour.3h" = "Discharge (3h), %/h";
 "analysis.intro" = "Battery life analysis: collect a continuous 100% → 5% discharge and generate a clear report.";
 "analysis.start" = "Start Analysis";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";
@@ -42,11 +43,15 @@
 "panel.trends" = "Trends";
 "panel.test" = "Test";
 "health" = "Health";
+"analysis.summary" = "Analysis Summary";
+"avg.discharge.per.hour.7d" = "Discharge (7d), %/h";
+"runtime" = "Runtime";
 "capacity.fact.design" = "Capacity: actual/design, mAh";
 "badge.normal" = "Normal";
 "badge.hot" = "Hot";
 "badge.high.load" = "High load";
 "start.test" = "Start Test";
+"cancel.test" = "Cancel Test";
 "save.to.report" = "Save to Report";
 "precheck.title" = "Before starting, please check";
 "precheck.brightness" = "Set brightness to a fixed level (not auto)";
