@@ -35,19 +35,17 @@ struct ChartsPanel: View {
 
             let readings = history.downsample(data(), maxPoints: 800)
 
-            HStack(spacing: 8) {
-                Toggle(LocalizedStringKey("trends.series.charge"), isOn: $showPercent)
-                Toggle(LocalizedStringKey("trends.series.temperature"), isOn: $showTemp)
-                Toggle(LocalizedStringKey("trends.series.voltage"), isOn: $showVolt)
-                Toggle(LocalizedStringKey("trends.series.drain"), isOn: $showDrain)
-            }
-            .toggleStyle(.switch)
+			HStack(spacing: 8) {
+				TogglePill(label: LocalizedStringKey("trends.series.charge"), isOn: showPercent, color: .blue) { showPercent.toggle() }
+				TogglePill(label: LocalizedStringKey("trends.series.temperature"), isOn: showTemp, color: .red) { showTemp.toggle() }
+				TogglePill(label: LocalizedStringKey("trends.series.voltage"), isOn: showVolt, color: .green) { showVolt.toggle() }
+				TogglePill(label: LocalizedStringKey("trends.series.drain"), isOn: showDrain, color: .orange) { showDrain.toggle() }
+			}
 
             ChartCard(title: titleForChart(readings: readings)) {
                 let segments = chargingSegments(readings: readings)
                 let raw = data()
-                let drops = microDrops(raw)
-                let (trendStart, trendEnd) = regressionLine(raw)
+				
                 Chart {
                     // Charging shading
                     ForEach(segments.indices, id: \.self) { i in
@@ -89,27 +87,7 @@ struct ChartsPanel: View {
                                 .interpolationMethod(.linear)
                         }
                     }
-                    // Regression line for %
-                    if showPercent, let ts = trendStart, let te = trendEnd {
-                        LineMark(x: .value("t", ts.0), y: .value("%", ts.1))
-                            .foregroundStyle(.blue.opacity(0.4))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4,3]))
-                        LineMark(x: .value("t", te.0), y: .value("%", te.1))
-                            .foregroundStyle(.blue.opacity(0.4))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4,3]))
-                    }
-                    // Micro-drops
-                    if showPercent {
-                        ForEach(drops.indices, id: \.self) { i in
-                            let d = drops[i]
-                            PointMark(x: .value("t", d.0), y: .value("%", d.1))
-                                .foregroundStyle(.orange)
-                                .symbolSize(40)
-                                .annotation(position: .top, alignment: .center) {
-                                    Text(LocalizedStringKey("microdrop")).font(.caption2).foregroundStyle(.orange)
-                                }
-                        }
-                    }
+					
                 }
                 .frame(height: 200)
             }
@@ -253,5 +231,41 @@ struct ChartCard<Content: View>: View {
         }
         .padding(10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+struct TogglePill: View {
+    let label: LocalizedStringKey
+    let isOn: Bool
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .lineLimit(1)
+        }
+        .buttonStyle(SelectablePillButtonStyle(isOn: isOn, color: color))
+    }
+}
+
+struct SelectablePillButtonStyle: ButtonStyle {
+    var isOn: Bool
+    var color: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(isOn ? color.opacity(0.15) : Color.clear)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isOn ? color : Color.gray.opacity(0.4), lineWidth: 1)
+            )
+            .foregroundStyle(isOn ? color : .primary)
+            .animation(.easeInOut(duration: 0.15), value: isOn)
     }
 }
