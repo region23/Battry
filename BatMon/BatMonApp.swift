@@ -12,17 +12,7 @@ struct BatMonApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuContent(battery: battery, history: history, analytics: analytics, calibrator: calibrator)
-                .frame(width: 420)
-                .onAppear {
-                    battery.start()
-                    history.start()
-                    calibrator.bind(to: battery.publisher)
-                }
-                .onDisappear {
-                    battery.stop()
-                    history.stop()
-                    calibrator.unbind()
-                }
+                .frame(width: 460)
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: getMenuBarIcon())
@@ -31,6 +21,11 @@ struct BatMonApp: App {
                     Text("\(battery.state.percentage)%")
                         .font(.system(size: 11))
                 }
+            }
+            .task {
+                battery.start()
+                history.start()
+                calibrator.bind(to: battery.publisher)
             }
         }
         .menuBarExtraStyle(.window)

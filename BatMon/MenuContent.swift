@@ -95,11 +95,12 @@ struct MenuContent: View {
                     .accessibilityLabel(i18n.t("time.remaining"))
             }
             Spacer()
-            Circle()
-                .fill(statusColor())
-                .frame(width: 8, height: 8)
-                .accessibilityLabel("Status")
-                .accessibilityHidden(true)
+			Circle()
+				.fill(statusColor())
+				.frame(width: 8, height: 8)
+				.accessibilityLabel("Status")
+				.accessibilityHidden(true)
+				.help(statusTooltip())
         }
     }
     
@@ -147,6 +148,16 @@ struct MenuContent: View {
         }
     }
 
+	private func statusTooltip() -> String {
+		if battery.state.temperature > 40 { return i18n.t("status.tooltip.hot") }
+		if battery.state.isCharging { return i18n.t("status.tooltip.charging") }
+		switch battery.state.percentage {
+		case 0..<20: return i18n.t("status.tooltip.low")
+		case 20..<50: return i18n.t("status.tooltip.medium")
+		default: return i18n.t("status.tooltip.ok")
+		}
+	}
+
     private func temperatureBadge() -> (text: String?, color: Color) {
         guard battery.state.temperature > 0 else { return (nil, .secondary) }
         if battery.state.temperature >= 40 {
@@ -180,7 +191,12 @@ struct MenuContent: View {
 
     private func shortDischargeValueText() -> String {
         guard hasEnoughShortDischargeData() else { return i18n.t("dash") }
-        return String(format: "%.1f", analytics.estimateDischargePerHour(history: history.recent(hours: 3)))
+        let v = analytics.estimateDischargePerHour(history: history.recent(hours: 3))
+        if i18n.language == .ru {
+            return String(format: "%.1f %% в час", v)
+        } else {
+            return String(format: "%.1f %%/h", v)
+        }
     }
 
     private var overview: some View {
@@ -191,9 +207,9 @@ struct MenuContent: View {
                          (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0)
                          ? String(format: "%.0f%%", battery.state.wearPercent)
                          : i18n.t("dash"))
+                StatCard(title: i18n.t("temperature"), value: battery.state.temperature > 0 ? String(format: "%.1f ℃", battery.state.temperature) : i18n.t("dash"), iconSystemName: "thermometer", badge: temperatureBadge().text, badgeColor: temperatureBadge().color)
             }
             HStack {
-                StatCard(title: i18n.t("temperature"), value: battery.state.temperature > 0 ? String(format: "%.1f ℃", battery.state.temperature) : i18n.t("dash"), iconSystemName: "thermometer", badge: temperatureBadge().text, badgeColor: temperatureBadge().color)
                 StatCard(title: i18n.t("capacity.fact.design"), value:
                          battery.state.designCapacity > 0 && battery.state.maxCapacity > 0
                          ? "\(battery.state.maxCapacity)/\(battery.state.designCapacity) mAh"
@@ -269,6 +285,9 @@ struct StatCard: View {
                 }
                 Text(value)
                     .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .layoutPriority(1)
                     .accessibilityValue(value)
                 if let b = badge {
                     Text(b)
@@ -277,12 +296,15 @@ struct StatCard: View {
                         .padding(.vertical, 2)
                         .background(badgeColor.opacity(0.15), in: Capsule())
                         .foregroundStyle(badgeColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .accessibilityLabel(b)
                 }
             }
             Text(title)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
                 .accessibilityLabel(title)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -301,7 +323,7 @@ struct HealthSummary: View {
                 .font(.headline)
             HStack {
                 StatCard(title: i18n.t("health"), value: "\(analysis.healthScore)/100")
-                StatCard(title: i18n.t("avg.discharge.per.hour.7d"), value: i18n.language == .ru ? String(format: "%.1f %%/ч", analysis.avgDischargePerHour) : String(format: "%.1f %%/h", analysis.avgDischargePerHour))
+                StatCard(title: i18n.t("avg.discharge.per.hour.7d"), value: i18n.language == .ru ? String(format: "%.1f %% в час", analysis.avgDischargePerHour) : String(format: "%.1f %%/h", analysis.avgDischargePerHour))
                 StatCard(title: i18n.t("runtime"), value: i18n.language == .ru ? String(format: "%.1f ч", analysis.estimatedRuntimeFrom100To0Hours) : String(format: "%.1f h", analysis.estimatedRuntimeFrom100To0Hours))
             }
             if !analysis.anomalies.isEmpty {

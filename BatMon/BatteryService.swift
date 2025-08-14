@@ -30,9 +30,9 @@ enum BatteryService {
         for item in list {
             guard let desc = IOPSGetPowerSourceDescription(psInfo, item).takeUnretainedValue() as? [String: Any] else { continue }
 
+            // Используем IOPS только для процентов, не для mAh
             if let cur = desc[kIOPSCurrentCapacityKey] as? Int, let max = desc[kIOPSMaxCapacityKey] as? Int, max > 0 {
                 snap.percentage = Int((Double(cur) / Double(max)) * 100.0)
-                snap.maxCapacity = max // fallback if registry not available
             }
             if let charging = desc[kIOPSIsChargingKey] as? Bool { snap.isCharging = charging }
             if let state = desc[kIOPSPowerSourceStateKey] as? String {
@@ -44,8 +44,25 @@ enum BatteryService {
 
         // Enrich from IORegistry (AppleSmartBattery)
         if let dict = copySmartBatteryProperties() {
-            if let dc = dict["DesignCapacity"] as? Int { snap.designCapacity = dc }
-            if let mc = dict["MaxCapacity"] as? Int { snap.maxCapacity = mc }
+            // Паспортная ёмкость
+            if let dc = dict["DesignCapacity"] as? Int, dc > 0 { snap.designCapacity = dc }
+            if snap.designCapacity == 0, let nominal = dict["NominalChargeCapacity"] as? Int, nominal > 0 {
+                snap.designCapacity = nominal
+            }
+
+            // Фактическая ёмкость в mAh (приоритет: AppleRawMaxCapacity → FullChargeCapacity → NominalChargeCapacity → MaxCapacity (>1000))
+            var maxMah: Int = 0
+            if let raw = dict["AppleRawMaxCapacity"] as? Int, raw > 0 {
+                maxMah = raw
+            } else if let fcc = dict["FullChargeCapacity"] as? Int, fcc > 0 {
+                maxMah = fcc
+            } else if let nominal = dict["NominalChargeCapacity"] as? Int, nominal > 0 {
+                maxMah = nominal
+            } else if let mc = dict["MaxCapacity"] as? Int, mc > 1000 {
+                maxMah = mc
+            }
+            if maxMah > 0 { snap.maxCapacity = maxMah }
+
             if let cc = dict["CycleCount"] as? Int { snap.cycleCount = cc }
             if let mv = dict["Voltage"] as? Int { snap.voltage = Double(mv) / 1000.0 } // mV -> V
             if let t = dict["Temperature"] as? Int { snap.temperature = Double(t) / 100.0 } // centi-°C -> °C

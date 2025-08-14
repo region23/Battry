@@ -10,7 +10,7 @@
 "temperature" = "Температура";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Разряд, %/ч";
-"discharge.per.hour.3h" = "Разряд (3 ч), %/ч";
+"discharge.per.hour.3h" = "Разряд (3 часа)";
 "analysis.intro" = "Анализ автономности: соберём непрерывный разряд 100% → 5% и дадим понятный отчёт.";
 "analysis.start" = "Начать анализ";
 "analysis.waiting.full" = "Зарядите до 100% и отключите питание. Анализ стартует автоматически.";
@@ -44,12 +44,12 @@
 "panel.test" = "Тест";
 "health" = "Здоровье";
 "analysis.summary" = "Итог анализа";
-"avg.discharge.per.hour.7d" = "Разряд (7 д), %/ч";
+"avg.discharge.per.hour.7d" = "Разряд (7 дней)";
 "runtime" = "Автономность";
-"capacity.fact.design" = "Ёмкость: факт/паспорт, мА·ч";
+"capacity.fact.design" = "Ёмкость (факт/паспорт)";
 "badge.normal" = "Норма";
 "badge.hot" = "Жарко";
-"badge.high.load" = "Высокая нагрузка";
+"badge.high.load" = "Высокая";
 "start.test" = "Начать тест";
 "cancel.test" = "Отменить тест";
 "save.to.report" = "Сохранить в отчёт";
@@ -65,3 +65,10 @@
 "trend.discharge.per.hour.short" = "Тренд: %@ %/ч";
 "charging.shade" = "Зарядка";
 "microdrop" = "Микро‑просадка";
+
+// Подсказка для индикатора
+"status.tooltip.hot" = "Высокая температура";
+"status.tooltip.charging" = "Зарядка";
+"status.tooltip.low" = "Низкий заряд";
+"status.tooltip.medium" = "Средний заряд";
+"status.tooltip.ok" = "Нормально";

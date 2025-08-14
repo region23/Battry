@@ -10,7 +10,7 @@
 "temperature" = "Temperature";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Discharge, %/h";
-"discharge.per.hour.3h" = "Discharge (3h), %/h";
+"discharge.per.hour.3h" = "Discharge (3h)";
 "analysis.intro" = "Battery life analysis: collect a continuous 100% → 5% discharge and generate a clear report.";
 "analysis.start" = "Start Analysis";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";
@@ -44,12 +44,12 @@
 "panel.test" = "Test";
 "health" = "Health";
 "analysis.summary" = "Analysis Summary";
-"avg.discharge.per.hour.7d" = "Discharge (7d), %/h";
+"avg.discharge.per.hour.7d" = "Discharge (7d)";
 "runtime" = "Runtime";
-"capacity.fact.design" = "Capacity: actual/design, mAh";
+"capacity.fact.design" = "Capacity (actual/design)";
 "badge.normal" = "Normal";
 "badge.hot" = "Hot";
-"badge.high.load" = "High load";
+"badge.high.load" = "High";
 "start.test" = "Start Test";
 "cancel.test" = "Cancel Test";
 "save.to.report" = "Save to Report";
@@ -65,3 +65,10 @@
 "trend.discharge.per.hour.short" = "Trend: %@ %%/h";
 "charging.shade" = "Charging";
 "microdrop" = "Micro-drop";
+
+// Status dot tooltip
+"status.tooltip.hot" = "High temperature";
+"status.tooltip.charging" = "Charging";
+"status.tooltip.low" = "Low battery";
+"status.tooltip.medium" = "Medium battery";
+"status.tooltip.ok" = "Normal";
