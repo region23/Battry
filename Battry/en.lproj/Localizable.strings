@@ -90,3 +90,11 @@
 "settings.data.size.label" = "Size";
 "settings.data.clear" = "Delete accumulated statistics";
 "settings.data.confirm" = "Delete all accumulated statistics? This cannot be undone.";
+
+// New strings for improved settings interface
+"settings.general" = "General Settings";
+"settings.language.description" = "Application interface language";
+"settings.prevent.sleep.description" = "Prevents system sleep during battery testing";
+"settings.data.entries.description" = "Number of saved monitoring records";
+"settings.data.size.description" = "Total size of data files on disk";
+"settings.data.danger.zone" = "Danger Zone";

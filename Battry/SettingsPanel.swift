@@ -9,63 +9,107 @@ struct SettingsPanel: View {
     @State private var confirmClear = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                GridRow {
-                    Text(i18n.t("settings.language"))
-                    Picker("", selection: $i18n.language) {
-                        ForEach(AppLanguage.allCases) { l in
-                            Text(l.label).tag(l)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Секция основных настроек
+                SettingsSection {
+                    SettingsHeader(title: i18n.t("settings.general"), icon: "gearshape")
+                    
+                    VStack(spacing: 12) {
+                        SettingsRow {
+                            SettingsLabel(
+                                title: i18n.t("settings.language"),
+                                icon: "globe",
+                                description: i18n.t("settings.language.description")
+                            )
+                            Spacer()
+                            Picker("", selection: $i18n.language) {
+                                ForEach(AppLanguage.allCases) { l in
+                                    Text(l.label).tag(l)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 120)
+                        }
+                        
+                        SettingsRow {
+                            SettingsLabel(
+                                title: i18n.t("settings.prevent.sleep"),
+                                icon: "bed.double",
+                                description: i18n.t("settings.prevent.sleep.description")
+                            )
+                            Spacer()
+                            Toggle("", isOn: $calibrator.preventSleepDuringTesting)
+                                .labelsHidden()
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 220)
                 }
-                GridRow {
-                    Text(i18n.t("settings.prevent.sleep"))
-                    Toggle("", isOn: $calibrator.preventSleepDuringTesting)
-                        .labelsHidden()
-                        .help(i18n.t("settings.prevent.sleep"))
-                }
-            }
-            .environment(\.controlSize, .small)
-
-            Divider()
-
-            Text(i18n.t("settings.data")).font(.subheadline)
-
-            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
-                GridRow {
-                    Text(i18n.t("settings.data.entries.label"))
-                    Text("\(history.itemsCount)")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                GridRow {
-                    Text(i18n.t("settings.data.size.label"))
-                    Text(readableSize(totalBytes))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                GridRow {
-                    Text("")
-                    HStack {
-                        Spacer()
+                
+                // Секция управления данными
+                SettingsSection {
+                    SettingsHeader(title: i18n.t("settings.data"), icon: "externaldrive")
+                    
+                    VStack(spacing: 12) {
+                        SettingsRow {
+                            SettingsLabel(
+                                title: i18n.t("settings.data.entries.label"),
+                                icon: "list.number",
+                                description: i18n.t("settings.data.entries.description")
+                            )
+                            Spacer()
+                            Text("\(history.itemsCount)")
+                                .foregroundStyle(.secondary)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                        
+                        SettingsRow {
+                            SettingsLabel(
+                                title: i18n.t("settings.data.size.label"),
+                                icon: "externaldrive",
+                                description: i18n.t("settings.data.size.description")
+                            )
+                            Spacer()
+                            Text(readableSize(totalBytes))
+                                .foregroundStyle(.secondary)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                    }
+                    
+                    Divider()
+                        .padding(.vertical, 8)
+                    
+                    // Опасная зона - удаление данных
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label(i18n.t("settings.data.danger.zone"), systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                            Spacer()
+                        }
+                        
                         Button(role: .destructive) {
                             confirmClear = true
                         } label: {
-                            Label(i18n.t("settings.data.clear"), systemImage: "trash")
+                            HStack {
+                                Image(systemName: "trash")
+                                Text(i18n.t("settings.data.clear"))
+                            }
                         }
                         .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .confirmationDialog(i18n.t("settings.data.confirm"), isPresented: $confirmClear, titleVisibility: .visible) {
+                        .tint(.red)
+                        .confirmationDialog(
+                            i18n.t("settings.data.confirm"),
+                            isPresented: $confirmClear,
+                            titleVisibility: .visible
+                        ) {
                             Button(i18n.t("reset"), role: .destructive) { clearAllData() }
                             Button(i18n.t("cancel"), role: .cancel) { }
                         }
                     }
+                    .padding(.top, 4)
                 }
             }
-            .environment(\.controlSize, .small)
+            .padding()
         }
     }
 
@@ -92,6 +136,79 @@ struct SettingsPanel: View {
 
 private extension HistoryStore {
     var itemsCount: Int { items.count }
+}
+
+// MARK: - Settings UI Components
+
+struct SettingsSection<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            content
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct SettingsHeader: View {
+    let title: String
+    let icon: String
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+            Text(title)
+                .font(.headline)
+                .fontWeight(.semibold)
+        }
+        .padding(.bottom, 4)
+    }
+}
+
+struct SettingsRow<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            content
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct SettingsLabel: View {
+    let title: String
+    let icon: String
+    let description: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16, height: 16)
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+            }
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.leading)
+        }
+    }
 }
 
 
