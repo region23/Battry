@@ -21,6 +21,7 @@
 "eta" = "ETA: %@";
 "eta.end.at" = "Ends ~ %@";
 "eta.note" = "Time is approximate and adjusts as logs are collected.";
+"eta.pending" = "Estimated time will appear later — collecting data.";
 "stop" = "Stop";
 "analysis.paused" = "Analysis paused: power connected. Unplug and charge to 100% to restart.";
 "analysis.done" = "Analysis completed";

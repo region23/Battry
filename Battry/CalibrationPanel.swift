@@ -76,13 +76,19 @@ struct CalibrationPanel: View {
                         .foregroundStyle(.secondary)
                     ProgressView(value: Double(max(0, min(100, snapshot.percentage - 5))), total: 95)
                         .progressViewStyle(.linear)
-                    if let eta = estimateETA(start: start, startPercent: p, currentPercent: snapshot.percentage) {
-                        Text(String(format: i18n.t("eta"), eta))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let endAt = estimateEndTime(start: start, startPercent: p, currentPercent: snapshot.percentage) {
-                        Text(String(format: i18n.t("eta.end.at"), endAt.formatted(date: .omitted, time: .shortened)))
+                    if hasEnoughData(start: start, startPercent: p, currentPercent: snapshot.percentage) {
+                        if let eta = estimateETA(start: start, startPercent: p, currentPercent: snapshot.percentage) {
+                            Text(String(format: i18n.t("eta"), eta))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let endAt = estimateEndTime(start: start, startPercent: p, currentPercent: snapshot.percentage) {
+                            Text(String(format: i18n.t("eta.end.at"), endAt.formatted(date: .omitted, time: .shortened)))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text(i18n.t("eta.pending"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -176,9 +182,11 @@ struct CalibrationPanel: View {
     }
 
     private func estimateETA(start: Date, startPercent: Int, currentPercent: Int) -> String? {
-        let elapsed = Date().timeIntervalSince(start) / 3600.0 // hours
+        // Требуем минимум 15 минут и падение не менее 3%
+        let elapsedSec = Date().timeIntervalSince(start)
+        let elapsed = elapsedSec / 3600.0 // hours
         let d = Double(max(0, startPercent - currentPercent))
-        guard elapsed > 0, d > 0 else { return nil }
+        guard elapsedSec >= 15 * 60, d >= 3 else { return nil }
         let rate = d / elapsed // % per hour
         guard rate > 0 else { return nil }
         let remaining = Double(max(0, currentPercent - 5))
@@ -189,13 +197,21 @@ struct CalibrationPanel: View {
     }
 
     private func estimateEndTime(start: Date, startPercent: Int, currentPercent: Int) -> Date? {
-        let elapsedHours = Date().timeIntervalSince(start) / 3600.0
+        // Требуем минимум 15 минут и падение не менее 3%
+        let elapsedSec = Date().timeIntervalSince(start)
+        let elapsedHours = elapsedSec / 3600.0
         let discharged = Double(max(0, startPercent - currentPercent))
-        guard elapsedHours > 0, discharged > 0 else { return nil }
+        guard elapsedSec >= 15 * 60, discharged >= 3 else { return nil }
         let rate = discharged / elapsedHours // % per hour
         guard rate > 0 else { return nil }
         let remainingPercent = Double(max(0, currentPercent - 5))
         let remainingHours = remainingPercent / rate
         return Date().addingTimeInterval(remainingHours * 3600.0)
+    }
+
+    private func hasEnoughData(start: Date, startPercent: Int, currentPercent: Int) -> Bool {
+        let elapsedSec = Date().timeIntervalSince(start)
+        let dropped = Double(max(0, startPercent - currentPercent))
+        return elapsedSec >= 15 * 60 && dropped >= 3
     }
 }
