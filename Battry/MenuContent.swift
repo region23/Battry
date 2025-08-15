@@ -7,6 +7,7 @@ enum Panel: String, CaseIterable, Identifiable {
     case trends
     case test
     case settings
+    case about
     var id: String { rawValue }
 }
 
@@ -29,12 +30,19 @@ struct MenuContent: View {
             HStack(spacing: 8) {
                 // Переключение вкладок
                 Picker("", selection: $panel) {
-                    ForEach(Panel.allCases.filter { $0 != .settings }) { p in
+                    ForEach(Panel.allCases.filter { $0 != .settings && $0 != .about }) { p in
                         Text(i18n.t("panel.\(p.rawValue)")).tag(p)
                     }
                 }
                 .pickerStyle(.segmented)
                 Spacer(minLength: 8)
+                // Открыть вкладку About
+                Button {
+                    panel = .about
+                } label: {
+                    Image(systemName: "info.circle")
+                }
+                .help(i18n.t("about"))
                 // Открыть вкладку настроек
                 Button {
                     panel = .settings
@@ -52,6 +60,7 @@ struct MenuContent: View {
                 case .trends: ChartsPanel(history: history, calibrator: calibrator)
                 case .test: CalibrationPanel(calibrator: calibrator, history: history, snapshot: battery.state)
                 case .settings: SettingsPanel(history: history, calibrator: calibrator)
+                case .about: AboutPanel()
                 }
             }
 

@@ -128,3 +128,14 @@
 "timeframe.h24" = "24h";
 "timeframe.d7" = "7d";
 "timeframe.d30" = "30d";
+
+// About
+"about" = "About";
+"about.subtitle" = "macOS Battery Health Monitoring";
+"about.developer" = "Developed by @region23";
+"about.source.code" = "Source Code";
+"about.download" = "Download";
+"about.latest.version" = "Latest Version";
+"about.channel.title" = "Subscribe to my channel";
+"about.channel.description" = "Where I write about AI and AI-powered development";
+"about.copyright" = "© 2025 region23. Open source under MIT License.";

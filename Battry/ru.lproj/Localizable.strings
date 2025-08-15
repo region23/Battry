@@ -128,3 +128,14 @@
 "timeframe.h24" = "24ч";
 "timeframe.d7" = "7д";
 "timeframe.d30" = "30д";
+
+// О программе
+"about" = "О программе";
+"about.subtitle" = "Мониторинг состояния батареи macOS";
+"about.developer" = "Навайбкодил @region23";
+"about.source.code" = "Исходный код";
+"about.download" = "Скачать";
+"about.latest.version" = "Последняя версия";
+"about.channel.title" = "Подписывайтесь на канал";
+"about.channel.description" = "Там я пишу про AI и разработку с помощью AI";
+"about.copyright" = "© 2025 region23. Открытый исходный код под лицензией MIT.";
