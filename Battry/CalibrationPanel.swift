@@ -6,9 +6,7 @@ struct CalibrationPanel: View {
     @ObservedObject var history: HistoryStore
     let snapshot: BatterySnapshot
     @ObservedObject var i18n: Localization = .shared
-    @State private var confirmBrightness = false
-    @State private var confirmBackground = false
-    @State private var confirmLoad = false
+    
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -27,16 +25,16 @@ struct CalibrationPanel: View {
             }
             switch calibrator.state {
             case .idle:
-                // Состояние покоя: инструкция и чек‑лист перед стартом
+                // Состояние покоя: инструкция и рекомендации перед стартом
                 Text(i18n.t("analysis.intro"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(i18n.t("precheck.title")).font(.caption).foregroundStyle(.secondary)
-                    Toggle(i18n.t("precheck.brightness"), isOn: $confirmBrightness)
-                    Toggle(i18n.t("precheck.background"), isOn: $confirmBackground)
-                    Toggle(i18n.t("precheck.load"), isOn: $confirmLoad)
+                    Text("• " + i18n.t("precheck.brightness")).font(.caption2).foregroundStyle(.secondary)
+                    Text("• " + i18n.t("precheck.background")).font(.caption2).foregroundStyle(.secondary)
+                    Text("• " + i18n.t("precheck.load")).font(.caption2).foregroundStyle(.secondary)
                 }
                 Button {
                     // Переход в ожидание 100% (старт теста)
@@ -44,7 +42,6 @@ struct CalibrationPanel: View {
                 } label: {
                     Label(i18n.t("analysis.start"), systemImage: "target")
                 }
-                .disabled(!(confirmBrightness && confirmBackground && confirmLoad))
                 .buttonStyle(.borderedProminent)
 
             case .waitingFull:
@@ -84,6 +81,14 @@ struct CalibrationPanel: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
+                    if let endAt = estimateEndTime(start: start, startPercent: p, currentPercent: snapshot.percentage) {
+                        Text(String(format: i18n.t("eta.end.at"), endAt.formatted(date: .omitted, time: .shortened)))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(i18n.t("eta.note"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 Button(i18n.t("stop"), role: .destructive) {
                     // Прервать и сбросить текущую сессию
@@ -181,5 +186,16 @@ struct CalibrationPanel: View {
         let h = Int(hours)
         let m = Int((hours - Double(h)) * 60)
         return String(format: "%d:%02d", h, m)
+    }
+
+    private func estimateEndTime(start: Date, startPercent: Int, currentPercent: Int) -> Date? {
+        let elapsedHours = Date().timeIntervalSince(start) / 3600.0
+        let discharged = Double(max(0, startPercent - currentPercent))
+        guard elapsedHours > 0, discharged > 0 else { return nil }
+        let rate = discharged / elapsedHours // % per hour
+        guard rate > 0 else { return nil }
+        let remainingPercent = Double(max(0, currentPercent - 5))
+        let remainingHours = remainingPercent / rate
+        return Date().addingTimeInterval(remainingHours * 3600.0)
     }
 }
