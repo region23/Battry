@@ -98,3 +98,27 @@
 "settings.data.entries.description" = "Количество сохранённых записей мониторинга";
 "settings.data.size.description" = "Общий размер файлов данных на диске";
 "settings.data.danger.zone" = "Опасная зона";
+
+// Строки для улучшенного Overview
+"overview.battery.info" = "Характеристики батареи";
+"overview.performance" = "Производительность";
+"overview.anomalies" = "Аномалии";
+"overview.recommendation" = "Рекомендация";
+
+// Строки для улучшенного Charts Panel
+"trends.timeframe" = "Период времени";
+"trends.metrics" = "Показывать метрики";
+
+// Строки для улучшенного Calibration Panel
+"calibration.auto.reset.title" = "Сессия сброшена";
+"calibration.start.test" = "Начать тестирование";
+"calibration.waiting.title" = "Ожидание полного заряда";
+"calibration.running.title" = "Выполняется тест";
+"calibration.paused.title" = "Тест приостановлен";
+"calibration.completed.title" = "Тест завершён";
+"calibration.started.at" = "Начато в";
+"calibration.start.percent" = "Стартовый заряд";
+"calibration.progress" = "Прогресс";
+"calibration.duration" = "Длительность";
+"calibration.avg.discharge" = "Средний разряд";
+"calibration.estimated.runtime" = "Расчётная автономность";

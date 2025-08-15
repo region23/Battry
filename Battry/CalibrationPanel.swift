@@ -9,180 +9,50 @@ struct CalibrationPanel: View {
     
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             // Сообщение о сбросе сессии из‑за большого разрыва между сэмплами
             if calibrator.autoResetDueToGap {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundColor(.yellow)
-                    Text(i18n.t("analysis.auto.reset"))
-                        .font(.caption)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Button(i18n.t("got.it")) { calibrator.acknowledgeAutoResetNotice() }
-                    .buttonStyle(.bordered)
-            }
-            switch calibrator.state {
-            case .idle:
-                // Состояние покоя: инструкция и рекомендации перед стартом
-                Text(i18n.t("analysis.intro"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(i18n.t("precheck.title")).font(.caption).foregroundStyle(.secondary)
-                    Text("• " + i18n.t("precheck.brightness")).font(.caption2).foregroundStyle(.secondary)
-                    Text("• " + i18n.t("precheck.background")).font(.caption2).foregroundStyle(.secondary)
-                    Text("• " + i18n.t("precheck.load")).font(.caption2).foregroundStyle(.secondary)
-                }
-                Button {
-                    // Переход в ожидание 100% (старт теста)
-                    calibrator.start()
-                } label: {
-                    Label(i18n.t("analysis.start"), systemImage: "target")
+                StatusCard(
+                    title: i18n.t("calibration.auto.reset.title"),
+                    subtitle: nil,
+                    icon: "exclamationmark.triangle",
+                    iconColor: .orange,
+                    content: i18n.t("analysis.auto.reset")
+                )
+                Button(i18n.t("got.it")) { 
+                    calibrator.acknowledgeAutoResetNotice() 
                 }
                 .buttonStyle(.borderedProminent)
-
+            }
+            
+            // Основная карточка состояния
+            switch calibrator.state {
+            case .idle:
+                idleStateView
+                
             case .waitingFull:
-                // Зарядите до 100% и отключите питание — тест стартует сам
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "battery.100.bolt")
-                        .foregroundColor(.primary)
-                    Text(i18n.t("analysis.waiting.full"))
-                        .font(.subheadline)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                HStack {
-                    Text(String(format: i18n.t("current.charge"), snapshot.percentage))
-                    Spacer()
-                }
-                Button(i18n.t("cancel"), role: .destructive) {
-                    calibrator.stop()
-                }
-                .buttonStyle(.bordered)
-
+                waitingFullStateView
+                
             case .running(let start, let p):
-                // Идёт непрерывный разряд до 5%
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(i18n.t("analysis.running"), systemImage: "hourglass")
-                    Text("Старт: \(start.formatted()) • c \(p)%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(String(format: i18n.t("current.charge"), snapshot.percentage))
-                    Text(i18n.t("analysis.target"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    // Прогресс от старта до целевых 5%
-                    ProgressView(
-                        value: Double(max(0, min(p - 5, p - snapshot.percentage))),
-                        total: Double(max(1, p - 5))
-                    )
-                        .progressViewStyle(.linear)
-                    if hasEnoughData(start: start, startPercent: p, currentPercent: snapshot.percentage) {
-                        if let eta = estimateETA(start: start, startPercent: p, currentPercent: snapshot.percentage) {
-                            Text(String(format: i18n.t("eta"), eta))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .help(i18n.t("tooltip.time.remaining.test"))
-                        }
-                        if let endAt = estimateEndTime(start: start, startPercent: p, currentPercent: snapshot.percentage) {
-                            Text(String(format: i18n.t("eta.end.at"), endAt.formatted(date: .omitted, time: .shortened)))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text(i18n.t("eta.pending"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(i18n.t("eta.note"))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Button(i18n.t("stop"), role: .destructive) {
-                    // Прервать и сбросить текущую сессию
-                    calibrator.stop()
-                }
-                .buttonStyle(.bordered)
-
+                runningStateView(start: start, startPercent: p)
+                
             case .paused:
-                // Пауза: питание подключено. Для продолжения — снова 100% на батарее
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "pause.circle")
-                        .foregroundColor(.primary)
-                    Text(i18n.t("analysis.paused"))
-                        .font(.subheadline)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Button(i18n.t("cancel"), role: .destructive) {
-                    calibrator.stop()
-                }
-                .buttonStyle(.bordered)
-
+                pausedStateView
+                
             case .completed(let res):
-                // Завершено: итоги и ссылка на отчёт
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(i18n.t("analysis.done"), systemImage: "checkmark.seal")
-                    Text(String(format: i18n.t("duration.hours"), String(format: "%.2f", res.durationHours)))
-                    Text(String(format: i18n.t("avg.discharge.per.hour.val"), String(format: "%.1f", res.avgDischargePerHour)))
-                    Text(String(format: i18n.t("runtime.100.0.val"), String(format: "%.1f", res.estimatedRuntimeFrom100To0Hours)))
-                    if let path = res.reportPath {
-                        Button(i18n.t("open.report")) {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: path))
-                        }
-                    }
-                    Button(i18n.t("save.to.report")) {
-                        // Сгенерировать отчёт по 7 дням и открыть
-                        let analytics = AnalyticsEngine()
-                        let analysis = analytics.analyze(history: history.recent(days: 7), snapshot: snapshot)
-                        _ = ReportGenerator.generateHTML(result: analysis, snapshot: snapshot, history: history.recent(days: 7), calibration: res)
-                    }
-                    HStack {
-                        Button(i18n.t("analysis.repeat")) { calibrator.start() }
-                        Button(i18n.t("reset")) { calibrator.stop() }.buttonStyle(.bordered)
-                    }
-                }
+                completedStateView(result: res)
             }
-
-            // Последний результат (если есть)
+            
+            // Секция истории результатов
             if let last = calibrator.lastResult {
-                Divider()
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(i18n.t("last.result"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("\(last.startedAt.formatted()) → \(last.finishedAt.formatted())")
-                    Text(String(format: i18n.t("last.result.line"), String(format: "%.1f", last.avgDischargePerHour), String(format: "%.1f", last.estimatedRuntimeFrom100To0Hours)))
-                }
+                lastResultSection(result: last)
             }
-
-            // История последних анализов
+            
             if !calibrator.recentResults.isEmpty {
-                Divider()
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(i18n.t("recent.analyses"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { r in
-                        HStack {
-                            Text(String(format: i18n.t("recent.line"),
-                                        r.startedAt.formatted(date: .abbreviated, time: .shortened),
-                                        r.finishedAt.formatted(date: .omitted, time: .shortened),
-                                        String(format: "%.1f", r.avgDischargePerHour)))                                .font(.caption)
-                            Spacer()
-                            if let path = r.reportPath {
-                                Button(i18n.t("open.report")) {
-                                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
-                                }
-                                .font(.caption)
-                            }
-                        }
-                    }
-                }
+                recentResultsSection
             }
+            
+            Spacer()
         }
     }
 
@@ -218,5 +88,342 @@ struct CalibrationPanel: View {
         let elapsedSec = Date().timeIntervalSince(start)
         let dropped = Double(max(0, startPercent - currentPercent))
         return elapsedSec >= 15 * 60 && dropped >= 3
+    }
+}
+
+// MARK: - State Views
+
+extension CalibrationPanel {
+    private var idleStateView: some View {
+        CardSection(title: i18n.t("calibration.start.test"), icon: "target") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(i18n.t("analysis.intro"))
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "checklist")
+                            .foregroundStyle(.orange)
+                        Text(i18n.t("precheck.title"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        checklistItem(i18n.t("precheck.brightness"))
+                        checklistItem(i18n.t("precheck.background"))  
+                        checklistItem(i18n.t("precheck.load"))
+                    }
+                }
+                
+                Button {
+                    calibrator.start()
+                } label: {
+                    HStack {
+                        Image(systemName: "target")
+                        Text(i18n.t("analysis.start"))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+    
+    private var waitingFullStateView: some View {
+        StatusCard(
+            title: i18n.t("calibration.waiting.title"),
+            subtitle: String(format: i18n.t("current.charge"), snapshot.percentage),
+            icon: "battery.100.bolt",
+            iconColor: .blue,
+            content: i18n.t("analysis.waiting.full")
+        )
+        .overlay(alignment: .bottom) {
+            VStack {
+                Spacer()
+                Button(i18n.t("cancel"), role: .destructive) {
+                    calibrator.stop()
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding()
+        }
+    }
+    
+    private func runningStateView(start: Date, startPercent: Int) -> some View {
+        CardSection(title: i18n.t("calibration.running.title"), icon: "hourglass") {
+            VStack(alignment: .leading, spacing: 16) {
+                // Информация о тесте
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(i18n.t("calibration.started.at"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(start.formatted(date: .omitted, time: .shortened))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    
+                    HStack {
+                        Text(i18n.t("calibration.start.percent"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(startPercent)%")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    
+                    HStack {
+                        Text(i18n.t("current.charge"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(snapshot.percentage)%")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                }
+                
+                SpacedDivider(padding: 4)
+                
+                // Прогресс
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(i18n.t("calibration.progress"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text("\(max(0, startPercent - snapshot.percentage))/\(startPercent - 5) %")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    
+                    EnhancedProgressView(
+                        value: Double(max(0, min(startPercent - 5, startPercent - snapshot.percentage))),
+                        total: Double(max(1, startPercent - 5)),
+                        height: 12
+                    )
+                    
+                    Text(i18n.t("analysis.target"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                // ETA информация
+                if hasEnoughData(start: start, startPercent: startPercent, currentPercent: snapshot.percentage) {
+                    SpacedDivider(padding: 4)
+                    etaInfoView(start: start, startPercent: startPercent)
+                } else {
+                    SpacedDivider(padding: 4)
+                    Text(i18n.t("eta.pending"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                }
+                
+                Button(i18n.t("stop"), role: .destructive) {
+                    calibrator.stop()
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+    
+    private var pausedStateView: some View {
+        StatusCard(
+            title: i18n.t("calibration.paused.title"),
+            subtitle: nil,
+            icon: "pause.circle",
+            iconColor: .orange,
+            content: i18n.t("analysis.paused")
+        )
+        .overlay(alignment: .bottom) {
+            VStack {
+                Spacer()
+                Button(i18n.t("cancel"), role: .destructive) {
+                    calibrator.stop()
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding()
+        }
+    }
+    
+    private func completedStateView(result: CalibrationResult) -> some View {
+        CardSection(title: i18n.t("calibration.completed.title"), icon: "checkmark.seal") {
+            VStack(alignment: .leading, spacing: 16) {
+                // Результаты теста
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 8),
+                    GridItem(.flexible(), spacing: 8)
+                ], spacing: 8) {
+                    EnhancedStatCard(
+                        title: i18n.t("calibration.duration"),
+                        value: String(format: "%.1fч", result.durationHours),
+                        icon: "clock"
+                    )
+                    EnhancedStatCard(
+                        title: i18n.t("calibration.avg.discharge"),
+                        value: String(format: "%.1f%%/ч", result.avgDischargePerHour),
+                        icon: "speedometer"
+                    )
+                }
+                
+                EnhancedStatCard(
+                    title: i18n.t("calibration.estimated.runtime"),
+                    value: String(format: "%.1fч", result.estimatedRuntimeFrom100To0Hours),
+                    icon: "battery.0",
+                    accentColor: result.estimatedRuntimeFrom100To0Hours < 3 ? .red : Color.accentColor
+                )
+                
+                SpacedDivider()
+                
+                // Действия
+                VStack(spacing: 8) {
+                    if let path = result.reportPath {
+                        Button {
+                            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                        } label: {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                Text(i18n.t("open.report"))
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    
+                    Button {
+                        let analytics = AnalyticsEngine()
+                        let analysis = analytics.analyze(history: history.recent(days: 7), snapshot: snapshot)
+                        _ = ReportGenerator.generateHTML(result: analysis, snapshot: snapshot, history: history.recent(days: 7), calibration: result)
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down")
+                            Text(i18n.t("save.to.report"))
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    HStack(spacing: 8) {
+                        Button(i18n.t("analysis.repeat")) { 
+                            calibrator.start() 
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button(i18n.t("reset")) { 
+                            calibrator.stop() 
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func lastResultSection(result: CalibrationResult) -> some View {
+        CardSection(title: i18n.t("last.result"), icon: "clock.arrow.circlepath") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("\(result.startedAt.formatted(date: .abbreviated, time: .shortened))")
+                    Image(systemName: "arrow.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(result.finishedAt.formatted(date: .abbreviated, time: .shortened))")
+                    Spacer()
+                }
+                .font(.subheadline)
+                .fontWeight(.medium)
+                
+                Text(String(format: i18n.t("last.result.line"), 
+                           String(format: "%.1f", result.avgDischargePerHour), 
+                           String(format: "%.1f", result.estimatedRuntimeFrom100To0Hours)))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+    
+    private var recentResultsSection: some View {
+        CardSection(title: i18n.t("recent.analyses"), icon: "list.bullet") {
+            VStack(spacing: 8) {
+                ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { result in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(format: i18n.t("recent.line"),
+                                        result.startedAt.formatted(date: .abbreviated, time: .shortened),
+                                        result.finishedAt.formatted(date: .omitted, time: .shortened),
+                                        String(format: "%.1f", result.avgDischargePerHour)))
+                                .font(.caption)
+                        }
+                        
+                        Spacer()
+                        
+                        if let path = result.reportPath {
+                            Button {
+                                NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                            } label: {
+                                Image(systemName: "doc.text")
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    if result.finishedAt != calibrator.recentResults.reversed().prefix(5).last?.finishedAt {
+                        Divider()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func checklistItem(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Circle()
+                .fill(.blue)
+                .frame(width: 4, height: 4)
+                .padding(.top, 6)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    private func etaInfoView(start: Date, startPercent: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let eta = estimateETA(start: start, startPercent: startPercent, currentPercent: snapshot.percentage) {
+                HStack {
+                    Image(systemName: "clock")
+                        .foregroundStyle(.blue)
+                    Text(String(format: i18n.t("eta"), eta))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Spacer()
+                }
+            }
+            
+            if let endAt = estimateEndTime(start: start, startPercent: startPercent, currentPercent: snapshot.percentage) {
+                HStack {
+                    Image(systemName: "calendar")
+                        .foregroundStyle(.blue)
+                    Text(String(format: i18n.t("eta.end.at"), endAt.formatted(date: .omitted, time: .shortened)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            }
+            
+            Text(i18n.t("eta.note"))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .italic()
+        }
     }
 }

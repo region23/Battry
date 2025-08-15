@@ -98,3 +98,27 @@
 "settings.data.entries.description" = "Number of saved monitoring records";
 "settings.data.size.description" = "Total size of data files on disk";
 "settings.data.danger.zone" = "Danger Zone";
+
+// Strings for enhanced Overview
+"overview.battery.info" = "Battery Information";
+"overview.performance" = "Performance";
+"overview.anomalies" = "Anomalies";
+"overview.recommendation" = "Recommendation";
+
+// Strings for enhanced Charts Panel
+"trends.timeframe" = "Time Range";
+"trends.metrics" = "Display Metrics";
+
+// Strings for enhanced Calibration Panel
+"calibration.auto.reset.title" = "Session Reset";
+"calibration.start.test" = "Start Testing";
+"calibration.waiting.title" = "Waiting for Full Charge";
+"calibration.running.title" = "Test Running";
+"calibration.paused.title" = "Test Paused";
+"calibration.completed.title" = "Test Completed";
+"calibration.started.at" = "Started at";
+"calibration.start.percent" = "Starting charge";
+"calibration.progress" = "Progress";
+"calibration.duration" = "Duration";
+"calibration.avg.discharge" = "Avg discharge";
+"calibration.estimated.runtime" = "Estimated runtime";

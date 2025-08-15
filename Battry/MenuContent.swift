@@ -216,26 +216,59 @@ struct MenuContent: View {
     }
 
     private var overview: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                // Карточки с основными показателями
-                StatCard(title: i18n.t("cycles"), value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)")
-                StatCard(title: i18n.t("wear"), value:
-                         (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0)
-                         ? String(format: "%.0f%%", battery.state.wearPercent)
-                         : i18n.t("dash"))
-                StatCard(title: i18n.t("temperature"), value: battery.state.temperature > 0 ? String(format: "%.1f ℃", battery.state.temperature) : i18n.t("dash"), iconSystemName: "thermometer", badge: temperatureBadge().text, badgeColor: temperatureBadge().color)
+        VStack(alignment: .leading, spacing: 12) {
+            // Секция основных характеристик батареи
+            CardSection(title: i18n.t("overview.battery.info"), icon: "battery.100") {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 8),
+                    GridItem(.flexible(), spacing: 8)
+                ], spacing: 8) {
+                    EnhancedStatCard(
+                        title: i18n.t("cycles"),
+                        value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)",
+                        icon: "arrow.clockwise"
+                    )
+                    EnhancedStatCard(
+                        title: i18n.t("wear"),
+                        value: (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0)
+                               ? String(format: "%.0f%%", battery.state.wearPercent)
+                               : i18n.t("dash"),
+                        icon: "chart.line.downtrend.xyaxis",
+                        accentColor: battery.state.wearPercent > 20 ? .orange : Color.accentColor
+                    )
+                    EnhancedStatCard(
+                        title: i18n.t("temperature"),
+                        value: battery.state.temperature > 0 ? String(format: "%.1f°C", battery.state.temperature) : i18n.t("dash"),
+                        icon: "thermometer",
+                        badge: temperatureBadge().text,
+                        badgeColor: temperatureBadge().color,
+                        accentColor: battery.state.temperature > 40 ? .red : Color.accentColor
+                    )
+                    EnhancedStatCard(
+                        title: i18n.t("capacity.fact.design"),
+                        value: battery.state.designCapacity > 0 && battery.state.maxCapacity > 0
+                               ? "\(battery.state.maxCapacity)/\(battery.state.designCapacity) mAh"
+                               : i18n.t("dash"),
+                        icon: "bolt"
+                    )
+                }
             }
-            HStack {
-                StatCard(title: i18n.t("capacity.fact.design"), value:
-                         battery.state.designCapacity > 0 && battery.state.maxCapacity > 0
-                         ? "\(battery.state.maxCapacity)/\(battery.state.designCapacity) mAh"
-                         : i18n.t("dash"), iconSystemName: "bolt")
-                StatCard(title: i18n.t("discharge.per.hour.3h"), value: shortDischargeValueText(), iconSystemName: "speedometer", badge: dischargeBadge().text, badgeColor: dischargeBadge().color)
+            
+            // Секция производительности
+            CardSection(title: i18n.t("overview.performance"), icon: "speedometer") {
+                EnhancedStatCard(
+                    title: i18n.t("discharge.per.hour.3h"),
+                    value: shortDischargeValueText(),
+                    icon: "speedometer",
+                    badge: dischargeBadge().text,
+                    badgeColor: dischargeBadge().color,
+                    accentColor: hasEnoughShortDischargeData() && analytics.estimateDischargePerHour(history: history.recent(hours: 3)) >= 10 ? .orange : Color.accentColor
+                )
             }
+            
             if let a = overviewAnalysis, hasEnoughAnalysisData() {
                 // Итог аналитики за 7 дней при наличии достаточных данных
-                HealthSummary(analysis: a)
+                EnhancedHealthSummary(analysis: a)
             }
         }
     }
@@ -361,5 +394,87 @@ struct HealthSummary: View {
         }
         .padding(8)
         .background(.quaternary.opacity(0.2), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+struct EnhancedHealthSummary: View {
+    let analysis: BatteryAnalysis
+    @ObservedObject var i18n: Localization = .shared
+    
+    private var healthColor: Color {
+        switch analysis.healthScore {
+        case 80...100: return .green
+        case 60..<80: return .orange
+        default: return .red
+        }
+    }
+    
+    var body: some View {
+        CardSection(title: i18n.t("analysis.summary"), icon: "heart.text.square") {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ], spacing: 8) {
+                EnhancedStatCard(
+                    title: i18n.t("health"),
+                    value: "\(analysis.healthScore)/100",
+                    icon: "heart",
+                    accentColor: healthColor
+                )
+                EnhancedStatCard(
+                    title: i18n.t("avg.discharge.per.hour.7d"),
+                    value: i18n.language == .ru ? String(format: "%.1f %%/ч", analysis.avgDischargePerHour) : String(format: "%.1f %%/h", analysis.avgDischargePerHour),
+                    icon: "chart.line.downtrend.xyaxis",
+                    accentColor: analysis.avgDischargePerHour > 15 ? .orange : Color.accentColor
+                )
+                EnhancedStatCard(
+                    title: i18n.t("runtime"),
+                    value: i18n.language == .ru ? String(format: "%.1f ч", analysis.estimatedRuntimeFrom100To0Hours) : String(format: "%.1f h", analysis.estimatedRuntimeFrom100To0Hours),
+                    icon: "clock",
+                    accentColor: analysis.estimatedRuntimeFrom100To0Hours < 3 ? .red : Color.accentColor
+                )
+            }
+            
+            if !analysis.anomalies.isEmpty {
+                SpacedDivider()
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                        Text(i18n.t("overview.anomalies"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                    ForEach(analysis.anomalies, id: \.self) { anomaly in
+                        HStack(alignment: .top, spacing: 6) {
+                            Circle()
+                                .fill(.orange)
+                                .frame(width: 4, height: 4)
+                                .padding(.top, 6)
+                            Text(anomaly)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            
+            SpacedDivider()
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Image(systemName: "lightbulb")
+                        .foregroundStyle(Color.accentColor)
+                    Text(i18n.t("overview.recommendation"))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Spacer()
+                }
+                Text(analysis.recommendation)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

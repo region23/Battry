@@ -53,13 +53,23 @@ struct ChartsPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Picker("", selection: $timeframe) {
-                ForEach(availableTimeframes) { t in
-                    Text(t.rawValue).tag(t)
+        VStack(alignment: .leading, spacing: 16) {
+            // Секция выбора периода
+            CardSection(title: NSLocalizedString("trends.timeframe", comment: ""), icon: "calendar") {
+                HStack(spacing: 8) {
+                    ForEach(availableTimeframes) { timeframe in
+                        PeriodButton(
+                            title: timeframe.rawValue,
+                            isSelected: self.timeframe == timeframe
+                        ) {
+                            self.timeframe = timeframe
+                        }
+                    }
+                    Spacer()
                 }
+                .padding(8)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
-            .pickerStyle(.segmented)
             .onAppear {
                 if sessionAvailable && timeframe == .h24 {
                     timeframe = .session
@@ -77,17 +87,43 @@ struct ChartsPanel: View {
                 }
             }
 
+            // Секция выбора метрик
+            CardSection(title: NSLocalizedString("trends.metrics", comment: ""), icon: "chart.line.uptrend.xyaxis") {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 8),
+                    GridItem(.flexible(), spacing: 8)
+                ], spacing: 8) {
+                    MetricToggleButton(
+                        title: NSLocalizedString("trends.series.charge", comment: ""),
+                        color: .blue,
+                        isSelected: showPercent
+                    ) { showPercent.toggle() }
+                    
+                    MetricToggleButton(
+                        title: NSLocalizedString("trends.series.temperature", comment: ""),
+                        color: .red,
+                        isSelected: showTemp
+                    ) { showTemp.toggle() }
+                    
+                    MetricToggleButton(
+                        title: NSLocalizedString("trends.series.voltage", comment: ""),
+                        color: .green,
+                        isSelected: showVolt
+                    ) { showVolt.toggle() }
+                    
+                    MetricToggleButton(
+                        title: NSLocalizedString("trends.series.drain", comment: ""),
+                        color: .orange,
+                        isSelected: showDrain
+                    ) { showDrain.toggle() }
+                }
+            }
+
             // Уменьшаем число точек для плавной отрисовки
             let readings = history.downsample(data(), maxPoints: 800)
 
-			HStack(spacing: 8) {
-				TogglePill(label: LocalizedStringKey("trends.series.charge"), isOn: showPercent, color: .blue) { showPercent.toggle() }
-				TogglePill(label: LocalizedStringKey("trends.series.temperature"), isOn: showTemp, color: .red) { showTemp.toggle() }
-				TogglePill(label: LocalizedStringKey("trends.series.voltage"), isOn: showVolt, color: .green) { showVolt.toggle() }
-				TogglePill(label: LocalizedStringKey("trends.series.drain"), isOn: showDrain, color: .orange) { showDrain.toggle() }
-			}
-
-            ChartCard(title: titleForChart(readings: readings)) {
+            // График
+            EnhancedChartCard(title: titleForChart(readings: readings)) {
                 let segments = chargingSegments(readings: readings)
                 let raw = data()
 				
@@ -140,7 +176,7 @@ struct ChartsPanel: View {
                     "volt": .green,
                     "drain": .orange
                 ])
-                .frame(height: 200)
+                .frame(height: 260)
             }
         }
     }
@@ -289,6 +325,32 @@ struct ChartCard<Content: View>: View {
         }
         .padding(10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+struct EnhancedChartCard<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "chart.xyaxis.line")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+            content()
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
+        )
     }
 }
 
