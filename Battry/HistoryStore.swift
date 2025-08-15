@@ -70,6 +70,13 @@ final class HistoryStore: ObservableObject {
         return items.filter { $0.timestamp >= cutoff }
     }
 
+    /// Записи за указанный интервал времени [from; to]
+    func between(from: Date, to: Date) -> [BatteryReading] {
+        let start = min(from, to)
+        let end = max(from, to)
+        return items.filter { $0.timestamp >= start && $0.timestamp <= end }
+    }
+
     /// Downsample to at most maxPoints by averaging buckets over time.
     func downsample(_ data: [BatteryReading], maxPoints: Int) -> [BatteryReading] {
         guard data.count > maxPoints, maxPoints > 0 else { return data }

@@ -52,9 +52,33 @@ final class AnalyticsEngine: ObservableObject {
         return max(0, dPercent / dt)
     }
 
-    /// Линейная регрессия по точкам без зарядки для оценки тренда разряда
+    /// Простая медианная фильтрация последовательности процентов (окно 3)
+    private func medianFilter3(_ values: [Int]) -> [Int] {
+        guard values.count >= 3 else { return values }
+        var out = values
+        for i in 1..<(values.count-1) {
+            let a = values[i-1], b = values[i], c = values[i+1]
+            let sorted = [a,b,c].sorted()
+            out[i] = sorted[1]
+        }
+        return out
+    }
+
+    /// Линейная регрессия по точкам без зарядки для оценки тренда разряда (со сглаживанием)
     private func regressionDischargePerHour(history: [BatteryReading]) -> Double {
-        let points = history.filter { !$0.isCharging }
+        let pointsRaw = history.filter { !$0.isCharging }
+        let points: [BatteryReading]
+        if pointsRaw.count >= 3 {
+            // применим легкое сглаживание по процентам
+            let smoothedPct = medianFilter3(pointsRaw.map { $0.percentage })
+            points = zip(pointsRaw.indices, pointsRaw).map { (idx, r) in
+                var rr = r
+                rr.percentage = smoothedPct[idx]
+                return rr
+            }
+        } else {
+            points = pointsRaw
+        }
         guard points.count >= 4 else { return 0 }
         let t0 = points.first!.timestamp.timeIntervalSince1970
         var xs: [Double] = []
@@ -74,15 +98,17 @@ final class AnalyticsEngine: ObservableObject {
         return max(0, -slope) // discharge rate is negative slope
     }
 
-    /// Подсчёт микро‑просадок: падение ≥2% за ≤120 секунд без зарядки
+    /// Подсчёт микро‑просадок: падение ≥2% за ≤120 секунд без зарядки (со сглаживанием окна 3)
     private func countMicroDrops(history: [BatteryReading]) -> Int {
         guard history.count >= 2 else { return 0 }
+        // сгладим проценты для устойчивости к одиночным выбросам
+        let smoothedPct = medianFilter3(history.map { $0.percentage })
         var cnt = 0
         for i in 1..<history.count {
             let prev = history[i-1]
             let cur = history[i]
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
-            let d = cur.percentage - prev.percentage
+            let d = smoothedPct[i] - smoothedPct[i-1]
             if !cur.isCharging && !prev.isCharging && dt <= 120 && d <= -2 {
                 cnt += 1
             }

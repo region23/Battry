@@ -35,6 +35,7 @@ struct BattryApp: App {
                 battery.start()
                 history.start()
                 calibrator.bind(to: battery.publisher)
+                calibrator.attachHistory(history)
             }
         }
         .menuBarExtraStyle(.window)

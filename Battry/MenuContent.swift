@@ -101,6 +101,7 @@ struct MenuContent: View {
                 Text(battery.timeRemainingText)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .help(i18n.t("tooltip.time.remaining.header"))
                     .accessibilityLabel(i18n.t("time.remaining"))
             }
             Spacer()

@@ -74,13 +74,18 @@ struct CalibrationPanel: View {
                     Text(i18n.t("analysis.target"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    ProgressView(value: Double(max(0, min(100, snapshot.percentage - 5))), total: 95)
+                    // Прогресс от старта до целевых 5%
+                    ProgressView(
+                        value: Double(max(0, min(p - 5, p - snapshot.percentage))),
+                        total: Double(max(1, p - 5))
+                    )
                         .progressViewStyle(.linear)
                     if hasEnoughData(start: start, startPercent: p, currentPercent: snapshot.percentage) {
                         if let eta = estimateETA(start: start, startPercent: p, currentPercent: snapshot.percentage) {
                             Text(String(format: i18n.t("eta"), eta))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                                .help(i18n.t("tooltip.time.remaining.test"))
                         }
                         if let endAt = estimateEndTime(start: start, startPercent: p, currentPercent: snapshot.percentage) {
                             Text(String(format: i18n.t("eta.end.at"), endAt.formatted(date: .omitted, time: .shortened)))

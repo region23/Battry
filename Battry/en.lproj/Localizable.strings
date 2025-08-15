@@ -75,3 +75,7 @@
 "status.tooltip.low" = "Low battery";
 "status.tooltip.medium" = "Medium battery";
 "status.tooltip.ok" = "Normal";
+
+// Tooltips for time remaining sources
+"tooltip.time.remaining.header" = "System estimate to 0% based on current load (macOS). May vary quickly.";
+"tooltip.time.remaining.test" = "Session-based estimate to 5% from measured average discharge since start. More stable.";

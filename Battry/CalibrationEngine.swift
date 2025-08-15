@@ -45,9 +45,11 @@ final class CalibrationEngine: ObservableObject {
     /// Порог завершения теста по проценту (до 5%)
     private let endThresholdPercent: Int = 5
     /// Максимально допустимый разрыв между сэмплами, чтобы продолжить (сек)
-    private let maxResumeGap: TimeInterval = 300 // 5 минут допустимый разрыв между сэмплами
+    private var maxResumeGap: TimeInterval = 1800 // по умолчанию 30 минут
     private var lastSampleAt: Date?
     private var justBound = false
+    /// Необязательное подключение к хранилищу истории для восстановления сессии
+    private weak var historyStore: HistoryStore?
     /// Путь к файлу с состоянием/результатами
     private var storeURL: URL = {
         let fm = FileManager.default
@@ -82,6 +84,11 @@ final class CalibrationEngine: ObservableObject {
         justBound = true
     }
 
+     /// Подключает хранилище истории для использования данных между рестартами
+     func attachHistory(_ store: HistoryStore) {
+         self.historyStore = store
+     }
+
     /// Отвязывает подписку и сохраняет прогресс
     func unbind() {
         cancellable?.cancel()
@@ -107,6 +114,12 @@ final class CalibrationEngine: ObservableObject {
         save()
     }
 
+    /// Настраивает допустимый разрыв между сэмплами при возобновлении (сек)
+    func setMaxResumeGap(_ seconds: TimeInterval) {
+        maxResumeGap = max(0, seconds)
+        save()
+    }
+
     /// Скрывает уведомление об авто‑сбросе
     func acknowledgeAutoResetNotice() {
         autoResetDueToGap = false
@@ -118,13 +131,23 @@ final class CalibrationEngine: ObservableObject {
         if justBound {
             justBound = false
             if case .running = state {
-                let gapIsAcceptable = (lastSampleAt != nil) && (Date().timeIntervalSince(lastSampleAt!) <= maxResumeGap)
+                let now = Date()
+                let hasLast = (lastSampleAt != nil)
+                let gap = hasLast ? now.timeIntervalSince(lastSampleAt!) : .greatestFiniteMagnitude
+                let gapIsAcceptable = hasLast && gap <= maxResumeGap
                 if !gapIsAcceptable {
-                    state = .waitingFull
-                    samples.removeAll()
-                    autoResetDueToGap = true
-                    save()
-                    return
+                    // Разрешаем продолжить, если всё ещё на батарее, нет зарядки
+                    // и процент не вырос по сравнению с последним сэмплом
+                    let stillOnBattery = (snapshot.powerSource == .battery) && !snapshot.isCharging
+                    let lastPct = samples.last?.percentage ?? snapshot.percentage
+                    let noIncrease = snapshot.percentage <= lastPct
+                    if !(stillOnBattery && noIncrease) {
+                        state = .waitingFull
+                        samples.removeAll()
+                        autoResetDueToGap = true
+                        save()
+                        return
+                    }
                 }
             }
         }
@@ -178,10 +201,16 @@ final class CalibrationEngine: ObservableObject {
 
                 // Считаем аналитику и генерируем отчёт
                 let analytics = AnalyticsEngine()
-                let analysis = analytics.analyze(history: samples, snapshot: snapshot)
+                let sessionHistory: [BatteryReading]
+                if let hs = historyStore {
+                    sessionHistory = hs.between(from: start, to: end)
+                } else {
+                    sessionHistory = samples
+                }
+                let analysis = analytics.analyze(history: sessionHistory, snapshot: snapshot)
                 if let url = ReportGenerator.generateHTML(result: analysis,
                                                           snapshot: snapshot,
-                                                          history: samples,
+                                                          history: sessionHistory,
                                                           calibration: res) {
                     res.reportPath = url.path
                 }
@@ -233,9 +262,13 @@ final class CalibrationEngine: ObservableObject {
         if !recentResults.isEmpty {
             obj["recent"] = recentResults.map { encode($0) }
         }
+        if !samples.isEmpty {
+            obj["samples"] = samples.map { encode($0) }
+        }
         if let ls = lastSampleAt {
             obj["lastSampleAt"] = ls.timeIntervalSince1970
         }
+        obj["maxResumeGap"] = maxResumeGap
         do {
             let data = try JSONSerialization.data(withJSONObject: obj, options: [])
             try data.write(to: storeURL, options: .atomic)
@@ -285,6 +318,18 @@ final class CalibrationEngine: ObservableObject {
         }
         if let ls = obj["lastSampleAt"] as? TimeInterval {
             lastSampleAt = Date(timeIntervalSince1970: ls)
+        }
+        if let arr = obj["samples"] as? [[String: Any]] {
+            var decoded: [BatteryReading] = []
+            for d in arr {
+                if let r: BatteryReading = decode(d) {
+                    decoded.append(r)
+                }
+            }
+            samples = decoded
+        }
+        if let mg = obj["maxResumeGap"] as? TimeInterval {
+            maxResumeGap = mg
         }
     }
 
