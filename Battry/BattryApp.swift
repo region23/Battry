@@ -1,9 +1,15 @@
 import SwiftUI
 import Combine
+import AppKit
 
 /// Главная точка входа в приложение Battry
 @main
 struct BattryApp: App {
+    
+    init() {
+        // Проверяем и завершаем другие экземпляры приложения при запуске
+        terminateOtherInstances()
+    }
     /// ViewModel с текущим состоянием батареи
     @StateObject private var battery = BatteryViewModel()
     /// Хранилище истории измерений для графиков и аналитики
@@ -50,6 +56,19 @@ struct BattryApp: App {
     private func getMenuBarIcon() -> String? {
         // Используем кастомные иконки в зависимости от состояния зарядки
         return battery.state.powerSource == .ac ? "charge-icon" : "battery-icon"
+    }
+    
+    /// Завершает другие запущенные экземпляры приложения
+    private func terminateOtherInstances() {
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.battry.app"
+        let runningApps = NSWorkspace.shared.runningApplications
+        
+        for app in runningApps {
+            // Ищем другие экземпляры нашего приложения (не текущий процесс)
+            if app.bundleIdentifier == bundleID && app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+                app.terminate()
+            }
+        }
     }
     
 }
