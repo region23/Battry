@@ -10,6 +10,7 @@ DerivedData/
 *.perspectivev3
 xcuserdata/
 *.xcscmblueprint
+Releases/
 
 # Swift Package Manager
 /.swiftpm/
