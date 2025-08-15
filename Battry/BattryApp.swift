@@ -20,22 +20,23 @@ struct BattryApp: App {
             // Основное содержимое окна из строки меню
             MenuContent(battery: battery, history: history, analytics: analytics, calibrator: calibrator)
                 .frame(width: 460)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: getMenuBarIcon())
-                    .symbolRenderingMode(.hierarchical)
-                if shouldShowBatteryPercentage() {
-                    // В строке меню показываем процент, если у устройства есть батарея
-                    Text("\(battery.state.percentage)%")
-                        .font(.system(size: 11))
+                .task {
+                    // Стартуем периодический опрос и сбор истории при запуске
+                    battery.start()
+                    history.start()
+                    calibrator.bind(to: battery.publisher)
+                    calibrator.attachHistory(history)
                 }
-            }
-            .task {
-                // Стартуем периодический опрос и сбор истории при запуске
-                battery.start()
-                history.start()
-                calibrator.bind(to: battery.publisher)
-                calibrator.attachHistory(history)
+        } label: {
+            if let iconName = getMenuBarIcon() {
+                Image(iconName)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+            } else {
+                Image(systemName: "battery.100")
+                    .symbolRenderingMode(.hierarchical)
             }
         }
         .menuBarExtraStyle(.window)
@@ -45,20 +46,10 @@ struct BattryApp: App {
         }
     }
     
-    /// Выбирает символ для иконки в строке меню
-    private func getMenuBarIcon() -> String {
-        // Если устройство не имеет батареи, показываем иконку вилки
-        if !battery.state.hasBattery {
-            return "powerplug"
-        }
-        
-        // Если устройство имеет батарею, используем обычную логику
-        return battery.state.powerSource == .ac ? "powerplug" : battery.menuBarSymbol
+    /// Выбирает иконку для строки меню
+    private func getMenuBarIcon() -> String? {
+        // Используем кастомные иконки в зависимости от состояния зарядки
+        return battery.state.powerSource == .ac ? "charge-icon" : "battery-icon"
     }
     
-    /// Определяет, нужно ли показывать проценты рядом с иконкой
-    private func shouldShowBatteryPercentage() -> Bool {
-        // Показываем проценты только если устройство имеет батарею
-        return battery.state.hasBattery
-    }
 }

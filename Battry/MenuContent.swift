@@ -104,12 +104,12 @@ struct MenuContent: View {
                     .accessibilityLabel(i18n.t("time.remaining"))
             }
             Spacer()
-			Circle()
-				.fill(statusColor())
-				.frame(width: 8, height: 8)
-				.accessibilityLabel("Status")
+			Image("battry_logo_alpha_horizontal")
+				.resizable()
+				.aspectRatio(contentMode: .fit)
+				.frame(height: 24)
+				.accessibilityLabel("Battry Logo")
 				.accessibilityHidden(true)
-				.help(statusTooltip())
         }
     }
     
@@ -150,26 +150,6 @@ struct MenuContent: View {
         return i18n.t("power.battery")
     }
 
-    /// Цвет индикатора статуса: заряд/температура/уровень
-    private func statusColor() -> Color {
-        if battery.state.temperature > 40 { return .red }
-        if battery.state.isCharging { return .green }
-        switch battery.state.percentage {
-        case 0..<20: return .red
-        case 20..<50: return .orange
-        default: return .accentColor
-        }
-    }
-
-	private func statusTooltip() -> String {
-		if battery.state.temperature > 40 { return i18n.t("status.tooltip.hot") }
-		if battery.state.isCharging { return i18n.t("status.tooltip.charging") }
-		switch battery.state.percentage {
-		case 0..<20: return i18n.t("status.tooltip.low")
-		case 20..<50: return i18n.t("status.tooltip.medium")
-		default: return i18n.t("status.tooltip.ok")
-		}
-	}
 
     private func temperatureBadge() -> (text: String?, color: Color) {
         // Показываем бейдж только если температура известна (>0)
