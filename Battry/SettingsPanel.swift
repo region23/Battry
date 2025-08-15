@@ -9,39 +9,46 @@ struct SettingsPanel: View {
     @State private var confirmClear = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Язык
-            GroupBox {
-                HStack {
+        VStack(alignment: .leading, spacing: 8) {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text(i18n.t("settings.language"))
                     Picker("", selection: $i18n.language) {
                         ForEach(AppLanguage.allCases) { l in
                             Text(l.label).tag(l)
                         }
                     }
                     .pickerStyle(.segmented)
-                    Spacer()
+                    .frame(maxWidth: 220)
                 }
-                .padding(.top, 4)
-            } label: { Text(i18n.t("settings.language")) }
+                GridRow {
+                    Text(i18n.t("settings.prevent.sleep"))
+                    Toggle("", isOn: $calibrator.preventSleepDuringTesting)
+                        .labelsHidden()
+                        .help(i18n.t("settings.prevent.sleep"))
+                }
+            }
+            .environment(\.controlSize, .small)
 
-            // Не засыпать во время теста
-            GroupBox {
-                Toggle(isOn: $calibrator.preventSleepDuringTesting) { Text("") }
-                    .onChange(of: calibrator.preventSleepDuringTesting) { _, _ in
-                        // Сразу применить: обновление произойдёт в движке при следующем изменении состояния
-                    }
-                    .padding(.top, 4)
-            } label: { Text(i18n.t("settings.prevent.sleep")) }
+            Divider()
 
-            // Данные
-            GroupBox {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(i18n.t("settings.data.entries").replacingOccurrences(of: "%d", with: "\(history.itemsCount)"))
-                        Spacer()
-                        Text(i18n.t("settings.data.size").replacingOccurrences(of: "%@", with: readableSize(totalBytes)))
-                            .foregroundStyle(.secondary)
-                    }
+            Text(i18n.t("settings.data")).font(.subheadline)
+
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
+                GridRow {
+                    Text(i18n.t("settings.data.entries.label"))
+                    Text("\(history.itemsCount)")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                GridRow {
+                    Text(i18n.t("settings.data.size.label"))
+                    Text(readableSize(totalBytes))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                GridRow {
+                    Text("")
                     HStack {
                         Spacer()
                         Button(role: .destructive) {
@@ -50,16 +57,15 @@ struct SettingsPanel: View {
                             Label(i18n.t("settings.data.clear"), systemImage: "trash")
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.small)
                         .confirmationDialog(i18n.t("settings.data.confirm"), isPresented: $confirmClear, titleVisibility: .visible) {
-                            Button(i18n.t("reset"), role: .destructive) {
-                                clearAllData()
-                            }
+                            Button(i18n.t("reset"), role: .destructive) { clearAllData() }
                             Button(i18n.t("cancel"), role: .cancel) { }
                         }
                     }
                 }
-                .padding(.top, 4)
-            } label: { Text(i18n.t("settings.data")) }
+            }
+            .environment(\.controlSize, .small)
         }
     }
 
@@ -87,5 +93,6 @@ struct SettingsPanel: View {
 private extension HistoryStore {
     var itemsCount: Int { items.count }
 }
+
 
 

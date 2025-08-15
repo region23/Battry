@@ -86,7 +86,7 @@
 "settings.language" = "Язык";
 "settings.prevent.sleep" = "Не засыпать во время теста";
 "settings.data" = "Данные";
-"settings.data.size" = "Объём данных: %@";
-"settings.data.entries" = "Записей: %d";
+"settings.data.entries.label" = "Записей";
+"settings.data.size.label" = "Объём";
 "settings.data.clear" = "Удалить накопленную статистику";
 "settings.data.confirm" = "Удалить всю накопленную статистику? Это действие необратимо.";

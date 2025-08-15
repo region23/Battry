@@ -86,7 +86,7 @@
 "settings.language" = "Language";
 "settings.prevent.sleep" = "Prevent sleep during test";
 "settings.data" = "Data";
-"settings.data.size" = "Stored data: %@";
-"settings.data.entries" = "Entries: %d";
+"settings.data.entries.label" = "Entries";
+"settings.data.size.label" = "Size";
 "settings.data.clear" = "Delete accumulated statistics";
 "settings.data.confirm" = "Delete all accumulated statistics? This cannot be undone.";
