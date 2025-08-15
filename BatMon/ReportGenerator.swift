@@ -15,10 +15,6 @@ enum ReportGenerator {
         let df = ISO8601DateFormatter()
         let recent = history
 
-        let rows = recent.map { r in
-            "<tr><td>\(df.string(from: r.timestamp))</td><td>\(r.percentage)%</td><td>\(r.isCharging ? "Да" : "Нет")</td><td>\(String(format: "%.2f", r.voltage)) V</td><td>\(String(format: "%.1f", r.temperature)) °C</td></tr>"
-        }.joined()
-
         // Prepare data for interactive charts (safe JSON, no manual escaping)
         let itemsForJson: [[String: Any]] = recent.map { r in
             return [
@@ -46,8 +42,8 @@ enum ReportGenerator {
         var calibrationHTML = ""
         if let c = calibration {
             calibrationHTML = """
-            <div class=\"card\" style=\"margin-bottom: 16px;\">
-              <div class=\"muted\">Сеанс анализа</div>
+            <div class="card" style="margin-bottom: 16px;">
+              <div class="muted">Сеанс анализа</div>
               <div>Проведён: \(df.string(from: c.startedAt)) → \(df.string(from: c.finishedAt))</div>
               <div>Средний разряд: \(String(format: "%.1f", c.avgDischargePerHour)) %/ч • Прогноз автономности: \(String(format: "%.1f", c.estimatedRuntimeFrom100To0Hours)) ч</div>
             </div>
@@ -97,7 +93,7 @@ enum ReportGenerator {
          <div class=\"wrap\">
            <h1>Отчёт BatMon</h1>
            <div class=\"muted\">Сгенерировано: \(df.string(from: Date()))</div>
-
+        
            <div class=\"grid\" style=\"margin:16px 0 20px;\">
              <div class=\"card\">
                <div class=\"muted\">Текущий заряд</div>
@@ -116,51 +112,51 @@ enum ReportGenerator {
                <div style=\"font-size:20px;font-weight:600;\">\(result.healthScore)/100</div>
              </div>
            </div>
-
-             <div class=\"card\" style=\"margin-bottom: 16px;\"> 
-              <div class=\"muted\">Рекомендация</div>
-              <div style=\"font-size:16px;font-weight:600;\">\(result.recommendation)</div>
-              <div class=\"muted\" style=\"margin-top:8px;\"> 
-                 Разряд: \(avgDisText) %/ч • Тренд: \(trendDisText) %/ч •
-                 Прогноз автономности: \(runtimeText) ч •
-                 Микро‑просадки: \(result.microDropEvents)
-              </div>
-              \(anomaliesHTML)
-            </div>
-
+        
+            <div class=\"card\" style=\"margin-bottom: 16px;\"> 
+             <div class=\"muted\">Рекомендация</div>
+             <div style=\"font-size:16px;font-weight:600;\">\(result.recommendation)</div>
+             <div class=\"muted\" style=\"margin-top:8px;\"> 
+                Разряд: \(avgDisText) %/ч • Тренд: \(trendDisText) %/ч •
+                Прогноз автономности: \(runtimeText) ч •
+                Микро‑просадки: \(result.microDropEvents)
+             </div>
+             \(anomaliesHTML)
+           </div>
+        
            \(calibrationHTML)
-
-           <div class=\"tabs\">
+        
+            <div class=\"tabs\"> 
              <button class=\"tab active\" data-target=\"tab-pct\">Заряд</button>
              <button class=\"tab\" data-target=\"tab-rate\">Разряд %/ч</button>
              <button class=\"tab\" data-target=\"tab-vt\">V / °C</button>
-              <button class=\"tab\" data-target=\"tab-w\">Вт</button>
+             <button class=\"tab\" data-target=\"tab-w\">Вт</button>
            </div>
-
-           <div class=\"card tabc active\" id=\"tab-pct\">
+        
+            <div class=\"card tabc active\" id=\"tab-pct\"> 
              <div class=\"muted\" style=\"margin-bottom:6px;\">Процент заряда</div>
              <div id=\"chart-pct\" class=\"chart\"></div>
            </div>
-
+        
            <div class=\"card tabc\" id=\"tab-rate\">
              <div class=\"muted\" style=\"margin-bottom:6px;\">Скорость разряда (%/ч)</div>
              <div id=\"chart-rate\" class=\"chart\"></div>
            </div>
-
+        
            <div class=\"card tabc\" id=\"tab-vt\">
              <div class=\"muted\" style=\"margin-bottom:6px;\">Напряжение и температура</div>
              <div id=\"chart-vt\" class=\"chart\"></div>
            </div>
-
+        
            <div class=\"card tabc\" id=\"tab-w\">
              <div class=\"muted\" style=\"margin-bottom:6px;\">Потребление (Вт)</div>
              <div id=\"chart-w\" class=\"chart\"></div>
              <div class=\"muted\" id=\"w-note\"></div>
            </div>
-
-            <script type="application/json" id="readings-json">\(jsonText)</script>
+        
+            <script type=\"application/json\" id=\"readings-json\">\(jsonText)</script>
          </div>
-
+        
          <script>\(uplotJS)</script>
          <script>
            const data = JSON.parse(document.getElementById('readings-json').textContent);
