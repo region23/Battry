@@ -47,18 +47,18 @@ struct AboutPanel: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Image(systemName: "tv.fill")
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .font(.title3)
                     Text(i18n.t("about.channel.title"))
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     Spacer()
                 }
                 
                 Text(i18n.t("about.channel.description"))
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.55))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(nil)
@@ -78,16 +78,16 @@ struct AboutPanel: View {
                         Image(systemName: "arrow.up.right")
                             .font(.caption)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(.white.opacity(0.15))
+                            .fill(.primary.opacity(0.1))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(.white.opacity(0.25), lineWidth: 0.5)
+                            .stroke(.primary.opacity(0.2), lineWidth: 0.5)
                     )
                 }
                 .buttonStyle(.plain)
@@ -96,17 +96,21 @@ struct AboutPanel: View {
             .background(
                 LinearGradient(
                     gradient: Gradient(colors: [
-                        Color(red: 0.25, green: 0.47, blue: 0.67),  // Приглушенный синий
-                        Color(red: 0.18, green: 0.36, blue: 0.55)   // Тёмно-синий
+                        Color(red: 0.68, green: 0.81, blue: 0.91),  // Пастельный голубой
+                        Color(red: 0.56, green: 0.73, blue: 0.85)   // Мягкий синий
                     ]),
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
+                .opacity(0.4)
             )
+            
             .cornerRadius(12)
             .shadow(color: .gray.opacity(0.2), radius: 4, x: 0, y: 2)
             
-            Spacer(minLength: 4)
+           
+            
+            Spacer(minLength: 3)
             
             // Версия приложения и копирайт
             VStack(spacing: 4) {
@@ -122,7 +126,7 @@ struct AboutPanel: View {
             }
         }
         .padding(12)
-        .frame(minHeight: 410)
+        .frame(minHeight: 390)
     }
     
     private var appVersion: String {
