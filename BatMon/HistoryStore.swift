@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+/// Одна запись истории измерений батареи
 struct BatteryReading: Codable, Equatable {
     var timestamp: Date
     var percentage: Int
@@ -13,8 +14,10 @@ struct BatteryReading: Codable, Equatable {
 
 @MainActor
 final class HistoryStore: ObservableObject {
+    /// Все записи истории (в памяти)
     @Published private(set) var items: [BatteryReading] = []
 
+    /// Путь к файлу истории в Application Support
     private let url: URL = {
         let dir = try! FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("BatMon", isDirectory: true)
@@ -22,9 +25,11 @@ final class HistoryStore: ObservableObject {
         return dir.appendingPathComponent("history.json")
     }()
 
+    /// Инициализация/остановка хранения
     func start() { load() }
     func stop() { save() }
 
+    /// Добавляет снимок в историю и триггерит сохранение/усечение
     func append(from snapshot: BatterySnapshot) {
         let r = BatteryReading(timestamp: Date(),
                                percentage: snapshot.percentage,
@@ -38,11 +43,13 @@ final class HistoryStore: ObservableObject {
         save()
     }
 
+    /// Последние N часов
     func recent(hours: Int) -> [BatteryReading] {
         let cutoff = Date().addingTimeInterval(-Double(hours) * 3600)
         return items.filter { $0.timestamp >= cutoff }
     }
 
+    /// Последние N дней
     func recent(days: Int) -> [BatteryReading] {
         let cutoff = Date().addingTimeInterval(-Double(days) * 86400)
         return items.filter { $0.timestamp >= cutoff }
@@ -70,7 +77,7 @@ final class HistoryStore: ObservableObject {
     }
 
     private func trimIfNeeded() {
-        // Compact old data: keep full resolution for 7 days, then 5‑мин бакеты до 30 дней, остальное выбрасываем.
+        // Сжимаем старые данные: 7 дней — полная детализация; 7–30 дней — бакеты по 5 минут; старше — удаляем
         let now = Date()
         let day7 = now.addingTimeInterval(-7*86400)
         let day30 = now.addingTimeInterval(-30*86400)
@@ -85,7 +92,7 @@ final class HistoryStore: ObservableObject {
             }
         }
 
-        // Compact mid to 5‑minute buckets
+        // Бакетируем середину по 5 минут с усреднением
         let bucket: TimeInterval = 300
         var bucketed: [BatteryReading] = []
         var idx = 0

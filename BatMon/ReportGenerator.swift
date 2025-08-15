@@ -1,13 +1,16 @@
 import Foundation
 import AppKit
 
+/// Генерация HTML‑отчёта с графиками на основе истории и снимка
 enum ReportGenerator {
+    /// Загружает текстовый ресурс из бандла
     private static func loadResourceText(name: String, ext: String) -> String? {
         if let url = Bundle.main.url(forResource: name, withExtension: ext) {
             return try? String(contentsOf: url, encoding: .utf8)
         }
         return nil
     }
+    /// Создаёт HTML‑отчёт и возвращает ссылку на временный файл
     static func generateHTML(result: BatteryAnalysis,
                              snapshot: BatterySnapshot,
                              history: [BatteryReading],
@@ -15,7 +18,7 @@ enum ReportGenerator {
         let df = ISO8601DateFormatter()
         let recent = history
 
-        // Prepare data for interactive charts (safe JSON, no manual escaping)
+        // Готовим данные для интерактивных графиков (безопасный JSON)
         let itemsForJson: [[String: Any]] = recent.map { r in
             return [
                 "t": df.string(from: r.timestamp),
@@ -27,6 +30,7 @@ enum ReportGenerator {
         }
         let jsonData: Data = (try? JSONSerialization.data(withJSONObject: ["items": itemsForJson], options: [])) ?? Data("{\"items\":[]}".utf8)
         let jsonText: String = String(data: jsonData, encoding: String.Encoding.utf8) ?? "{\"items\":[]}"
+        // Полная энергия батареи (оценка) в Вт⋅ч: (mAh/1000)*V
         let eFullWh: String = {
             let cap = snapshot.maxCapacity
             let volt = snapshot.voltage
@@ -50,7 +54,7 @@ enum ReportGenerator {
             """
         }
 
-        // Precompute text to simplify interpolation inside HTML literal
+        // Предрасчёт текстовых вставок для удобной интерполяции в HTML
         let wearText = String(format: "%.0f%%", snapshot.wearPercent)
         let avgDisText = String(format: "%.1f", result.avgDischargePerHour)
         let trendDisText = String(format: "%.1f", result.trendDischargePerHour)

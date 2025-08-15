@@ -1,6 +1,7 @@
 import SwiftUI
 import Charts
 
+/// Диапазоны временных окон для графиков
 enum Timeframe: String, CaseIterable, Identifiable {
     case h24 = "24ч"
     case d7 = "7д"
@@ -8,6 +9,7 @@ enum Timeframe: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Панель графиков по истории батареи
 struct ChartsPanel: View {
     @ObservedObject var history: HistoryStore
     @State private var timeframe: Timeframe = .h24
@@ -33,6 +35,7 @@ struct ChartsPanel: View {
             }
             .pickerStyle(.segmented)
 
+            // Уменьшаем число точек для плавной отрисовки
             let readings = history.downsample(data(), maxPoints: 800)
 
 			HStack(spacing: 8) {
@@ -47,7 +50,7 @@ struct ChartsPanel: View {
                 let raw = data()
 				
                 Chart {
-                    // Charging shading
+                    // Заштриховываем интервалы, когда устройство было на зарядке
                     ForEach(segments.indices, id: \.self) { i in
                         let s = segments[i]
                         RectangleMark(
@@ -56,7 +59,7 @@ struct ChartsPanel: View {
                         )
                         .foregroundStyle(Color.blue.opacity(0.08))
                     }
-                    // Series
+                    // Ряды данных
                     if showPercent {
                         ForEach(readings, id: \.timestamp) { r in
                             LineMark(x: .value("t", r.timestamp), y: .value("%", r.percentage))
@@ -101,6 +104,7 @@ struct ChartsPanel: View {
     }
 
     private func titleForChart(readings: [BatteryReading]) -> String {
+        // Заголовок: выбранные ряды + краткая статистика
         var parts: [String] = []
         if showPercent { parts.append("%") }
         if showTemp { parts.append("°C") }
@@ -125,6 +129,7 @@ struct ChartsPanel: View {
     }
 
     private func chargingSegments(readings: [BatteryReading]) -> [(Date, Date)] {
+        // Находим непрерывные участки, когда шла зарядка
         var out: [(Date, Date)] = []
         var start: Date? = nil
         for r in readings {
@@ -140,6 +145,7 @@ struct ChartsPanel: View {
     }
 
     private func microDrops(_ raw: [BatteryReading]) -> [(Date, Int)] {
+        // Быстрые падения процента без зарядки (≥2% за ≤120 сек)
         guard raw.count >= 2 else { return [] }
         var out: [(Date, Int)] = []
         for i in 1..<raw.count {
@@ -155,6 +161,7 @@ struct ChartsPanel: View {
     }
 
     private func regressionLine(_ raw: [BatteryReading]) -> ((Date, Int)?, (Date, Int)?) {
+        // Расчёт линии тренда по методу наименьших квадратов
         let points = raw.filter { !$0.isCharging }
         guard points.count >= 2, let first = points.first, let last = points.last else { return (nil, nil) }
         // Compute slope via simple least squares
@@ -180,6 +187,7 @@ struct ChartsPanel: View {
     }
 
     private func drainSeries(_ raw: [BatteryReading]) -> [(Date, Double)] {
+        // Серия разряда в %/ч между соседними точками без зарядки
         guard raw.count >= 2 else { return [] }
         var out: [(Date, Double)] = []
         for i in 1..<raw.count {
@@ -196,6 +204,7 @@ struct ChartsPanel: View {
     }
 
     private func avgDrain(_ raw: [BatteryReading]) -> Double {
+        // Среднее значение разряда %/ч по серии
         let s = drainSeries(raw)
         guard !s.isEmpty else { return 0 }
         let avg = s.map { $0.1 }.reduce(0, +) / Double(s.count)
@@ -203,6 +212,7 @@ struct ChartsPanel: View {
     }
 
     private func trendDrain(_ raw: [BatteryReading]) -> Double {
+        // Тренд разряда %/ч по регрессии (без зарядки)
         let pts = raw.filter { !$0.isCharging }
         guard pts.count >= 2 else { return 0 }
         let t0 = pts.first!.timestamp.timeIntervalSince1970

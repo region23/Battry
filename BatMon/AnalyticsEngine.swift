@@ -1,19 +1,29 @@
 import Foundation
 import Combine
 
+/// Результаты анализа состояния батареи
 struct BatteryAnalysis: Equatable {
+    /// Средний разряд в %/ч по выборке
     var avgDischargePerHour: Double = 0
+    /// Тренд разряда (по линейной регрессии) в %/ч
     var trendDischargePerHour: Double = 0
+    /// Оценка автономности от 100 до 0 в часах
     var estimatedRuntimeFrom100To0Hours: Double = 0
+    /// Список обнаруженных аномалий
     var anomalies: [String] = []
+    /// Интегральная оценка здоровья (0–100)
     var healthScore: Int = 100
+    /// Итоговая рекомендация пользователю
     var recommendation: String = "Замена не требуется"
+    /// Количество микро‑просадок (быстрых падений процента)
     var microDropEvents: Int = 0
 }
 
 @MainActor
 final class AnalyticsEngine: ObservableObject {
+    /// Флаг "идёт сессия" (для реактивного UI)
     @Published private(set) var sessionActive = false
+    /// Последний вычисленный анализ
     @Published private(set) var lastAnalysis: BatteryAnalysis?
 
     let objectWillChange = PassthroughSubject<Void, Never>()
@@ -23,11 +33,13 @@ final class AnalyticsEngine: ObservableObject {
         objectWillChange.eraseToAnyPublisher()
     }
 
+    /// Устанавливает статус активности сессии и оповещает подписчиков
     func setSessionActive(_ active: Bool) {
         sessionActive = active
         objectWillChange.send()
     }
 
+    /// Оценивает средний разряд (%/ч) на интервале без зарядки
     func estimateDischargePerHour(history: [BatteryReading]) -> Double {
         let discharging = history.filter { !$0.isCharging }
         guard discharging.count >= 2,
@@ -40,6 +52,7 @@ final class AnalyticsEngine: ObservableObject {
         return max(0, dPercent / dt)
     }
 
+    /// Линейная регрессия по точкам без зарядки для оценки тренда разряда
     private func regressionDischargePerHour(history: [BatteryReading]) -> Double {
         let points = history.filter { !$0.isCharging }
         guard points.count >= 4 else { return 0 }
@@ -61,6 +74,7 @@ final class AnalyticsEngine: ObservableObject {
         return max(0, -slope) // discharge rate is negative slope
     }
 
+    /// Подсчёт микро‑просадок: падение ≥2% за ≤120 секунд без зарядки
     private func countMicroDrops(history: [BatteryReading]) -> Int {
         guard history.count >= 2 else { return 0 }
         var cnt = 0
@@ -76,6 +90,7 @@ final class AnalyticsEngine: ObservableObject {
         return cnt
     }
 
+    /// Строит итоговую аналитику по истории и текущему снимку
     func analyze(history: [BatteryReading], snapshot: BatterySnapshot) -> BatteryAnalysis {
         var result = BatteryAnalysis()
 

@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+/// Поддерживаемые языки приложения
 enum AppLanguage: String, CaseIterable, Identifiable {
     case ru = "ru"
     case en = "en"
@@ -12,6 +13,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 final class Localization: ObservableObject {
     static let shared = Localization()
 
+    /// Выбранный язык приложения. По умолчанию подстраивается под системный.
     @Published var language: AppLanguage = {
         if let raw = UserDefaults.standard.string(forKey: "app.language"), let l = AppLanguage(rawValue: raw) {
             return l
@@ -23,6 +25,7 @@ final class Localization: ObservableObject {
         didSet { UserDefaults.standard.set(language.rawValue, forKey: "app.language") }
     }
 
+    /// Перевод строки по ключу с учётом выбранного языка
     func t(_ key: String) -> String {
         guard let path = Bundle.main.path(forResource: language.rawValue, ofType: "lproj"), let b = Bundle(path: path) else {
             return NSLocalizedString(key, comment: "")

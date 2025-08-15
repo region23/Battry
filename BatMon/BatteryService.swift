@@ -2,29 +2,43 @@ import Foundation
 import IOKit.ps
 import IOKit
 
+/// Источник питания устройства
 enum PowerSource: String {
     case ac, battery, unknown
 }
 
+/// Снимок состояния батареи на момент чтения
 struct BatterySnapshot: Equatable {
+    /// Процент заряда (0–100)
     var percentage: Int = 0
+    /// Флаг, что питание подключено и идёт заряд
     var isCharging: Bool = false
+    /// Откуда питание: от сети или от батареи
     var powerSource: PowerSource = .unknown
+    /// Оценка времени до разряда, мин
     var timeToEmptyMin: Int? = nil
+    /// Оценка времени до полной зарядки, мин
     var timeToFullMin: Int? = nil
 
     // Advanced (from IORegistry if available)
+    /// Паспортная ёмкость (mAh)
     var designCapacity: Int = 0
+    /// Фактическая максимальная ёмкость (mAh)
     var maxCapacity: Int = 0
+    /// Количество циклов заряд/разряд
     var cycleCount: Int = 0
+    /// Напряжение (В)
     var voltage: Double = 0
+    /// Температура (°C)
     var temperature: Double = 0 // in °C
 }
 
 enum BatteryService {
+    /// Читает снимок состояния батареи из системных API (IOPS + IORegistry)
     static func read() -> BatterySnapshot {
         var snap = BatterySnapshot()
 
+        // IOPS: надёжно для процентов и статусов
         let psInfo = IOPSCopyPowerSourcesInfo().takeRetainedValue()
         let list = IOPSCopyPowerSourcesList(psInfo).takeRetainedValue() as Array
         for item in list {
@@ -71,6 +85,7 @@ enum BatteryService {
         return snap
     }
 
+    /// Проверяет, есть ли у устройства батарея (актуально для Mac mini/Studio)
     static func hasBattery() -> Bool {
         // Надёжный способ: проверяем наличие AppleSmartBattery в IORegistry
         if copySmartBatteryProperties() != nil { return true }
@@ -86,6 +101,7 @@ enum BatteryService {
         return false
     }
 
+    /// Достаёт свойства из AppleSmartBattery в IORegistry
     private static func copySmartBatteryProperties() -> [String: Any]? {
         let matching = IOServiceMatching("AppleSmartBattery")
         let service = IOServiceGetMatchingService(kIOMainPortDefault, matching)

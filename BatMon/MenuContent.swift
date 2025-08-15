@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 
+/// Вкладки главного окна
 enum Panel: String, CaseIterable, Identifiable {
     case overview
     case trends
@@ -8,6 +9,7 @@ enum Panel: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Главное содержимое окна из строки меню
 struct MenuContent: View {
     @ObservedObject var battery: BatteryViewModel
     @ObservedObject var history: HistoryStore
@@ -21,8 +23,10 @@ struct MenuContent: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            // Заголовок с большой иконкой и краткой сводкой
             header
             HStack(spacing: 8) {
+                // Переключение вкладок
                 Picker("", selection: $panel) {
                     ForEach(Panel.allCases) { p in
                         Text(i18n.t("panel.\(p.rawValue)")).tag(p)
@@ -30,6 +34,7 @@ struct MenuContent: View {
                 }
                 .pickerStyle(.segmented)
                 Spacer(minLength: 8)
+                // Быстрое переключение языка
                 Button {
                     i18n.language = (i18n.language == .ru) ? .en : .ru
                 } label: {
@@ -52,15 +57,18 @@ struct MenuContent: View {
             }
 
             Divider()
+            // Кнопки действий (отчёт/анализ/выход)
             controls
         }
         .padding(12)
         .frame(minWidth: 380)
         .animation(.default, value: battery.state)
         .onAppear {
+            // Считаем обзорную аналитику за 7 дней при открытии
             overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
         }
         .onChange(of: battery.state) { _, _ in
+            // Обновляем аналитику при изменении состояния
             overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
         }
     }
@@ -73,6 +81,7 @@ struct MenuContent: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
+                    // Процент заряда и подпись источника питания
                     Text(getBatteryPercentageText())
                         .font(.system(size: 20, weight: .semibold))
                         .accessibilityLabel(i18n.t("panel.overview"))
@@ -104,6 +113,7 @@ struct MenuContent: View {
         }
     }
     
+    /// Выбирает иконку батареи для шапки
     private func getBatteryIcon() -> String {
         // Если устройство не имеет батареи, показываем иконку вилки при питании от сети
         if !battery.state.hasBattery {
@@ -114,6 +124,7 @@ struct MenuContent: View {
         return battery.state.powerSource == .ac ? "powerplug" : battery.symbolForCurrentLevel
     }
     
+    /// Строка с процентом заряда или пустая, если батареи нет
     private func getBatteryPercentageText() -> String {
         // Если устройство не имеет батареи, скрываем проценты
         if !battery.state.hasBattery {
@@ -122,6 +133,7 @@ struct MenuContent: View {
         return "\(battery.state.percentage)%"
     }
     
+    /// Текст о текущем источнике питания
     private func getPowerSourceText() -> String {
         // Если питание от сети, независимо от наличия батареи, показываем "Питание от сети"
         if battery.state.powerSource == .ac {
@@ -138,6 +150,7 @@ struct MenuContent: View {
         return i18n.t("power.battery")
     }
 
+    /// Цвет индикатора статуса: заряд/температура/уровень
     private func statusColor() -> Color {
         if battery.state.temperature > 40 { return .red }
         if battery.state.isCharging { return .green }
@@ -159,6 +172,7 @@ struct MenuContent: View {
 	}
 
     private func temperatureBadge() -> (text: String?, color: Color) {
+        // Показываем бейдж только если температура известна (>0)
         guard battery.state.temperature > 0 else { return (nil, .secondary) }
         if battery.state.temperature >= 40 {
             return (i18n.t("badge.hot"), .red)
@@ -167,6 +181,7 @@ struct MenuContent: View {
     }
 
     private func dischargeBadge() -> (text: String?, color: Color) {
+        // Нужен достаточный промежуток данных разряда за 3 часа
         guard hasEnoughShortDischargeData() else { return (nil, .secondary) }
         let v = analytics.estimateDischargePerHour(history: history.recent(hours: 3))
         if v >= 10 {
@@ -190,6 +205,7 @@ struct MenuContent: View {
     }
 
     private func shortDischargeValueText() -> String {
+        // Текст с краткосрочным разрядом в %/ч для последних 3 часов
         guard hasEnoughShortDischargeData() else { return i18n.t("dash") }
         let v = analytics.estimateDischargePerHour(history: history.recent(hours: 3))
         if i18n.language == .ru {
@@ -202,6 +218,7 @@ struct MenuContent: View {
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
+                // Карточки с основными показателями
                 StatCard(title: i18n.t("cycles"), value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)")
                 StatCard(title: i18n.t("wear"), value:
                          (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0)
@@ -217,6 +234,7 @@ struct MenuContent: View {
                 StatCard(title: i18n.t("discharge.per.hour.3h"), value: shortDischargeValueText(), iconSystemName: "speedometer", badge: dischargeBadge().text, badgeColor: dischargeBadge().color)
             }
             if let a = overviewAnalysis, hasEnoughAnalysisData() {
+                // Итог аналитики за 7 дней при наличии достаточных данных
                 HealthSummary(analysis: a)
             }
         }
@@ -226,6 +244,7 @@ struct MenuContent: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Button {
+                    // Генерация HTML‑отчёта и открытие в браузере
                     let result = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
                     if let url = ReportGenerator.generateHTML(result: result,
                                                               snapshot: battery.state,
@@ -240,6 +259,7 @@ struct MenuContent: View {
                 if panel != .test {
                     if calibrator.state.isActive {
                         Button(role: .destructive) {
+                            // Остановить текущий тест калибровки
                             calibrator.stop()
                         } label: {
                             Label(i18n.t("cancel.test"), systemImage: "stop.circle")
@@ -248,6 +268,7 @@ struct MenuContent: View {
                         .tint(.red)
                     } else {
                         Button {
+                            // Перейти на вкладку теста
                             panel = .test
                         } label: {
                             Label(i18n.t("start.test"), systemImage: "target")
@@ -257,6 +278,7 @@ struct MenuContent: View {
                 }
                 Spacer()
                 Button(role: .destructive) {
+                    // Завершить приложение
                     NSApplication.shared.terminate(nil)
                 } label: {
                     Label("Выйти", systemImage: "power")

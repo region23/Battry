@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+/// Итог одного сеанса калибровки/теста
 struct CalibrationResult: Codable, Equatable {
     var startedAt: Date
     var finishedAt: Date
@@ -12,6 +13,7 @@ struct CalibrationResult: Codable, Equatable {
     var reportPath: String? = nil
 }
 
+/// Состояние процесса калибровки
 enum CalibrationState: Equatable {
     case idle
     case waitingFull // ждём 100% и отключение от сети
@@ -29,17 +31,24 @@ enum CalibrationState: Equatable {
 
 @MainActor
 final class CalibrationEngine: ObservableObject {
+    /// Текущее состояние сеанса
     @Published private(set) var state: CalibrationState = .idle
+    /// Последний завершённый результат
     @Published private(set) var lastResult: CalibrationResult?
+    /// Последние N результатов (для истории)
     @Published private(set) var recentResults: [CalibrationResult] = []
+    /// Флаг: был авто‑сброс из‑за слишком большого разрыва в данных
     @Published var autoResetDueToGap: Bool = false
 
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
+    /// Порог завершения теста по проценту (до 5%)
     private let endThresholdPercent: Int = 5
+    /// Максимально допустимый разрыв между сэмплами, чтобы продолжить (сек)
     private let maxResumeGap: TimeInterval = 300 // 5 минут допустимый разрыв между сэмплами
     private var lastSampleAt: Date?
     private var justBound = false
+    /// Путь к файлу с состоянием/результатами
     private var storeURL: URL = {
         let dir = try! FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("BatMon", isDirectory: true)
@@ -47,6 +56,7 @@ final class CalibrationEngine: ObservableObject {
         return dir.appendingPathComponent("calibration.json")
     }()
 
+    /// Подписывается на поток снимков батареи
     func bind(to publisher: PassthroughSubject<BatterySnapshot, Never>) {
         cancellable = publisher
             .receive(on: DispatchQueue.main)
@@ -57,12 +67,14 @@ final class CalibrationEngine: ObservableObject {
         justBound = true
     }
 
+    /// Отвязывает подписку и сохраняет прогресс
     func unbind() {
         cancellable?.cancel()
         cancellable = nil
         save()
     }
 
+    /// Начинает новую сессию (переход в ожидание 100%)
     func start() {
         state = .waitingFull
         samples.removeAll()
@@ -71,6 +83,7 @@ final class CalibrationEngine: ObservableObject {
         save()
     }
 
+    /// Останавливает и сбрасывает текущую сессию
     func stop() {
         state = .idle
         samples.removeAll()
@@ -79,10 +92,12 @@ final class CalibrationEngine: ObservableObject {
         save()
     }
 
+    /// Скрывает уведомление об авто‑сбросе
     func acknowledgeAutoResetNotice() {
         autoResetDueToGap = false
     }
 
+    /// Основная обработка каждого снимка батареи в зависимости от состояния
     private func handle(snapshot: BatterySnapshot) {
         // При запуске приложения проверяем, можно ли корректно продолжить сессию
         if justBound {
@@ -179,6 +194,7 @@ final class CalibrationEngine: ObservableObject {
         }
     }
 
+    /// Сохраняет прогресс/результаты в JSON
     private func save() {
         var obj: [String: Any] = [:]
         switch state {
@@ -213,6 +229,7 @@ final class CalibrationEngine: ObservableObject {
         }
     }
 
+    /// Загружает сохранённое состояние/результаты из JSON
     private func load() {
         guard let data = try? Data(contentsOf: storeURL),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
@@ -256,12 +273,14 @@ final class CalibrationEngine: ObservableObject {
         }
     }
 
+    /// Кодирует Codable-структуру в словарь для JSON
     private func encode<T: Codable>(_ value: T) -> [String: Any] {
         let data = try! JSONEncoder().encode(value)
         let obj = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
         return obj
     }
 
+    /// Декодирует словарь JSON в Codable-структуру
     private func decode<T: Codable>(_ obj: [String: Any]) -> T? {
         guard let data = try? JSONSerialization.data(withJSONObject: obj, options: []) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)

@@ -2,23 +2,30 @@ import Foundation
 import Combine
 import SwiftUI
 
+/// ViewModel: периодически читает состояние батареи и публикует его для UI/аналитики
 @MainActor
 final class BatteryViewModel: ObservableObject {
+    /// Снимок текущего состояния батареи
     @Published var state: BatterySnapshot = BatterySnapshot()
 
+    /// Интервал опроса в секундах
     var refreshInterval: TimeInterval = 30
     private var timer: AnyCancellable?
 
+    /// Паблишер, на который подписываются другие компоненты (например, калибровка)
     let publisher = PassthroughSubject<BatterySnapshot, Never>()
 
+    /// Символ для иконки в строке меню
     var menuBarSymbol: String {
         symbolForMenu(percent: state.percentage, charging: state.isCharging)
     }
 
+    /// Символ для крупной иконки в заголовке
     var symbolForCurrentLevel: String {
         symbolForIcon(percent: state.percentage, charging: state.isCharging)
     }
 
+    /// Цвет, отражающий состояние заряда/зарядки/температуры
     var tintColor: Color {
         if state.isCharging { return .green }
         switch state.percentage {
@@ -28,6 +35,7 @@ final class BatteryViewModel: ObservableObject {
         }
     }
 
+    /// Текст с временем до разряда/зарядки по данным системы
     var timeRemainingText: String {
         let L = Localization.shared
         if let tte = state.timeToEmptyMin, state.powerSource == .battery {
@@ -39,6 +47,7 @@ final class BatteryViewModel: ObservableObject {
         return L.t("dash")
     }
 
+    /// Запускает периодический опрос системы
     func start() {
         refresh()
         timer = Timer.publish(every: refreshInterval, on: .main, in: .common)
@@ -48,23 +57,27 @@ final class BatteryViewModel: ObservableObject {
             }
     }
 
+    /// Останавливает опрос
     func stop() {
         timer?.cancel()
         timer = nil
     }
 
+    /// Считывает текущее состояние батареи и публикует его
     func refresh() {
         let snap = BatteryService.read()
         self.state = snap
         publisher.send(snap)
     }
 
+    /// Форматирует минуты как HH:MM
     private func format(minutes: Int) -> String {
         let h = minutes / 60
         let m = minutes % 60
         return String(format: "%d:%02d", h, m)
     }
 
+    /// Подбор символа для строки меню (агрегированные шаги)
     private func symbolForMenu(percent: Int, charging: Bool) -> String {
         if charging { return "battery.100.bolt" }
         switch percent {
@@ -76,17 +89,20 @@ final class BatteryViewModel: ObservableObject {
         }
     }
 
+    /// Символ для иконки в UI (пока совпадает с меню)
     private func symbolForIcon(percent: Int, charging: Bool) -> String {
         symbolForMenu(percent: percent, charging: charging)
     }
 }
 
 extension BatterySnapshot {
+    /// Процент износа (0–100), где 0 — новая, 100 — полностью изношена
     var wearPercent: Double {
         guard designCapacity > 0 && maxCapacity > 0 else { return 0 }
         return max(0, (1.0 - Double(maxCapacity) / Double(designCapacity)) * 100.0)
     }
     
+    /// Признак наличия батареи в устройстве
     var hasBattery: Bool {
         // Проверяем, есть ли у устройства батарея
         return BatteryService.hasBattery()

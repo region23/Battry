@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Панель проведения теста/калибровки автономности
 struct CalibrationPanel: View {
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var history: HistoryStore
@@ -11,6 +12,7 @@ struct CalibrationPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // Сообщение о сбросе сессии из‑за большого разрыва между сэмплами
             if calibrator.autoResetDueToGap {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
@@ -25,6 +27,7 @@ struct CalibrationPanel: View {
             }
             switch calibrator.state {
             case .idle:
+                // Состояние покоя: инструкция и чек‑лист перед стартом
                 Text(i18n.t("analysis.intro"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -36,6 +39,7 @@ struct CalibrationPanel: View {
                     Toggle(i18n.t("precheck.load"), isOn: $confirmLoad)
                 }
                 Button {
+                    // Переход в ожидание 100% (старт теста)
                     calibrator.start()
                 } label: {
                     Label(i18n.t("analysis.start"), systemImage: "target")
@@ -44,6 +48,7 @@ struct CalibrationPanel: View {
                 .buttonStyle(.borderedProminent)
 
             case .waitingFull:
+                // Зарядите до 100% и отключите питание — тест стартует сам
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "battery.100.bolt")
                         .foregroundColor(.primary)
@@ -62,6 +67,7 @@ struct CalibrationPanel: View {
                 .buttonStyle(.bordered)
 
             case .running(let start, let p):
+                // Идёт непрерывный разряд до 5%
                 VStack(alignment: .leading, spacing: 6) {
                     Label(i18n.t("analysis.running"), systemImage: "hourglass")
                     Text("Старт: \(start.formatted()) • c \(p)%")
@@ -80,11 +86,13 @@ struct CalibrationPanel: View {
                     }
                 }
                 Button(i18n.t("stop"), role: .destructive) {
+                    // Прервать и сбросить текущую сессию
                     calibrator.stop()
                 }
                 .buttonStyle(.bordered)
 
             case .paused:
+                // Пауза: питание подключено. Для продолжения — снова 100% на батарее
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "pause.circle")
                         .foregroundColor(.primary)
@@ -99,6 +107,7 @@ struct CalibrationPanel: View {
                 .buttonStyle(.bordered)
 
             case .completed(let res):
+                // Завершено: итоги и ссылка на отчёт
                 VStack(alignment: .leading, spacing: 6) {
                     Label(i18n.t("analysis.done"), systemImage: "checkmark.seal")
                     Text(String(format: i18n.t("duration.hours"), String(format: "%.2f", res.durationHours)))
@@ -110,6 +119,7 @@ struct CalibrationPanel: View {
                         }
                     }
                     Button(i18n.t("save.to.report")) {
+                        // Сгенерировать отчёт по 7 дням и открыть
                         let analytics = AnalyticsEngine()
                         let analysis = analytics.analyze(history: history.recent(days: 7), snapshot: snapshot)
                         _ = ReportGenerator.generateHTML(result: analysis, snapshot: snapshot, history: history.recent(days: 7), calibration: res)
@@ -121,6 +131,7 @@ struct CalibrationPanel: View {
                 }
             }
 
+            // Последний результат (если есть)
             if let last = calibrator.lastResult {
                 Divider()
                 VStack(alignment: .leading, spacing: 6) {
@@ -132,6 +143,7 @@ struct CalibrationPanel: View {
                 }
             }
 
+            // История последних анализов
             if !calibrator.recentResults.isEmpty {
                 Divider()
                 VStack(alignment: .leading, spacing: 6) {
