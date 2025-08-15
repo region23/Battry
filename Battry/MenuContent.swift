@@ -6,6 +6,7 @@ enum Panel: String, CaseIterable, Identifiable {
     case overview
     case trends
     case test
+    case settings
     var id: String { rawValue }
 }
 
@@ -28,22 +29,19 @@ struct MenuContent: View {
             HStack(spacing: 8) {
                 // Переключение вкладок
                 Picker("", selection: $panel) {
-                    ForEach(Panel.allCases) { p in
+                    ForEach(Panel.allCases.filter { $0 != .settings }) { p in
                         Text(i18n.t("panel.\(p.rawValue)")).tag(p)
                     }
                 }
                 .pickerStyle(.segmented)
                 Spacer(minLength: 8)
-                // Быстрое переключение языка
+                // Открыть вкладку настроек
                 Button {
-                    i18n.language = (i18n.language == .ru) ? .en : .ru
+                    panel = .settings
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "globe")
-                        Text(i18n.language.label)
-                    }
+                    Image(systemName: "gearshape")
                 }
-                .help("Language")
+                .help(i18n.t("settings"))
             }
 
             Divider()
@@ -51,8 +49,9 @@ struct MenuContent: View {
             Group {
                 switch panel {
                 case .overview: overview
-                case .trends: ChartsPanel(history: history)
+                case .trends: ChartsPanel(history: history, calibrator: calibrator)
                 case .test: CalibrationPanel(calibrator: calibrator, history: history, snapshot: battery.state)
+                case .settings: SettingsPanel(history: history, calibrator: calibrator)
                 }
             }
 

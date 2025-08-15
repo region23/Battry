@@ -3,6 +3,7 @@ import Charts
 
 /// Диапазоны временных окон для графиков
 enum Timeframe: String, CaseIterable, Identifiable {
+    case session = "Последний сеанс"
     case h24 = "24ч"
     case d7 = "7д"
     case d30 = "30д"
@@ -12,6 +13,7 @@ enum Timeframe: String, CaseIterable, Identifiable {
 /// Панель графиков по истории батареи
 struct ChartsPanel: View {
     @ObservedObject var history: HistoryStore
+    @ObservedObject var calibrator: CalibrationEngine
     @State private var timeframe: Timeframe = .h24
     @State private var showPercent: Bool = true
     @State private var showTemp: Bool = false
@@ -20,20 +22,48 @@ struct ChartsPanel: View {
 
     private func data() -> [BatteryReading] {
         switch timeframe {
+        case .session:
+            // Активный сеанс: с начала до текущего времени; иначе последний завершённый
+            switch calibrator.state {
+            case .running(let start, _):
+                return history.between(from: start, to: Date())
+            default:
+                if let last = calibrator.lastResult {
+                    return history.between(from: last.startedAt, to: last.finishedAt)
+                } else {
+                    return []
+                }
+            }
         case .h24: return history.recent(hours: 24)
         case .d7: return history.recent(days: 7)
         case .d30: return history.recent(days: 30)
         }
     }
 
+    private var sessionAvailable: Bool {
+        if case .running = calibrator.state { return true }
+        return calibrator.lastResult != nil
+    }
+
+    private var availableTimeframes: [Timeframe] {
+        var t: [Timeframe] = [.h24, .d7, .d30]
+        if sessionAvailable { t.insert(.session, at: 0) }
+        return t
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Picker("", selection: $timeframe) {
-                ForEach(Timeframe.allCases) { t in
+                ForEach(availableTimeframes) { t in
                     Text(t.rawValue).tag(t)
                 }
             }
             .pickerStyle(.segmented)
+            .onChange(of: sessionAvailable) { _, available in
+                if !available && timeframe == .session {
+                    timeframe = .h24
+                }
+            }
 
             // Уменьшаем число точек для плавной отрисовки
             let readings = history.downsample(data(), maxPoints: 800)

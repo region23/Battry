@@ -39,6 +39,15 @@ final class CalibrationEngine: ObservableObject {
     @Published private(set) var recentResults: [CalibrationResult] = []
     /// Флаг: был авто‑сброс из‑за слишком большого разрыва в данных
     @Published var autoResetDueToGap: Bool = false
+    /// Настройка: не засыпать во время активного теста
+    @Published var preventSleepDuringTesting: Bool = {
+        return UserDefaults.standard.bool(forKey: "preventSleepDuringTesting")
+    }() {
+        didSet {
+            UserDefaults.standard.set(preventSleepDuringTesting, forKey: "preventSleepDuringTesting")
+            updateSleepPrevention()
+        }
+    }
 
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
@@ -50,6 +59,8 @@ final class CalibrationEngine: ObservableObject {
     private var justBound = false
     /// Необязательное подключение к хранилищу истории для восстановления сессии
     private weak var historyStore: HistoryStore?
+    /// Токен активности, предотвращающий сон системы
+    private var activity: NSObjectProtocol?
     /// Путь к файлу с состоянием/результатами
     private var storeURL: URL = {
         let fm = FileManager.default
@@ -103,6 +114,7 @@ final class CalibrationEngine: ObservableObject {
         lastSampleAt = nil
         autoResetDueToGap = false
         save()
+        updateSleepPrevention()
     }
 
     /// Останавливает и сбрасывает текущую сессию
@@ -112,6 +124,7 @@ final class CalibrationEngine: ObservableObject {
         lastSampleAt = nil
         autoResetDueToGap = false
         save()
+        updateSleepPrevention()
     }
 
     /// Настраивает допустимый разрыв между сэмплами при возобновлении (сек)
@@ -162,6 +175,7 @@ final class CalibrationEngine: ObservableObject {
                 samples.removeAll()
                 lastSampleAt = Date()
                 save()
+                updateSleepPrevention()
             }
 
         case .running(let start, let startPercent):
@@ -169,6 +183,7 @@ final class CalibrationEngine: ObservableObject {
             if snapshot.isCharging || snapshot.powerSource == .ac {
                 state = .paused
                 save()
+                updateSleepPrevention()
                 return
             }
             // Сохраняем сэмпл
@@ -222,6 +237,7 @@ final class CalibrationEngine: ObservableObject {
                     recentResults = Array(recentResults.suffix(5))
                 }
                 save()
+                updateSleepPrevention()
             }
 
         case .paused:
@@ -231,6 +247,7 @@ final class CalibrationEngine: ObservableObject {
                 samples.removeAll()
                 lastSampleAt = Date()
                 save()
+                updateSleepPrevention()
             }
 
         case .completed:
@@ -331,6 +348,62 @@ final class CalibrationEngine: ObservableObject {
         if let mg = obj["maxResumeGap"] as? TimeInterval {
             maxResumeGap = mg
         }
+        // После загрузки применим политику сна в соответствии с восстановленным состоянием
+        updateSleepPrevention()
+    }
+
+    /// Полная очистка персистентных данных анализа
+    func clearPersistentData() {
+        lastResult = nil
+        recentResults.removeAll()
+        samples.removeAll()
+        lastSampleAt = nil
+        state = .idle
+        autoResetDueToGap = false
+        let fm = FileManager.default
+        try? fm.removeItem(at: storeURL)
+        updateSleepPrevention()
+    }
+
+    /// Размер файла калибровки на диске (байт)
+    var fileSizeBytes: Int64 {
+        let fm = FileManager.default
+        do {
+            let attrs = try fm.attributesOfItem(atPath: storeURL.path)
+            if let size = attrs[.size] as? NSNumber { return size.int64Value }
+        } catch {
+            // ignore
+        }
+        return 0
+    }
+
+    /// Включает/выключает запрет сна при активном тесте в зависимости от настройки
+    private func updateSleepPrevention() {
+        // Отключаем, если нет настройки или не идёт активный забег (только running)
+        let isRunning: Bool = {
+            if case .running = state { return true } else { return false }
+        }()
+        let need = preventSleepDuringTesting && isRunning
+        if need {
+            beginPreventingSleepIfNeeded()
+        } else {
+            endPreventingSleepIfNeeded()
+        }
+    }
+
+    private func beginPreventingSleepIfNeeded() {
+        guard activity == nil else { return }
+        let options: ProcessInfo.ActivityOptions = [.idleSystemSleepDisabled, .userInitiatedAllowingIdleSystemSleep]
+        let token = ProcessInfo.processInfo.beginActivity(options: options, reason: "Battry test running")
+        // Store opaque token in a type-erased container
+        activity = token as NSObjectProtocol
+    }
+
+    private func endPreventingSleepIfNeeded() {
+        if let token = activity {
+            ProcessInfo.processInfo.endActivity(token)
+        }
+        activity = nil
     }
 
     /// Кодирует Codable-структуру в словарь для JSON

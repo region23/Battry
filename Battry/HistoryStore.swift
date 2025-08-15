@@ -40,6 +40,18 @@ final class HistoryStore: ObservableObject {
         return newDir.appendingPathComponent("history.json")
     }()
 
+    /// Размер файла истории на диске (байт)
+    var fileSizeBytes: Int64 {
+        let fm = FileManager.default
+        do {
+            let attrs = try fm.attributesOfItem(atPath: url.path)
+            if let size = attrs[.size] as? NSNumber { return size.int64Value }
+        } catch {
+            // ignore
+        }
+        return 0
+    }
+
     /// Инициализация/остановка хранения
     func start() { load() }
     func stop() { save() }
@@ -56,6 +68,13 @@ final class HistoryStore: ObservableObject {
         items.append(r)
         trimIfNeeded()
         save()
+    }
+
+    /// Полная очистка истории и удаление файла
+    func clearAll() {
+        items.removeAll()
+        let fm = FileManager.default
+        try? fm.removeItem(at: url)
     }
 
     /// Последние N часов
