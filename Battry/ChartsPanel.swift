@@ -15,6 +15,7 @@ struct ChartsPanel: View {
     @ObservedObject var history: HistoryStore
     @ObservedObject var calibrator: CalibrationEngine
     @State private var timeframe: Timeframe = .h24
+    @State private var didSetInitialTimeframe: Bool = false
     @State private var showPercent: Bool = true
     @State private var showTemp: Bool = false
     @State private var showVolt: Bool = false
@@ -59,8 +60,19 @@ struct ChartsPanel: View {
                 }
             }
             .pickerStyle(.segmented)
+            .onAppear {
+                if sessionAvailable && timeframe == .h24 {
+                    timeframe = .session
+                    didSetInitialTimeframe = true
+                }
+            }
             .onChange(of: sessionAvailable) { _, available in
-                if !available && timeframe == .session {
+                if available {
+                    if !didSetInitialTimeframe && timeframe == .h24 {
+                        timeframe = .session
+                        didSetInitialTimeframe = true
+                    }
+                } else if timeframe == .session {
                     timeframe = .h24
                 }
             }
