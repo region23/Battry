@@ -50,10 +50,25 @@ final class CalibrationEngine: ObservableObject {
     private var justBound = false
     /// Путь к файлу с состоянием/результатами
     private var storeURL: URL = {
-        let dir = try! FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            .appendingPathComponent("BatMon", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("calibration.json")
+        let fm = FileManager.default
+        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let newDir = base.appendingPathComponent("Battry", isDirectory: true)
+        let oldDir = base.appendingPathComponent("BatMon", isDirectory: true)
+        // Migrate old data if present
+        if fm.fileExists(atPath: oldDir.path) {
+            try? fm.createDirectory(at: newDir, withIntermediateDirectories: true)
+            let oldFile = oldDir.appendingPathComponent("calibration.json")
+            let newFile = newDir.appendingPathComponent("calibration.json")
+            if fm.fileExists(atPath: oldFile.path) && !fm.fileExists(atPath: newFile.path) {
+                try? fm.moveItem(at: oldFile, to: newFile)
+            }
+            // Try to remove old directory if empty (best-effort)
+            if let contents = try? fm.contentsOfDirectory(atPath: oldDir.path), contents.isEmpty {
+                try? fm.removeItem(at: oldDir)
+            }
+        }
+        try? fm.createDirectory(at: newDir, withIntermediateDirectories: true)
+        return newDir.appendingPathComponent("calibration.json")
     }()
 
     /// Подписывается на поток снимков батареи

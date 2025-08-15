@@ -71,7 +71,7 @@ enum ReportGenerator {
         <head>
           <meta charset=\"utf-8\">
           <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-          <title>BatMon • Отчёт</title>
+          <title>Battry • Отчёт</title>
           <style>
             :root { --bg:#0f172a; --card:#111827; --fg:#e2e8f0; --muted:#94a3b8; --accent:#93c5fd; --accent2:#34d399; }
             body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--fg); padding: 24px; }
@@ -95,7 +95,7 @@ enum ReportGenerator {
         </head>
         <body>
          <div class=\"wrap\">
-           <h1>Отчёт BatMon</h1>
+           <h1>Отчёт Battry</h1>
            <div class=\"muted\">Сгенерировано: \(df.string(from: Date()))</div>
         
            <div class=\"grid\" style=\"margin:16px 0 20px;\">
@@ -234,7 +234,7 @@ enum ReportGenerator {
         </html>
         """
 
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("BatMon_Report_\(Int(Date().timeIntervalSince1970)).html")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Battry_Report_\(Int(Date().timeIntervalSince1970)).html")
         do {
             try html.write(to: url, atomically: true, encoding: String.Encoding.utf8)
             return url

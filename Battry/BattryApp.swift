@@ -1,9 +1,9 @@
 import SwiftUI
 import Combine
 
-/// Главная точка входа в приложение BatMon
+/// Главная точка входа в приложение Battry
 @main
-struct BatMonApp: App {
+struct BattryApp: App {
     /// ViewModel с текущим состоянием батареи
     @StateObject private var battery = BatteryViewModel()
     /// Хранилище истории измерений для графиков и аналитики
