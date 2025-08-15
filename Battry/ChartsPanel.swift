@@ -3,17 +3,23 @@ import Charts
 
 /// Диапазоны временных окон для графиков
 enum Timeframe: String, CaseIterable, Identifiable {
-    case session = "Последний сеанс"
-    case h24 = "24ч"
-    case d7 = "7д"
-    case d30 = "30д"
+    case session = "timeframe.session"
+    case h24 = "timeframe.h24"
+    case d7 = "timeframe.d7"
+    case d30 = "timeframe.d30"
+    
     var id: String { rawValue }
+    
+    func localizedTitle(using localization: Localization) -> String {
+        localization.t(rawValue)
+    }
 }
 
 /// Панель графиков по истории батареи
 struct ChartsPanel: View {
     @ObservedObject var history: HistoryStore
     @ObservedObject var calibrator: CalibrationEngine
+    @ObservedObject private var i18n = Localization.shared
     @State private var timeframe: Timeframe = .h24
     @State private var didSetInitialTimeframe: Bool = false
     @State private var showPercent: Bool = true
@@ -55,11 +61,11 @@ struct ChartsPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Секция выбора периода
-            CardSection(title: NSLocalizedString("trends.timeframe", comment: ""), icon: "calendar") {
+            CardSection(title: i18n.t("trends.timeframe"), icon: "calendar") {
                 HStack(spacing: 8) {
                     ForEach(availableTimeframes) { timeframe in
                         PeriodButton(
-                            title: timeframe.rawValue,
+                            title: timeframe.localizedTitle(using: i18n),
                             isSelected: self.timeframe == timeframe
                         ) {
                             self.timeframe = timeframe
@@ -88,31 +94,31 @@ struct ChartsPanel: View {
             }
 
             // Секция выбора метрик
-            CardSection(title: NSLocalizedString("trends.metrics", comment: ""), icon: "chart.line.uptrend.xyaxis") {
+            CardSection(title: i18n.t("trends.metrics"), icon: "chart.line.uptrend.xyaxis") {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 8),
                     GridItem(.flexible(), spacing: 8)
                 ], spacing: 8) {
                     MetricToggleButton(
-                        title: NSLocalizedString("trends.series.charge", comment: ""),
+                        title: i18n.t("trends.series.charge"),
                         color: .blue,
                         isSelected: showPercent
                     ) { showPercent.toggle() }
                     
                     MetricToggleButton(
-                        title: NSLocalizedString("trends.series.temperature", comment: ""),
+                        title: i18n.t("trends.series.temperature"),
                         color: .red,
                         isSelected: showTemp
                     ) { showTemp.toggle() }
                     
                     MetricToggleButton(
-                        title: NSLocalizedString("trends.series.voltage", comment: ""),
+                        title: i18n.t("trends.series.voltage"),
                         color: .green,
                         isSelected: showVolt
                     ) { showVolt.toggle() }
                     
                     MetricToggleButton(
-                        title: NSLocalizedString("trends.series.drain", comment: ""),
+                        title: i18n.t("trends.series.drain"),
                         color: .orange,
                         isSelected: showDrain
                     ) { showDrain.toggle() }
@@ -193,16 +199,16 @@ struct ChartsPanel: View {
         let raw = data()
         if showDrain {
             let avg = avgDrain(raw)
-            extras.append(String(format: NSLocalizedString("avg.discharge.per.hour.short", comment: ""), String(format: "%.1f", avg)))
+            extras.append(String(format: i18n.t("avg.discharge.per.hour.short"), String(format: "%.1f", avg)))
         }
         if showPercent {
             let trend = trendDrain(raw)
             if trend > 0 {
-                extras.append(String(format: NSLocalizedString("trend.discharge.per.hour.short", comment: ""), String(format: "%.1f", trend)))
+                extras.append(String(format: i18n.t("trend.discharge.per.hour.short"), String(format: "%.1f", trend)))
             }
         }
         let extraStr = extras.isEmpty ? "" : " • " + extras.joined(separator: " • ")
-        if s.isEmpty { s = timeframe.rawValue } else { s += " — " + timeframe.rawValue }
+        if s.isEmpty { s = timeframe.localizedTitle(using: i18n) } else { s += " — " + timeframe.localizedTitle(using: i18n) }
         return s + extraStr
     }
 

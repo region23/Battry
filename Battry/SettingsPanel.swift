@@ -1,12 +1,11 @@
 import SwiftUI
+import AppKit
 
 /// Вкладка настроек
 struct SettingsPanel: View {
     @ObservedObject var history: HistoryStore
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var i18n: Localization = .shared
-
-    @State private var confirmClear = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -87,7 +86,7 @@ struct SettingsPanel: View {
                     }
                     
                     Button(role: .destructive) {
-                        confirmClear = true
+                        showNativeAlert()
                     } label: {
                         HStack {
                             Image(systemName: "trash")
@@ -96,14 +95,6 @@ struct SettingsPanel: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
-                    .confirmationDialog(
-                        i18n.t("settings.data.confirm"),
-                        isPresented: $confirmClear,
-                        titleVisibility: .visible
-                    ) {
-                        Button(i18n.t("reset"), role: .destructive) { clearAllData() }
-                        Button(i18n.t("cancel"), role: .cancel) { }
-                    }
                 }
                 .padding(.top, 4)
             }
@@ -115,6 +106,26 @@ struct SettingsPanel: View {
     private func clearAllData() {
         history.clearAll()
         calibrator.clearPersistentData()
+    }
+    
+    private func showNativeAlert() {
+        let alert = NSAlert()
+        alert.messageText = i18n.t("settings.data.clear")
+        alert.informativeText = i18n.t("settings.data.confirm")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: i18n.t("cancel"))
+        alert.addButton(withTitle: i18n.t("reset"))
+        
+        // Устанавливаем деструктивную кнопку
+        if let resetButton = alert.buttons.last {
+            resetButton.hasDestructiveAction = true
+        }
+        
+        // Показываем alert и обрабатываем ответ
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn {
+            clearAllData()
+        }
     }
 
     private var totalBytes: Int64 {

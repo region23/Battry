@@ -122,3 +122,9 @@
 "calibration.duration" = "Duration";
 "calibration.avg.discharge" = "Avg discharge";
 "calibration.estimated.runtime" = "Estimated runtime";
+
+// Timeframe periods for charts
+"timeframe.session" = "Last Session";
+"timeframe.h24" = "24h";
+"timeframe.d7" = "7d";
+"timeframe.d30" = "30d";

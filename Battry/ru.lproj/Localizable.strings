@@ -44,7 +44,7 @@
 
 // New keys for unified UX
 "panel.trends" = "Тренды";
-"panel.test" = "Тест";
+"panel.test" = "Анализ";
 "panel.settings" = "Настройки";
 "health" = "Здоровье";
 "analysis.summary" = "Итог анализа";
@@ -54,7 +54,7 @@
 "badge.normal" = "Норма";
 "badge.hot" = "Жарко";
 "badge.high.load" = "Высокая";
-"start.test" = "Начать тест";
+"start.test" = "Начать анализ";
 "cancel.test" = "Отменить тест";
 "save.to.report" = "Сохранить в отчёт";
 "precheck.title" = "Перед стартом проверьте";
@@ -84,7 +84,7 @@
 // Настройки
 "settings" = "Настройки";
 "settings.language" = "Язык";
-"settings.prevent.sleep" = "Не засыпать во время теста";
+"settings.prevent.sleep" = "Не засыпать во время анализа батареи";
 "settings.data" = "Данные";
 "settings.data.entries.label" = "Записей";
 "settings.data.size.label" = "Объём";
@@ -122,3 +122,9 @@
 "calibration.duration" = "Длительность";
 "calibration.avg.discharge" = "Средний разряд";
 "calibration.estimated.runtime" = "Расчётная автономность";
+
+// Периоды времени для графиков
+"timeframe.session" = "Последний сеанс";
+"timeframe.h24" = "24ч";
+"timeframe.d7" = "7д";
+"timeframe.d30" = "30д";

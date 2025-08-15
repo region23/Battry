@@ -159,15 +159,32 @@ struct MetricToggleButton: View {
 }
 
 /// Информационная карточка для состояний калибровки
-struct StatusCard: View {
+struct StatusCard<Actions: View>: View {
     let title: String
     let subtitle: String?
     let icon: String
     let iconColor: Color
     let content: String?
+    let actions: Actions?
+    
+    init(
+        title: String,
+        subtitle: String? = nil,
+        icon: String,
+        iconColor: Color,
+        content: String? = nil,
+        @ViewBuilder actions: () -> Actions = { EmptyView() }
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.iconColor = iconColor
+        self.content = content
+        self.actions = actions()
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
@@ -190,6 +207,12 @@ struct StatusCard: View {
                     .font(.subheadline)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            if !(actions is EmptyView) {
+                actions
             }
         }
         .padding(16)

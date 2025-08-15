@@ -139,16 +139,11 @@ extension CalibrationPanel {
             icon: "battery.100.bolt",
             iconColor: .blue,
             content: i18n.t("analysis.waiting.full")
-        )
-        .overlay(alignment: .bottom) {
-            VStack {
-                Spacer()
-                Button(i18n.t("cancel"), role: .destructive) {
-                    calibrator.stop()
-                }
-                .buttonStyle(.bordered)
+        ) {
+            Button(i18n.t("cancel"), role: .destructive) {
+                calibrator.stop()
             }
-            .padding()
+            .buttonStyle(.bordered)
         }
     }
     
@@ -241,16 +236,11 @@ extension CalibrationPanel {
             icon: "pause.circle",
             iconColor: .orange,
             content: i18n.t("analysis.paused")
-        )
-        .overlay(alignment: .bottom) {
-            VStack {
-                Spacer()
-                Button(i18n.t("cancel"), role: .destructive) {
-                    calibrator.stop()
-                }
-                .buttonStyle(.bordered)
+        ) {
+            Button(i18n.t("cancel"), role: .destructive) {
+                calibrator.stop()
             }
-            .padding()
+            .buttonStyle(.bordered)
         }
     }
     
