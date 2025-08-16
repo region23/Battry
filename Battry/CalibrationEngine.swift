@@ -231,11 +231,18 @@ final class CalibrationEngine: ObservableObject {
                     sessionHistory = samples
                 }
                 let analysis = analytics.analyze(history: sessionHistory, snapshot: snapshot)
-                if let url = ReportGenerator.generateHTML(result: analysis,
-                                                          snapshot: snapshot,
-                                                          history: sessionHistory,
-                                                          calibration: res) {
-                    res.reportPath = url.path
+                if let htmlContent = ReportGenerator.generateHTMLContent(result: analysis,
+                                                                         snapshot: snapshot,
+                                                                         history: sessionHistory,
+                                                                         calibration: res) {
+                    // Автоматически сохраняем отчет в историю
+                    if let reportURL = ReportHistory.shared.addReport(
+                        htmlContent: htmlContent,
+                        healthScore: analysis.healthScore,
+                        dataPoints: sessionHistory.count
+                    ) {
+                        res.reportPath = reportURL.path
+                    }
                 }
 
                 state = .completed(result: res)

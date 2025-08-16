@@ -158,7 +158,9 @@
 // Reports section
 "reports.title" = "Battery Reports";
 "reports.generate" = "Generate Report";
-"reports.empty" = "No reports yet. Generate your first report to track battery health.";
+"reports.empty" = "No reports yet. Complete a full analysis (100% to 5%) to get your first report.";
+"reports.empty.hint" = "After completing a full battery analysis, new reports will appear here.";
+"reports.auto.hint" = "Reports are created automatically after completing a full battery analysis from 100% to 5%.";
 "reports.data.points" = "data points";
 "reports.open" = "Open report";
 "reports.delete" = "Delete report";

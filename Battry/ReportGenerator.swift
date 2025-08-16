@@ -38,10 +38,10 @@ enum ReportGenerator {
         return Localization.shared.t(key)
     }
     /// Создаёт HTML‑отчёт и сохраняет в постоянную директорию
-    static func generateHTML(result: BatteryAnalysis,
-                             snapshot: BatterySnapshot,
-                             history: [BatteryReading],
-                             calibration: CalibrationResult?) -> URL? {
+    static func generateHTMLContent(result: BatteryAnalysis,
+                                    snapshot: BatterySnapshot,
+                                    history: [BatteryReading],
+                                    calibration: CalibrationResult?) -> String? {
         let df = DateFormatter()
         df.dateStyle = .medium
         df.timeStyle = .short
@@ -1546,9 +1546,23 @@ enum ReportGenerator {
         </html>
         """
 
-        // Сохраняем отчет через ReportHistory
+        return html
+    }
+    
+    /// Создаёт HTML‑отчёт и сохраняет через ReportHistory для обратной совместимости
+    static func generateHTML(result: BatteryAnalysis,
+                             snapshot: BatterySnapshot,
+                             history: [BatteryReading],
+                             calibration: CalibrationResult?) -> URL? {
+        guard let htmlContent = generateHTMLContent(result: result,
+                                                    snapshot: snapshot,
+                                                    history: history,
+                                                    calibration: calibration) else {
+            return nil
+        }
+        
         return ReportHistory.shared.addReport(
-            htmlContent: html,
+            htmlContent: htmlContent,
             healthScore: result.healthScore,
             dataPoints: history.count
         )
