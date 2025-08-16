@@ -393,7 +393,7 @@ final class CalibrationEngine: ObservableObject {
 
     private func beginPreventingSleepIfNeeded() {
         guard activity == nil else { return }
-        let options: ProcessInfo.ActivityOptions = [.idleSystemSleepDisabled, .userInitiatedAllowingIdleSystemSleep]
+        let options: ProcessInfo.ActivityOptions = [.idleSystemSleepDisabled, .idleDisplaySleepDisabled, .userInitiatedAllowingIdleSystemSleep]
         let token = ProcessInfo.processInfo.beginActivity(options: options, reason: "Battry test running")
         // Store opaque token in a type-erased container
         activity = token as NSObjectProtocol

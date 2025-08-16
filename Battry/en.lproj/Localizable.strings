@@ -14,7 +14,7 @@
 "analysis.intro" = "Battery life analysis: collect a continuous 100% → 5% discharge and generate a clear report.";
 "analysis.start" = "Start Analysis";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";
-"current.charge" = "Current charge: %d%%";
+"current.charge" = "Current charge:";
 "cancel" = "Cancel";
 "analysis.running" = "Analysis running…";
 "analysis.target" = "Target: 5% (do not plug in)";
