@@ -224,10 +224,11 @@ extension CalibrationPanel {
                         .italic()
                 }
                 
-                Button(i18n.t("stop"), role: .destructive) {
+                Button(i18n.t("cancel.test"), role: .destructive) {
                     showStopTestAlert()
                 }
                 .buttonStyle(.bordered)
+                .tint(.red)
             }
         }
     }

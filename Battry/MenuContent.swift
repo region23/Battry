@@ -31,6 +31,7 @@ struct MenuContent: View {
     @State private var panel: Panel = .overview
     @State private var overviewAnalysis: BatteryAnalysis? = nil
     @State private var hasNotch = false
+    @State private var pulseScale: CGFloat = 1.0
     
     /// Вычисляет отступ сверху для корректного позиционирования под челкой
     private var topPadding: CGFloat {
@@ -44,12 +45,53 @@ struct MenuContent: View {
             header
             HStack(spacing: 8) {
                 // Переключение вкладок
-                Picker("", selection: $panel) {
+                HStack(spacing: 0) {
                     ForEach(Panel.allCases.filter { $0 != .settings && $0 != .about }) { p in
-                        Text(i18n.t("panel.\(p.rawValue)")).tag(p)
+                        Button {
+                            panel = p
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(i18n.t("panel.\(p.rawValue)"))
+                                // Пульсирующая точка для активного теста
+                                if p == .test && calibrator.state.isActive {
+                                    Text(" ") // Дополнительный пробел
+                                    Circle()
+                                        .fill(.red)
+                                        .frame(width: 6, height: 6)
+                                        .scaleEffect(pulseScale)
+                                        .onAppear {
+                                            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                                                pulseScale = 1.3
+                                            }
+                                        }
+                                        .onChange(of: calibrator.state.isActive) { _, isActive in
+                                            if isActive {
+                                                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                                                    pulseScale = 1.3
+                                                }
+                                            } else {
+                                                pulseScale = 1.0
+                                            }
+                                        }
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(panel == p ? Color.accentColor.opacity(0.2) : Color.clear)
+                        )
+                        .foregroundStyle(panel == p ? .primary : .secondary)
                     }
                 }
-                .pickerStyle(.segmented)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.quaternary.opacity(0.5))
+                )
                 Spacer(minLength: 8)
                 // Открыть вкладку About
                 Button {
@@ -280,25 +322,14 @@ struct MenuContent: View {
                     Label("Отчёт", systemImage: "doc.text.image")
                 }
                 .buttonStyle(.bordered)
-                if panel != .test {
-                    if calibrator.state.isActive {
-                        Button(role: .destructive) {
-                            // Остановить текущий тест калибровки
-                            calibrator.stop()
-                        } label: {
-                            Label(i18n.t("cancel.test"), systemImage: "stop.circle")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                    } else {
-                        Button {
-                            // Перейти на вкладку теста
-                            panel = .test
-                        } label: {
-                            Label(i18n.t("start.test"), systemImage: "target")
-                        }
-                        .buttonStyle(.borderedProminent)
+                if panel != .test && !calibrator.state.isActive {
+                    Button {
+                        // Перейти на вкладку теста
+                        panel = .test
+                    } label: {
+                        Label(i18n.t("start.test"), systemImage: "target")
                     }
+                    .buttonStyle(.borderedProminent)
                 }
                 Spacer()
                 Button(role: .destructive) {
