@@ -34,11 +34,14 @@ struct BattryApp: App {
                     calibrator.attachHistory(history)
                 }
         } label: {
-            if battery.state.powerSource == .ac {
-                Image(systemName: "battery.100.bolt")
-                    .symbolRenderingMode(.hierarchical)
+            if let iconName = getMenuBarIcon() {
+                Image(iconName)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
             } else {
-                Image(systemName: battery.menuBarSymbol)
+                Image(systemName: "battery.100")
                     .symbolRenderingMode(.hierarchical)
             }
         }
@@ -49,6 +52,11 @@ struct BattryApp: App {
         }
     }
     
+    /// Выбирает иконку для строки меню
+    private func getMenuBarIcon() -> String? {
+        // Используем кастомные иконки в зависимости от состояния зарядки
+        return battery.state.powerSource == .ac ? "charge-icon" : "battery-icon"
+    }
     
     /// Завершает другие запущенные экземпляры приложения
     private func terminateOtherInstances() {
