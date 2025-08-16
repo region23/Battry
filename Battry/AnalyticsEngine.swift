@@ -1,6 +1,31 @@
 import Foundation
 import Combine
 
+/// Статус здоровья параметра батареи
+enum HealthStatus: CaseIterable {
+    case normal     // норма
+    case acceptable // приемлемо
+    case poor       // плохо
+    
+    /// Цвет для визуального отображения статуса
+    var color: String {
+        switch self {
+        case .normal: return "green"
+        case .acceptable: return "orange" 
+        case .poor: return "red"
+        }
+    }
+    
+    /// Локализационный ключ для текста
+    var localizationKey: String {
+        switch self {
+        case .normal: return "health.status.normal"
+        case .acceptable: return "health.status.acceptable"
+        case .poor: return "health.status.poor"
+        }
+    }
+}
+
 /// Результаты анализа состояния батареи
 struct BatteryAnalysis: Equatable {
     /// Средний разряд в %/ч по выборке
@@ -169,5 +194,54 @@ final class AnalyticsEngine: ObservableObject {
         lastAnalysis = result
         objectWillChange.send()
         return result
+    }
+    
+    // MARK: - Health Status Evaluation Functions
+    
+    /// Оценивает состояние износа батареи
+    func evaluateWearStatus(wearPercent: Double) -> HealthStatus {
+        switch wearPercent {
+        case ..<10: return .normal
+        case 10..<20: return .acceptable
+        default: return .poor
+        }
+    }
+    
+    /// Оценивает состояние циклов зарядки
+    func evaluateCyclesStatus(cycles: Int) -> HealthStatus {
+        switch cycles {
+        case ..<300: return .normal
+        case 300..<500: return .acceptable
+        default: return .poor
+        }
+    }
+    
+    /// Оценивает состояние температуры
+    func evaluateTemperatureStatus(temperature: Double) -> HealthStatus {
+        switch temperature {
+        case ..<35: return .normal
+        case 35..<40: return .acceptable
+        default: return .poor
+        }
+    }
+    
+    /// Оценивает состояние скорости разряда
+    func evaluateDischargeStatus(ratePerHour: Double) -> HealthStatus {
+        switch ratePerHour {
+        case ..<8: return .normal
+        case 8..<15: return .acceptable
+        default: return .poor
+        }
+    }
+    
+    /// Оценивает состояние емкости относительно паспортной
+    func evaluateCapacityStatus(maxCapacity: Int, designCapacity: Int) -> HealthStatus {
+        guard designCapacity > 0 else { return .normal }
+        let ratio = Double(maxCapacity) / Double(designCapacity) * 100
+        switch ratio {
+        case 90...: return .normal
+        case 80..<90: return .acceptable
+        default: return .poor
+        }
     }
 }

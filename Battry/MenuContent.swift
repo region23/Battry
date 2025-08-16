@@ -179,24 +179,6 @@ struct MenuContent: View {
     }
 
 
-    private func temperatureBadge() -> (text: String?, color: Color) {
-        // Показываем бейдж только если температура известна (>0)
-        guard battery.state.temperature > 0 else { return (nil, .secondary) }
-        if battery.state.temperature >= 40 {
-            return (i18n.t("badge.hot"), .red)
-        }
-        return (i18n.t("badge.normal"), .green)
-    }
-
-    private func dischargeBadge() -> (text: String?, color: Color) {
-        // Нужен достаточный промежуток данных разряда за 3 часа
-        guard hasEnoughShortDischargeData() else { return (nil, .secondary) }
-        let v = analytics.estimateDischargePerHour(history: history.recent(hours: 3))
-        if v >= 10 {
-            return (i18n.t("badge.high.load"), .orange)
-        }
-        return (i18n.t("badge.normal"), .green)
-    }
 
     private func hasEnoughShortDischargeData() -> Bool {
         let discharging = history.recent(hours: 3).filter { !$0.isCharging }
@@ -234,7 +216,8 @@ struct MenuContent: View {
                     EnhancedStatCard(
                         title: i18n.t("cycles"),
                         value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)",
-                        icon: "repeat.circle"
+                        icon: "repeat.circle",
+                        healthStatus: battery.state.cycleCount > 0 ? analytics.evaluateCyclesStatus(cycles: battery.state.cycleCount) : nil
                     )
                     EnhancedStatCard(
                         title: i18n.t("wear"),
@@ -242,22 +225,23 @@ struct MenuContent: View {
                                ? String(format: "%.0f%%", battery.state.wearPercent)
                                : i18n.t("dash"),
                         icon: "chart.line.downtrend.xyaxis",
-                        accentColor: battery.state.wearPercent > 20 ? .orange : Color.accentColor
+                        accentColor: battery.state.wearPercent > 20 ? .orange : Color.accentColor,
+                        healthStatus: (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0) ? analytics.evaluateWearStatus(wearPercent: battery.state.wearPercent) : nil
                     )
                     EnhancedStatCard(
                         title: i18n.t("temperature"),
                         value: battery.state.temperature > 0 ? String(format: "%.1f°C", battery.state.temperature) : i18n.t("dash"),
                         icon: "thermometer",
-                        badge: temperatureBadge().text,
-                        badgeColor: temperatureBadge().color,
-                        accentColor: battery.state.temperature > 40 ? .red : Color.accentColor
+                        accentColor: battery.state.temperature > 40 ? .red : Color.accentColor,
+                        healthStatus: battery.state.temperature > 0 ? analytics.evaluateTemperatureStatus(temperature: battery.state.temperature) : nil
                     )
                     EnhancedStatCard(
                         title: i18n.t("capacity.fact.design"),
                         value: battery.state.designCapacity > 0 && battery.state.maxCapacity > 0
                                ? "\(battery.state.maxCapacity)/\(battery.state.designCapacity) mAh"
                                : i18n.t("dash"),
-                        icon: "bolt"
+                        icon: "bolt",
+                        healthStatus: (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0) ? analytics.evaluateCapacityStatus(maxCapacity: battery.state.maxCapacity, designCapacity: battery.state.designCapacity) : nil
                     )
                 }
             }
@@ -268,9 +252,8 @@ struct MenuContent: View {
                     title: i18n.t("discharge.per.hour.3h"),
                     value: shortDischargeValueText(),
                     icon: "speedometer",
-                    badge: dischargeBadge().text,
-                    badgeColor: dischargeBadge().color,
-                    accentColor: hasEnoughShortDischargeData() && analytics.estimateDischargePerHour(history: history.recent(hours: 3)) >= 10 ? .orange : Color.accentColor
+                    accentColor: hasEnoughShortDischargeData() && analytics.estimateDischargePerHour(history: history.recent(hours: 3)) >= 10 ? .orange : Color.accentColor,
+                    healthStatus: hasEnoughShortDischargeData() ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour(history: history.recent(hours: 3))) : nil
                 )
             }
             

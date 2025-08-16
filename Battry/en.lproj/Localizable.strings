@@ -1,6 +1,11 @@
 "charging" = "Charging";
 "power.ac" = "Power Adapter";
 "power.battery" = "On Battery";
+
+// Health status indicators
+"health.status.normal" = "Normal";
+"health.status.acceptable" = "Acceptable";
+"health.status.poor" = "Poor";
 "time.remaining" = "~ %@ remaining";
 "time.to.full" = "~ %@ to full";
 "dash" = "—";
@@ -51,7 +56,7 @@
 "analysis.summary" = "Analysis Summary";
 "avg.discharge.per.hour.7d" = "Discharge (7d)";
 "runtime" = "Runtime";
-"capacity.fact.design" = "Capacity (actual/design)";
+"capacity.fact.design" = "Capacity";
 "badge.normal" = "Normal";
 "badge.hot" = "Hot";
 "badge.high.load" = "High";

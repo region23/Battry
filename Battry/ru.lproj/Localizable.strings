@@ -1,6 +1,11 @@
 "charging" = "Заряжается";
 "power.ac" = "Питание от сети";
 "power.battery" = "От батареи";
+
+// Health status indicators
+"health.status.normal" = "Норма";
+"health.status.acceptable" = "Приемлемо";
+"health.status.poor" = "Плохо";
 "time.remaining" = "Осталось ~ %@";
 "time.to.full" = "До 100% ~ %@";
 "dash" = "—";
@@ -51,7 +56,7 @@
 "analysis.summary" = "Итог анализа";
 "avg.discharge.per.hour.7d" = "Разряд (7 дней)";
 "runtime" = "Автономность";
-"capacity.fact.design" = "Ёмкость (факт/паспорт)";
+"capacity.fact.design" = "Ёмкость";
 "badge.normal" = "Норма";
 "badge.hot" = "Жарко";
 "badge.high.load" = "Высокая";

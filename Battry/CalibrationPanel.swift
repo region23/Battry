@@ -146,7 +146,7 @@ extension CalibrationPanel {
             }
         }()
         
-        StatusCard(
+        return StatusCard(
             title: i18n.t("calibration.waiting.title"),
             subtitle: nil,
             icon: needsUnplug ? "bolt.slash" : "battery.100.bolt",

@@ -10,6 +10,7 @@ struct EnhancedStatCard: View {
     let badge: String?
     let badgeColor: Color
     let accentColor: Color
+    let healthStatus: HealthStatus?
     
     init(
         title: String,
@@ -17,7 +18,8 @@ struct EnhancedStatCard: View {
         icon: String? = nil,
         badge: String? = nil,
         badgeColor: Color = .secondary,
-        accentColor: Color = Color.accentColor
+        accentColor: Color = Color.accentColor,
+        healthStatus: HealthStatus? = nil
     ) {
         self.title = title
         self.value = value
@@ -25,6 +27,7 @@ struct EnhancedStatCard: View {
         self.badge = badge
         self.badgeColor = badgeColor
         self.accentColor = accentColor
+        self.healthStatus = healthStatus
     }
     
     var body: some View {
@@ -41,6 +44,7 @@ struct EnhancedStatCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 Spacer()
+                // Показываем health status badge если нет обычного badge
                 if let badge = badge {
                     Text(badge)
                         .font(.caption2)
@@ -48,6 +52,8 @@ struct EnhancedStatCard: View {
                         .padding(.vertical, 2)
                         .background(badgeColor.opacity(0.15), in: Capsule())
                         .foregroundStyle(badgeColor)
+                } else if let healthStatus = healthStatus {
+                    healthStatusBadge(healthStatus)
                 }
             }
             
@@ -61,8 +67,29 @@ struct EnhancedStatCard: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(accentColor.opacity(0.1), lineWidth: 1)
+                .stroke(healthStatusColor.opacity(0.1), lineWidth: 1)
         )
+    }
+    
+    /// Вспомогательные вычисления для цвета на основе health status
+    private var healthStatusColor: Color {
+        guard let healthStatus = healthStatus else { return accentColor }
+        switch healthStatus {
+        case .normal: return .green
+        case .acceptable: return .orange
+        case .poor: return .red
+        }
+    }
+    
+    @ViewBuilder
+    private func healthStatusBadge(_ status: HealthStatus) -> some View {
+        let i18n = Localization.shared
+        Text(i18n.t(status.localizationKey))
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(healthStatusColor.opacity(0.15), in: Capsule())
+            .foregroundStyle(healthStatusColor)
     }
 }
 
