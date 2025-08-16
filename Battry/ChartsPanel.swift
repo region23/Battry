@@ -1,5 +1,5 @@
-import SwiftUI
 import Charts
+import SwiftUI
 
 /// Диапазоны временных окон для графиков
 enum Timeframe: String, CaseIterable, Identifiable {
@@ -7,9 +7,9 @@ enum Timeframe: String, CaseIterable, Identifiable {
     case h24 = "timeframe.h24"
     case d7 = "timeframe.d7"
     case d30 = "timeframe.d30"
-    
+
     var id: String { rawValue }
-    
+
     func localizedTitle(using localization: Localization) -> String {
         localization.t(rawValue)
     }
@@ -36,7 +36,10 @@ struct ChartsPanel: View {
                 return history.between(from: start, to: Date())
             default:
                 if let last = calibrator.lastResult {
-                    return history.between(from: last.startedAt, to: last.finishedAt)
+                    return history.between(
+                        from: last.startedAt,
+                        to: last.finishedAt
+                    )
                 } else {
                     return []
                 }
@@ -59,10 +62,14 @@ struct ChartsPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Секция выбора периода
-            CardSection(title: i18n.t("trends.timeframe"), icon: "calendar") {
+        VStack(alignment: .leading, spacing: 8) {
+            // Объединенная компактная секция управления
+            VStack(alignment: .leading, spacing: 12) {
+                // Период времени
                 HStack(spacing: 8) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
                     ForEach(availableTimeframes) { timeframe in
                         PeriodButton(
                             title: timeframe.localizedTitle(using: i18n),
@@ -73,9 +80,45 @@ struct ChartsPanel: View {
                     }
                     Spacer()
                 }
-                .padding(8)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                // Метрики в одну строку
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+
+                    MetricToggleButton(
+                        title: i18n.t("trends.series.charge"),
+                        color: .blue,
+                        isSelected: showPercent
+                    ) { showPercent.toggle() }
+
+                    MetricToggleButton(
+                        title: i18n.t("trends.series.temperature"),
+                        color: .red,
+                        isSelected: showTemp
+                    ) { showTemp.toggle() }
+
+                    MetricToggleButton(
+                        title: i18n.t("trends.series.voltage"),
+                        color: .green,
+                        isSelected: showVolt
+                    ) { showVolt.toggle() }
+
+                    MetricToggleButton(
+                        title: i18n.t("trends.series.drain"),
+                        color: .orange,
+                        isSelected: showDrain
+                    ) { showDrain.toggle() }
+
+                    Spacer()
+                }
             }
+            .padding(10)
+            .background(
+                .thinMaterial,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
             .onAppear {
                 if sessionAvailable && timeframe == .h24 {
                     timeframe = .session
@@ -93,38 +136,6 @@ struct ChartsPanel: View {
                 }
             }
 
-            // Секция выбора метрик
-            CardSection(title: i18n.t("trends.metrics"), icon: "chart.line.uptrend.xyaxis") {
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8)
-                ], spacing: 8) {
-                    MetricToggleButton(
-                        title: i18n.t("trends.series.charge"),
-                        color: .blue,
-                        isSelected: showPercent
-                    ) { showPercent.toggle() }
-                    
-                    MetricToggleButton(
-                        title: i18n.t("trends.series.temperature"),
-                        color: .red,
-                        isSelected: showTemp
-                    ) { showTemp.toggle() }
-                    
-                    MetricToggleButton(
-                        title: i18n.t("trends.series.voltage"),
-                        color: .green,
-                        isSelected: showVolt
-                    ) { showVolt.toggle() }
-                    
-                    MetricToggleButton(
-                        title: i18n.t("trends.series.drain"),
-                        color: .orange,
-                        isSelected: showDrain
-                    ) { showDrain.toggle() }
-                }
-            }
-
             // Уменьшаем число точек для плавной отрисовки
             let readings = history.downsample(data(), maxPoints: 800)
 
@@ -132,7 +143,7 @@ struct ChartsPanel: View {
             EnhancedChartCard(title: titleForChart(readings: readings)) {
                 let segments = chargingSegments(readings: readings)
                 let raw = data()
-				
+
                 Chart {
                     // Заштриховываем интервалы, когда устройство было на зарядке
                     ForEach(segments.indices, id: \.self) { i in
@@ -146,23 +157,32 @@ struct ChartsPanel: View {
                     // Ряды данных
                     if showPercent {
                         ForEach(readings, id: \.timestamp) { r in
-                            LineMark(x: .value("t", r.timestamp), y: .value("%", r.percentage))
-                                .foregroundStyle(by: .value("series", "percent"))
-                                .interpolationMethod(.monotone)
+                            LineMark(
+                                x: .value("t", r.timestamp),
+                                y: .value("%", r.percentage)
+                            )
+                            .foregroundStyle(by: .value("series", "percent"))
+                            .interpolationMethod(.monotone)
                         }
                     }
                     if showTemp {
                         ForEach(readings, id: \.timestamp) { r in
-                            LineMark(x: .value("t", r.timestamp), y: .value("°C", r.temperature))
-                                .foregroundStyle(by: .value("series", "temp"))
-                                .interpolationMethod(.monotone)
+                            LineMark(
+                                x: .value("t", r.timestamp),
+                                y: .value("°C", r.temperature)
+                            )
+                            .foregroundStyle(by: .value("series", "temp"))
+                            .interpolationMethod(.monotone)
                         }
                     }
                     if showVolt {
                         ForEach(readings, id: \.timestamp) { r in
-                            LineMark(x: .value("t", r.timestamp), y: .value("V", r.voltage))
-                                .foregroundStyle(by: .value("series", "volt"))
-                                .interpolationMethod(.monotone)
+                            LineMark(
+                                x: .value("t", r.timestamp),
+                                y: .value("V", r.voltage)
+                            )
+                            .foregroundStyle(by: .value("series", "volt"))
+                            .interpolationMethod(.monotone)
                         }
                     }
                     if showDrain {
@@ -174,15 +194,16 @@ struct ChartsPanel: View {
                                 .interpolationMethod(.linear)
                         }
                     }
-					
+
                 }
                 .chartForegroundStyleScale([
                     "percent": .blue,
                     "temp": .red,
                     "volt": .green,
-                    "drain": .orange
+                    "drain": .orange,
                 ])
-                .frame(height: 260)
+                .chartLegend(.hidden)
+                .frame(height: 200)
             }
         }
     }
@@ -199,20 +220,36 @@ struct ChartsPanel: View {
         let raw = data()
         if showDrain {
             let avg = avgDrain(raw)
-            extras.append(String(format: i18n.t("avg.discharge.per.hour.short"), String(format: "%.1f", avg)))
+            extras.append(
+                String(
+                    format: i18n.t("avg.discharge.per.hour.short"),
+                    String(format: "%.1f", avg)
+                )
+            )
         }
         if showPercent {
             let trend = trendDrain(raw)
             if trend > 0 {
-                extras.append(String(format: i18n.t("trend.discharge.per.hour.short"), String(format: "%.1f", trend)))
+                extras.append(
+                    String(
+                        format: i18n.t("trend.discharge.per.hour.short"),
+                        String(format: "%.1f", trend)
+                    )
+                )
             }
         }
-        let extraStr = extras.isEmpty ? "" : " • " + extras.joined(separator: " • ")
-        if s.isEmpty { s = timeframe.localizedTitle(using: i18n) } else { s += " — " + timeframe.localizedTitle(using: i18n) }
+        let extraStr =
+            extras.isEmpty ? "" : " • " + extras.joined(separator: " • ")
+        if s.isEmpty {
+            s = timeframe.localizedTitle(using: i18n)
+        } else {
+            s += " — " + timeframe.localizedTitle(using: i18n)
+        }
         return s + extraStr
     }
 
-    private func chargingSegments(readings: [BatteryReading]) -> [(Date, Date)] {
+    private func chargingSegments(readings: [BatteryReading]) -> [(Date, Date)]
+    {
         // Находим непрерывные участки, когда шла зарядка
         var out: [(Date, Date)] = []
         var start: Date? = nil
@@ -224,7 +261,9 @@ struct ChartsPanel: View {
                 start = nil
             }
         }
-        if let st = start, let last = readings.last?.timestamp { out.append((st, last)) }
+        if let st = start, let last = readings.last?.timestamp {
+            out.append((st, last))
+        }
         return out
     }
 
@@ -233,7 +272,7 @@ struct ChartsPanel: View {
         guard raw.count >= 2 else { return [] }
         var out: [(Date, Int)] = []
         for i in 1..<raw.count {
-            let prev = raw[i-1]
+            let prev = raw[i - 1]
             let cur = raw[i]
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
             let d = cur.percentage - prev.percentage
@@ -244,10 +283,14 @@ struct ChartsPanel: View {
         return out
     }
 
-    private func regressionLine(_ raw: [BatteryReading]) -> ((Date, Int)?, (Date, Int)?) {
+    private func regressionLine(_ raw: [BatteryReading]) -> (
+        (Date, Int)?, (Date, Int)?
+    ) {
         // Расчёт линии тренда по методу наименьших квадратов
         let points = raw.filter { !$0.isCharging }
-        guard points.count >= 2, let first = points.first, let last = points.last else { return (nil, nil) }
+        guard points.count >= 2, let first = points.first,
+            let last = points.last
+        else { return (nil, nil) }
         // Compute slope via simple least squares
         let t0 = points.first!.timestamp.timeIntervalSince1970
         var xs: [Double] = []
@@ -260,14 +303,18 @@ struct ChartsPanel: View {
         let sumX = xs.reduce(0, +)
         let sumY = ys.reduce(0, +)
         let sumXY = zip(xs, ys).map(*).reduce(0, +)
-        let sumXX = xs.map { $0*$0 }.reduce(0, +)
+        let sumXX = xs.map { $0 * $0 }.reduce(0, +)
         let denom = (n * sumXX - sumX * sumX)
         guard denom != 0 else { return (nil, nil) }
-        let slope = (n * sumXY - sumX * sumY) / denom // % per hour change
-        let hoursSpan = (last.timestamp.timeIntervalSince(first.timestamp)) / 3600.0
+        let slope = (n * sumXY - sumX * sumY) / denom  // % per hour change
+        let hoursSpan =
+            (last.timestamp.timeIntervalSince(first.timestamp)) / 3600.0
         let yStart = ys.first ?? Double(first.percentage)
         let yEnd = yStart + slope * hoursSpan
-        return ((first.timestamp, Int(yStart.rounded())), (last.timestamp, Int(yEnd.rounded())))
+        return (
+            (first.timestamp, Int(yStart.rounded())),
+            (last.timestamp, Int(yEnd.rounded()))
+        )
     }
 
     private func drainSeries(_ raw: [BatteryReading]) -> [(Date, Double)] {
@@ -275,7 +322,7 @@ struct ChartsPanel: View {
         guard raw.count >= 2 else { return [] }
         var out: [(Date, Double)] = []
         for i in 1..<raw.count {
-            let prev = raw[i-1]
+            let prev = raw[i - 1]
             let cur = raw[i]
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp) / 3600.0
             guard dt > 0 else { continue }
@@ -310,10 +357,10 @@ struct ChartsPanel: View {
         let sumX = xs.reduce(0, +)
         let sumY = ys.reduce(0, +)
         let sumXY = zip(xs, ys).map(*).reduce(0, +)
-        let sumXX = xs.map { $0*$0 }.reduce(0, +)
+        let sumXX = xs.map { $0 * $0 }.reduce(0, +)
         let denom = (n * sumXX - sumX * sumX)
         guard denom != 0 else { return 0 }
-        let slope = (n * sumXY - sumX * sumY) / denom // % per hour change
+        let slope = (n * sumXY - sumX * sumY) / denom  // % per hour change
         return max(0, -slope)
     }
 }
@@ -330,7 +377,10 @@ struct ChartCard<Content: View>: View {
             content()
         }
         .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
     }
 }
 
@@ -351,8 +401,11 @@ struct EnhancedChartCard<Content: View>: View {
             }
             content()
         }
-        .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(12)
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
@@ -389,7 +442,10 @@ struct SelectablePillButtonStyle: ButtonStyle {
             )
             .overlay(
                 Capsule()
-                    .stroke(isOn ? color : Color.gray.opacity(0.4), lineWidth: 1)
+                    .stroke(
+                        isOn ? color : Color.gray.opacity(0.4),
+                        lineWidth: 1
+                    )
             )
             .foregroundStyle(isOn ? color : .primary)
             .animation(.easeInOut(duration: 0.15), value: isOn)

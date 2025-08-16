@@ -68,7 +68,7 @@
 "precheck.background" = "Закройте тяжёлые фоновые приложения";
 "precheck.load" = "Избегайте высокой нагрузки во время теста";
 "trends.series.charge" = "Заряд %";
-"trends.series.temperature" = "Температура °C";
+"trends.series.temperature" = "Температура";
 "trends.series.voltage" = "Напряжение V";
 "trends.series.drain" = "Разряд %/ч";
 "avg.discharge.per.hour.short" = "Средний: %@ %/ч";
@@ -144,7 +144,7 @@
 "about.latest.version" = "Последняя версия";
 "about.channel.title" = "Подписывайтесь на канал";
 "about.channel.description" = "Там я пишу про AI и разработку с помощью AI";
-"about.copyright" = "© 2025 region23. Открытый исходный код под лицензией MIT.";
+"about.copyright" = "© 2025 Разработано с ❤️ для macOS сообщества";
 
 // Диалог подтверждения при прерывании теста калибровки
 "calibration.stop.title" = "Прервать тест?";

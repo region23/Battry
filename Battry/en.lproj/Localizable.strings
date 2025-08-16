@@ -68,7 +68,7 @@
 "precheck.background" = "Close heavy background apps";
 "precheck.load" = "Avoid heavy load during the test";
 "trends.series.charge" = "Charge %";
-"trends.series.temperature" = "Temperature °C";
+"trends.series.temperature" = "Temperature";
 "trends.series.voltage" = "Voltage V";
 "trends.series.drain" = "Discharge %/h";
 "avg.discharge.per.hour.short" = "Avg: %@ %%/h";
@@ -144,7 +144,7 @@
 "about.latest.version" = "Latest Version";
 "about.channel.title" = "Subscribe to my channel";
 "about.channel.description" = "Where I write about AI and AI-powered development";
-"about.copyright" = "© 2025 region23. Open source under MIT License.";
+"about.copyright" = "© 2025 Developed with ❤️ for the macOS community";
 
 // Confirmation dialog for stopping calibration test
 "calibration.stop.title" = "Stop Test?";

@@ -39,7 +39,7 @@ struct MenuContent: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             // Заголовок с большой иконкой и краткой сводкой
             header
             HStack(spacing: 8) {
@@ -83,7 +83,7 @@ struct MenuContent: View {
             // Кнопки действий (отчёт/анализ/выход)
             controls
         }
-        .padding(12)
+        .padding(10)
         .frame(minWidth: 380)
         .safeAreaPadding(.top, topPadding)
         .animation(.default, value: battery.state)
@@ -206,13 +206,13 @@ struct MenuContent: View {
     }
 
     private var overview: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             // Секция основных характеристик батареи
             CardSection(title: i18n.t("overview.battery.info"), icon: "battery.100") {
                 LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8)
-                ], spacing: 8) {
+                    GridItem(.flexible(), spacing: 6),
+                    GridItem(.flexible(), spacing: 6)
+                ], spacing: 6) {
                     EnhancedStatCard(
                         title: i18n.t("cycles"),
                         value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)",
@@ -251,7 +251,7 @@ struct MenuContent: View {
                 EnhancedStatCard(
                     title: i18n.t("discharge.per.hour.3h"),
                     value: shortDischargeValueText(),
-                    icon: "speedometer",
+                    icon: "chart.line.downtrend.xyaxis",
                     accentColor: hasEnoughShortDischargeData() && analytics.estimateDischargePerHour(history: history.recent(hours: 3)) >= 10 ? .orange : Color.accentColor,
                     healthStatus: hasEnoughShortDischargeData() ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour(history: history.recent(hours: 3))) : nil
                 )
@@ -403,10 +403,10 @@ struct EnhancedHealthSummary: View {
     var body: some View {
         CardSection(title: i18n.t("analysis.summary"), icon: "heart.text.square") {
             LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8)
-            ], spacing: 8) {
+                GridItem(.flexible(), spacing: 6),
+                GridItem(.flexible(), spacing: 6),
+                GridItem(.flexible(), spacing: 6)
+            ], spacing: 6) {
                 EnhancedStatCard(
                     title: i18n.t("health"),
                     value: "\(analysis.healthScore)/100",

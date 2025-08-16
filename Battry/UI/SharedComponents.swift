@@ -31,7 +31,7 @@ struct EnhancedStatCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             // Заголовок с иконкой
             HStack(spacing: 6) {
                 if let icon = icon {
@@ -63,7 +63,7 @@ struct EnhancedStatCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .padding(12)
+        .padding(10)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -106,7 +106,7 @@ struct CardSection<Content: View>: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             if let title = title {
                 HStack(spacing: 8) {
                     if let icon = icon {
@@ -122,7 +122,7 @@ struct CardSection<Content: View>: View {
             }
             content
         }
-        .padding(16)
+        .padding(12)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
@@ -160,16 +160,18 @@ struct MetricToggleButton: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Circle()
                     .fill(color)
                     .frame(width: 8, height: 8)
                 Text(title)
-                    .font(.caption)
+                    .font(.callout)
                     .fontWeight(.medium)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
             .background(
                 isSelected ? color.opacity(0.15) : Color.clear,
                 in: Capsule()
@@ -211,7 +213,7 @@ struct StatusCard<Actions: View>: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
@@ -242,7 +244,7 @@ struct StatusCard<Actions: View>: View {
                 actions
             }
         }
-        .padding(16)
+        .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -287,7 +289,7 @@ struct EnhancedProgressView: View {
 struct SpacedDivider: View {
     let padding: CGFloat
     
-    init(padding: CGFloat = 8) {
+    init(padding: CGFloat = 4) {
         self.padding = padding
     }
     

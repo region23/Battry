@@ -10,7 +10,7 @@ struct CalibrationPanel: View {
     
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             // Сообщение о сбросе сессии из‑за большого разрыва между сэмплами
             if calibrator.autoResetDueToGap {
                 StatusCard(
@@ -97,12 +97,12 @@ struct CalibrationPanel: View {
 extension CalibrationPanel {
     private var idleStateView: some View {
         CardSection(title: i18n.t("calibration.start.test"), icon: "target") {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(i18n.t("analysis.intro"))
                     .font(.subheadline)
                     .foregroundStyle(.primary)
                 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Image(systemName: "checklist")
                             .foregroundStyle(.orange)
@@ -112,7 +112,7 @@ extension CalibrationPanel {
                         Spacer()
                     }
                     
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         checklistItem(i18n.t("precheck.brightness"))
                         checklistItem(i18n.t("precheck.background"))  
                         checklistItem(i18n.t("precheck.load"))
@@ -162,7 +162,7 @@ extension CalibrationPanel {
     
     private func runningStateView(start: Date, startPercent: Int) -> some View {
         CardSection(title: i18n.t("calibration.running.title"), icon: "hourglass") {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
                 // Информация о тесте
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -249,12 +249,12 @@ extension CalibrationPanel {
     
     private func completedStateView(result: CalibrationResult) -> some View {
         CardSection(title: i18n.t("calibration.completed.title"), icon: "checkmark.seal") {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
                 // Результаты теста
                 LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8)
-                ], spacing: 8) {
+                    GridItem(.flexible(), spacing: 6),
+                    GridItem(.flexible(), spacing: 6)
+                ], spacing: 6) {
                     EnhancedStatCard(
                         title: i18n.t("calibration.duration"),
                         value: String(format: "%.1fч", result.durationHours),
