@@ -1,6 +1,15 @@
 import SwiftUI
 import AppKit
 
+/// Extension to detect MacBook notch presence
+extension NSScreen {
+    /// Returns true if this screen has a notch (like MacBook Pro M2/M3 models)
+    var hasNotch: Bool {
+        guard #available(macOS 12, *) else { return false }
+        return safeAreaInsets.top > 0
+    }
+}
+
 /// Вкладки главного окна
 enum Panel: String, CaseIterable, Identifiable {
     case overview
@@ -21,7 +30,13 @@ struct MenuContent: View {
     @State private var isAnalyzing = false
     @State private var panel: Panel = .overview
     @State private var overviewAnalysis: BatteryAnalysis? = nil
+    @State private var hasNotch = false
     
+    /// Вычисляет отступ сверху для корректного позиционирования под челкой
+    private var topPadding: CGFloat {
+        // Если есть челка, добавляем небольшой отступ для предотвращения залезания под неё
+        return hasNotch ? 8 : 0
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -70,10 +85,14 @@ struct MenuContent: View {
         }
         .padding(12)
         .frame(minWidth: 380)
+        .safeAreaPadding(.top, topPadding)
         .animation(.default, value: battery.state)
         .onAppear {
             // Считаем обзорную аналитику за 7 дней при открытии
             overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
+            // Проверяем наличие челки на текущем экране для корректного позиционирования окна
+            // На MacBook'ах с челкой (M2+) окно может провалиться под челку при скрытом меню-баре
+            hasNotch = NSScreen.main?.hasNotch ?? false
         }
         .onChange(of: battery.state) { _, _ in
             // Обновляем аналитику при изменении состояния
