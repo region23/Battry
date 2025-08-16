@@ -10,7 +10,10 @@ final class BatteryViewModel: ObservableObject {
 
     /// Интервал опроса в секундах
     var refreshInterval: TimeInterval = 30
+    /// Ускоренный интервал опроса для состояния ожидания
+    var fastRefreshInterval: TimeInterval = 5
     private var timer: AnyCancellable?
+    private var isFastMode: Bool = false
 
     /// Паблишер, на который подписываются другие компоненты (например, калибровка)
     let publisher = PassthroughSubject<BatterySnapshot, Never>()
@@ -50,11 +53,35 @@ final class BatteryViewModel: ObservableObject {
     /// Запускает периодический опрос системы
     func start() {
         refresh()
-        timer = Timer.publish(every: refreshInterval, on: .main, in: .common)
+        startTimer()
+    }
+    
+    /// Переключает в быстрый режим опроса (для ожидания калибровки)
+    func enableFastMode() {
+        guard !isFastMode else { return }
+        isFastMode = true
+        restartTimer()
+    }
+    
+    /// Переключает в обычный режим опроса
+    func disableFastMode() {
+        guard isFastMode else { return }
+        isFastMode = false
+        restartTimer()
+    }
+    
+    private func startTimer() {
+        let interval = isFastMode ? fastRefreshInterval : refreshInterval
+        timer = Timer.publish(every: interval, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 self?.refresh()
             }
+    }
+    
+    private func restartTimer() {
+        timer?.cancel()
+        startTimer()
     }
 
     /// Останавливает опрос

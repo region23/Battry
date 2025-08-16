@@ -51,6 +51,7 @@ final class CalibrationEngine: ObservableObject {
 
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
+    private weak var batteryViewModel: BatteryViewModel?
     /// Порог завершения теста по проценту (до 5%)
     private let endThresholdPercent: Int = 5
     /// Максимально допустимый разрыв между сэмплами, чтобы продолжить (сек)
@@ -85,14 +86,16 @@ final class CalibrationEngine: ObservableObject {
     }()
 
     /// Подписывается на поток снимков батареи
-    func bind(to publisher: PassthroughSubject<BatterySnapshot, Never>) {
+    func bind(to publisher: PassthroughSubject<BatterySnapshot, Never>, viewModel: BatteryViewModel? = nil) {
         cancellable = publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snap in
                 self?.handle(snapshot: snap)
             }
+        self.batteryViewModel = viewModel
         load()
         justBound = true
+        updatePollingMode()
     }
 
      /// Подключает хранилище истории для использования данных между рестартами
@@ -115,6 +118,7 @@ final class CalibrationEngine: ObservableObject {
         autoResetDueToGap = false
         save()
         updateSleepPrevention()
+        updatePollingMode()
     }
 
     /// Останавливает и сбрасывает текущую сессию
@@ -125,6 +129,7 @@ final class CalibrationEngine: ObservableObject {
         autoResetDueToGap = false
         save()
         updateSleepPrevention()
+        updatePollingMode()
     }
 
     /// Настраивает допустимый разрыв между сэмплами при возобновлении (сек)
@@ -159,6 +164,7 @@ final class CalibrationEngine: ObservableObject {
                         samples.removeAll()
                         autoResetDueToGap = true
                         save()
+                        updatePollingMode()
                         return
                     }
                 }
@@ -169,13 +175,14 @@ final class CalibrationEngine: ObservableObject {
             break
 
         case .waitingFull:
-            // Нужно зарядить до 100% и отключить питание
-            if snapshot.percentage >= 99 && !snapshot.isCharging && snapshot.powerSource == .battery {
+            // Нужно зарядить до 98%+ и отключить питание
+            if snapshot.percentage >= 98 && !snapshot.isCharging && snapshot.powerSource == .battery {
                 state = .running(start: Date(), atPercent: snapshot.percentage)
                 samples.removeAll()
                 lastSampleAt = Date()
                 save()
                 updateSleepPrevention()
+                updatePollingMode()
             }
 
         case .running(let start, let startPercent):
@@ -184,6 +191,7 @@ final class CalibrationEngine: ObservableObject {
                 state = .paused
                 save()
                 updateSleepPrevention()
+                updatePollingMode()
                 return
             }
             // Сохраняем сэмпл
@@ -238,16 +246,18 @@ final class CalibrationEngine: ObservableObject {
                 }
                 save()
                 updateSleepPrevention()
+                updatePollingMode()
             }
 
         case .paused:
             // Если снова ушли с сети — продолжаем бежать, но перезапускаем калибровку (нужен непрерывный интервал)
-            if !snapshot.isCharging && snapshot.powerSource == .battery && snapshot.percentage >= 99 {
+            if !snapshot.isCharging && snapshot.powerSource == .battery && snapshot.percentage >= 98 {
                 state = .running(start: Date(), atPercent: snapshot.percentage)
                 samples.removeAll()
                 lastSampleAt = Date()
                 save()
                 updateSleepPrevention()
+                updatePollingMode()
             }
 
         case .completed:
@@ -417,5 +427,19 @@ final class CalibrationEngine: ObservableObject {
     private func decode<T: Codable>(_ obj: [String: Any]) -> T? {
         guard let data = try? JSONSerialization.data(withJSONObject: obj, options: []) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
+    }
+    
+    /// Обновляет режим опроса в зависимости от состояния калибровки
+    private func updatePollingMode() {
+        guard let vm = batteryViewModel else { return }
+        
+        switch state {
+        case .waitingFull:
+            // Ускоренный опрос при ожидании начала теста
+            vm.enableFastMode()
+        case .idle, .running, .paused, .completed:
+            // Обычный опрос в остальных случаях
+            vm.disableFastMode()
+        }
     }
 }

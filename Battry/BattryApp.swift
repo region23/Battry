@@ -30,7 +30,7 @@ struct BattryApp: App {
                     // Стартуем периодический опрос и сбор истории при запуске
                     battery.start()
                     history.start()
-                    calibrator.bind(to: battery.publisher)
+                    calibrator.bind(to: battery.publisher, viewModel: battery)
                     calibrator.attachHistory(history)
                 }
         } label: {

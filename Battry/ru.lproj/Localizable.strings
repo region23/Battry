@@ -20,6 +20,8 @@
 "analysis.start" = "Начать анализ";
 "analysis.waiting.full" = "Зарядите до 100% и отключите питание. Анализ стартует автоматически.";
 "analysis.unplug.to.start" = "Отключите питание для начала теста.";
+"analysis.ready.at.percent" = "Готово к запуску при %d%%. Ожидание отключения от сети...";
+"analysis.charge.to.percent" = "Заряд %d%%. Зарядите до 100% и отключите питание.";
 "current.charge" = "Текущий заряд:";
 "cancel" = "Отмена";
 "analysis.running" = "Идёт анализ…";

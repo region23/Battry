@@ -135,14 +135,14 @@ extension CalibrationPanel {
     
     private var waitingFullStateView: some View {
         let (message, needsUnplug) = {
-            if snapshot.percentage >= 99 {
+            if snapshot.percentage >= 98 {
                 if snapshot.isCharging || snapshot.powerSource == .ac {
                     return (i18n.t("analysis.unplug.to.start"), true)
                 } else {
-                    return (i18n.t("analysis.waiting.full"), false)
+                    return (String(format: i18n.t("analysis.ready.at.percent"), snapshot.percentage), false)
                 }
             } else {
-                return (i18n.t("analysis.waiting.full"), false)
+                return (String(format: i18n.t("analysis.charge.to.percent"), snapshot.percentage), false)
             }
         }()
         

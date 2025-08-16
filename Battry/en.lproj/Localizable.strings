@@ -20,6 +20,8 @@
 "analysis.start" = "Start Analysis";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";
 "analysis.unplug.to.start" = "Unplug power to start the test.";
+"analysis.ready.at.percent" = "Ready to start at %d%%. Waiting for power disconnect...";
+"analysis.charge.to.percent" = "Charge %d%%. Charge to 100% and unplug power.";
 "current.charge" = "Current charge:";
 "cancel" = "Cancel";
 "analysis.running" = "Analysis running…";
