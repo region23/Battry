@@ -60,7 +60,7 @@ struct BattryApp: App {
     
     /// Завершает другие запущенные экземпляры приложения
     private func terminateOtherInstances() {
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.battry.app"
+        let bundleID = Bundle.main.bundleIdentifier ?? "region23.Battry"
         let runningApps = NSWorkspace.shared.runningApplications
         
         for app in runningApps {
