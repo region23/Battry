@@ -134,12 +134,24 @@ extension CalibrationPanel {
     }
     
     private var waitingFullStateView: some View {
+        let (message, needsUnplug) = {
+            if snapshot.percentage >= 99 {
+                if snapshot.isCharging || snapshot.powerSource == .ac {
+                    return (i18n.t("analysis.unplug.to.start"), true)
+                } else {
+                    return (i18n.t("analysis.waiting.full"), false)
+                }
+            } else {
+                return (i18n.t("analysis.waiting.full"), false)
+            }
+        }()
+        
         StatusCard(
             title: i18n.t("calibration.waiting.title"),
-            subtitle: String(format: i18n.t("current.charge"), snapshot.percentage),
-            icon: "battery.100.bolt",
-            iconColor: .blue,
-            content: i18n.t("analysis.waiting.full")
+            subtitle: nil,
+            icon: needsUnplug ? "bolt.slash" : "battery.100.bolt",
+            iconColor: needsUnplug ? .orange : .blue,
+            content: message
         ) {
             Button(i18n.t("cancel"), role: .destructive) {
                 calibrator.stop()
@@ -171,16 +183,6 @@ extension CalibrationPanel {
                         Text("\(startPercent)%")
                             .font(.caption)
                             .fontWeight(.medium)
-                    }
-                    
-                    HStack {
-                        Text(i18n.t("current.charge"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text("\(snapshot.percentage)%")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
                     }
                 }
                 
