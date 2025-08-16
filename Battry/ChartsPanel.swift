@@ -19,13 +19,17 @@ enum Timeframe: String, CaseIterable, Identifiable {
 struct ChartsPanel: View {
     @ObservedObject var history: HistoryStore
     @ObservedObject var calibrator: CalibrationEngine
+    let snapshot: BatterySnapshot
     @ObservedObject private var i18n = Localization.shared
+    @ObservedObject private var reportHistory = ReportHistory.shared
     @State private var timeframe: Timeframe = .h24
     @State private var didSetInitialTimeframe: Bool = false
     @State private var showPercent: Bool = true
     @State private var showTemp: Bool = false
     @State private var showVolt: Bool = false
     @State private var showDrain: Bool = false
+    @State private var isGeneratingReport = false
+    @State private var showSuccessAlert = false
 
     private func data() -> [BatteryReading] {
         switch timeframe {
@@ -63,6 +67,9 @@ struct ChartsPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Секция генерации и просмотра отчетов
+            reportsSection
+            
             // Объединенная компактная секция управления
             VStack(alignment: .leading, spacing: 12) {
                 // Период времени
@@ -362,6 +369,167 @@ struct ChartsPanel: View {
         guard denom != 0 else { return 0 }
         let slope = (n * sumXY - sumX * sumY) / denom  // % per hour change
         return max(0, -slope)
+    }
+    
+    // MARK: - Reports Section
+    
+    private var reportsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "doc.text.image")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+                Text(i18n.t("reports.title"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+                
+                Button {
+                    generateReport()
+                } label: {
+                    HStack(spacing: 4) {
+                        if isGeneratingReport {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "plus.circle")
+                        }
+                        Text(i18n.t("reports.generate"))
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(isGeneratingReport)
+            }
+            
+            if !reportHistory.reports.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(reportHistory.reports.prefix(3)) { report in
+                        ReportRowView(report: report, reportHistory: reportHistory)
+                    }
+                    
+                    if reportHistory.reports.count > 3 {
+                        Button {
+                            // TODO: Показать все отчеты в отдельном окне
+                        } label: {
+                            HStack {
+                                Text(i18n.t("reports.show.all"))
+                                    .font(.caption)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                Text(i18n.t("reports.empty"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
+            }
+        }
+        .padding(12)
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
+        )
+        .alert(i18n.t("reports.success.title"), isPresented: $showSuccessAlert) {
+            Button(i18n.t("ok")) { }
+        } message: {
+            Text(i18n.t("reports.success.message"))
+        }
+    }
+    
+    private func generateReport() {
+        isGeneratingReport = true
+        
+        Task {
+            // Выполняем анализ в main actor context
+            let analytics = AnalyticsEngine()
+            let recentHistory = history.recent(days: 7)
+            let lastResult = calibrator.lastResult
+            
+            let analysis = analytics.analyze(
+                history: recentHistory, 
+                snapshot: snapshot
+            )
+            
+            // Генерация HTML также должна быть в main actor context
+            let url = ReportGenerator.generateHTML(
+                result: analysis,
+                snapshot: snapshot,
+                history: recentHistory,
+                calibration: lastResult
+            )
+            
+            // Обновляем UI
+            isGeneratingReport = false
+            
+            if let url = url {
+                NSWorkspace.shared.open(url)
+                showSuccessAlert = true
+            }
+        }
+    }
+}
+
+struct ReportRowView: View {
+    let report: ReportMetadata
+    let reportHistory: ReportHistory
+    @ObservedObject private var i18n = Localization.shared
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(report.displayTitle)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                
+                Text("\(report.dataPoints) \(i18n.t("reports.data.points"))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 4) {
+                Button {
+                    reportHistory.openReport(report)
+                } label: {
+                    Image(systemName: "eye")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help(i18n.t("reports.open"))
+                
+                Button {
+                    reportHistory.deleteReport(report)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+                .help(i18n.t("reports.delete"))
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.quaternary.opacity(0.5))
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            reportHistory.openReport(report)
+        }
     }
 }
 

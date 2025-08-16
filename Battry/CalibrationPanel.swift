@@ -134,20 +134,21 @@ extension CalibrationPanel {
     }
     
     private var waitingFullStateView: some View {
-        let (message, needsUnplug) = {
+        let (title, message, needsUnplug) = {
             if snapshot.percentage >= 98 {
                 if snapshot.isCharging || snapshot.powerSource == .ac {
-                    return (i18n.t("analysis.unplug.to.start"), true)
+                    return (i18n.t("calibration.battery.ready"), i18n.t("analysis.unplug.to.start"), true)
                 } else {
-                    return (String(format: i18n.t("analysis.ready.at.percent"), snapshot.percentage), false)
+                    // Это состояние не должно долго существовать - тест должен автоматически запуститься
+                    return (i18n.t("calibration.waiting.title"), i18n.t("analysis.unplug.to.start"), false)
                 }
             } else {
-                return (String(format: i18n.t("analysis.charge.to.percent"), snapshot.percentage), false)
+                return (i18n.t("calibration.waiting.title"), String(format: i18n.t("analysis.charge.to.percent"), snapshot.percentage), false)
             }
         }()
         
         return StatusCard(
-            title: i18n.t("calibration.waiting.title"),
+            title: title,
             subtitle: nil,
             icon: needsUnplug ? "bolt.slash" : "battery.100.bolt",
             iconColor: needsUnplug ? .orange : .blue,
@@ -295,7 +296,9 @@ extension CalibrationPanel {
                     Button {
                         let analytics = AnalyticsEngine()
                         let analysis = analytics.analyze(history: history.recent(days: 7), snapshot: snapshot)
-                        _ = ReportGenerator.generateHTML(result: analysis, snapshot: snapshot, history: history.recent(days: 7), calibration: result)
+                        if let url = ReportGenerator.generateHTML(result: analysis, snapshot: snapshot, history: history.recent(days: 7), calibration: result) {
+                            NSWorkspace.shared.open(url)
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "square.and.arrow.down")

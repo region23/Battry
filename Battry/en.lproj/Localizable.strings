@@ -20,7 +20,6 @@
 "analysis.start" = "Start Analysis";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";
 "analysis.unplug.to.start" = "Unplug power to start the test.";
-"analysis.ready.at.percent" = "Ready to start at %d%%. Waiting for power disconnect...";
 "analysis.charge.to.percent" = "Charge %d%%. Charge to 100% and unplug power.";
 "current.charge" = "Current charge:";
 "cancel" = "Cancel";
@@ -121,6 +120,7 @@
 "calibration.auto.reset.title" = "Session Reset";
 "calibration.start.test" = "Start Testing";
 "calibration.waiting.title" = "Waiting for Full Charge";
+"calibration.battery.ready" = "Battery Ready";
 "calibration.running.title" = "Test Running";
 "calibration.paused.title" = "Test Paused";
 "calibration.completed.title" = "Test Completed";
@@ -147,9 +147,22 @@
 "about.channel.title" = "Subscribe to my channel";
 "about.channel.description" = "Where I write about AI and AI-powered development";
 "about.copyright" = "© 2025 Developed with ❤️ for the macOS community";
+"quit" = "Quit";
 
 // Confirmation dialog for stopping calibration test
 "calibration.stop.title" = "Stop Test?";
 "calibration.stop.confirm" = "The test has been running for some time. Are you sure you want to stop it? All progress will be lost.";
 "calibration.continue" = "Continue Test";
 "calibration.stop.button" = "Stop Test";
+
+// Reports section
+"reports.title" = "Battery Reports";
+"reports.generate" = "Generate Report";
+"reports.empty" = "No reports yet. Generate your first report to track battery health.";
+"reports.data.points" = "data points";
+"reports.open" = "Open report";
+"reports.delete" = "Delete report";
+"reports.show.all" = "Show all reports";
+"reports.success.title" = "Report Generated";
+"reports.success.message" = "The report has been generated and opened in your browser.";
+"ok" = "OK";

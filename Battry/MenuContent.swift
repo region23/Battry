@@ -114,7 +114,7 @@ struct MenuContent: View {
             Group {
                 switch panel {
                 case .overview: overview
-                case .trends: ChartsPanel(history: history, calibrator: calibrator)
+                case .trends: ChartsPanel(history: history, calibrator: calibrator, snapshot: battery.state)
                 case .test: CalibrationPanel(calibrator: calibrator, history: history, snapshot: battery.state)
                 case .settings: SettingsPanel(history: history, calibrator: calibrator)
                 case .about: AboutPanel()
@@ -122,7 +122,8 @@ struct MenuContent: View {
             }
 
             Divider()
-            // Кнопки действий (отчёт/анализ/выход)
+            
+            // Кнопки действий внизу интерфейса
             controls
         }
         .padding(10)
@@ -139,6 +140,27 @@ struct MenuContent: View {
         .onChange(of: battery.state) { _, _ in
             // Обновляем аналитику при изменении состояния
             overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
+        }
+        .contextMenu {
+            Button {
+                panel = .settings
+            } label: {
+                Label(i18n.t("settings"), systemImage: "gearshape")
+            }
+            
+            Button {
+                panel = .about
+            } label: {
+                Label(i18n.t("about"), systemImage: "info.circle")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label(i18n.t("quit"), systemImage: "power")
+            }
         }
     }
 
@@ -305,43 +327,20 @@ struct MenuContent: View {
             }
         }
     }
-
+    
     private var controls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Button {
-                    // Генерация HTML‑отчёта и открытие в браузере
-                    let result = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
-                    if let url = ReportGenerator.generateHTML(result: result,
-                                                              snapshot: battery.state,
-                                                              history: history.recent(days: 7),
-                                                              calibration: calibrator.lastResult) {
-                        NSWorkspace.shared.open(url)
-                    }
-                } label: {
-                    Label("Отчёт", systemImage: "doc.text.image")
-                }
-                .buttonStyle(.bordered)
-                if panel != .test && !calibrator.state.isActive {
-                    Button {
-                        // Перейти на вкладку теста
-                        panel = .test
-                    } label: {
-                        Label(i18n.t("start.test"), systemImage: "target")
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                Spacer()
-                Button(role: .destructive) {
-                    // Завершить приложение
-                    NSApplication.shared.terminate(nil)
-                } label: {
-                    Label("Выйти", systemImage: "power")
-                }
-                .buttonStyle(.bordered)
+        HStack {
+            Spacer()
+            
+            Button(role: .destructive) {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label(i18n.t("quit"), systemImage: "power")
             }
+            .buttonStyle(.bordered)
         }
     }
+
 }
 
 struct StatCard: View {

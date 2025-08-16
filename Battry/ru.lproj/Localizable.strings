@@ -20,7 +20,6 @@
 "analysis.start" = "Начать анализ";
 "analysis.waiting.full" = "Зарядите до 100% и отключите питание. Анализ стартует автоматически.";
 "analysis.unplug.to.start" = "Отключите питание для начала теста.";
-"analysis.ready.at.percent" = "Готово к запуску при %d%%. Ожидание отключения от сети...";
 "analysis.charge.to.percent" = "Заряд %d%%. Зарядите до 100% и отключите питание.";
 "current.charge" = "Текущий заряд:";
 "cancel" = "Отмена";
@@ -121,6 +120,7 @@
 "calibration.auto.reset.title" = "Сессия сброшена";
 "calibration.start.test" = "Начать тестирование";
 "calibration.waiting.title" = "Ожидание полного заряда";
+"calibration.battery.ready" = "Батарея заряжена";
 "calibration.running.title" = "Выполняется тест";
 "calibration.paused.title" = "Тест приостановлен";
 "calibration.completed.title" = "Тест завершён";
@@ -147,9 +147,22 @@
 "about.channel.title" = "Подписывайтесь на канал";
 "about.channel.description" = "Там я пишу про AI и разработку с помощью AI";
 "about.copyright" = "© 2025 Разработано с ❤️ для macOS сообщества";
+"quit" = "Выйти";
 
 // Диалог подтверждения при прерывании теста калибровки
 "calibration.stop.title" = "Прервать тест?";
 "calibration.stop.confirm" = "Тест выполняется уже некоторое время. Вы уверены, что хотите его прервать? Весь прогресс будет потерян.";
 "calibration.continue" = "Продолжить тест";
 "calibration.stop.button" = "Прервать тест";
+
+// Секция отчетов
+"reports.title" = "Отчеты о батарее";
+"reports.generate" = "Создать отчет";
+"reports.empty" = "Отчетов пока нет. Создайте первый отчет для отслеживания состояния батареи.";
+"reports.data.points" = "точек данных";
+"reports.open" = "Открыть отчет";
+"reports.delete" = "Удалить отчет";
+"reports.show.all" = "Показать все отчеты";
+"reports.success.title" = "Отчет создан";
+"reports.success.message" = "Отчет создан и открыт в браузере.";
+"ok" = "ОК";

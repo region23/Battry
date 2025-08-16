@@ -37,7 +37,7 @@ enum ReportGenerator {
     private static func localizedString(_ key: String) -> String {
         return Localization.shared.t(key)
     }
-    /// Создаёт HTML‑отчёт и возвращает ссылку на временный файл
+    /// Создаёт HTML‑отчёт и сохраняет в постоянную директорию
     static func generateHTML(result: BatteryAnalysis,
                              snapshot: BatterySnapshot,
                              history: [BatteryReading],
@@ -1546,13 +1546,12 @@ enum ReportGenerator {
         </html>
         """
 
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Battry_Report_\(Int(Date().timeIntervalSince1970)).html")
-        do {
-            try html.write(to: url, atomically: true, encoding: String.Encoding.utf8)
-            return url
-        } catch {
-            return nil
-        }
+        // Сохраняем отчет через ReportHistory
+        return ReportHistory.shared.addReport(
+            htmlContent: html,
+            healthScore: result.healthScore,
+            dataPoints: history.count
+        )
     }
 
     // Legacy sparkline removed in favor of uPlot interactive charts
