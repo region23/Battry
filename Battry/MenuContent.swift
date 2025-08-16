@@ -234,7 +234,7 @@ struct MenuContent: View {
                     EnhancedStatCard(
                         title: i18n.t("cycles"),
                         value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)",
-                        icon: "arrow.clockwise"
+                        icon: "repeat.circle"
                     )
                     EnhancedStatCard(
                         title: i18n.t("wear"),

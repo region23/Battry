@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Панель проведения теста/калибровки автономности
 struct CalibrationPanel: View {
@@ -222,7 +223,7 @@ extension CalibrationPanel {
                 }
                 
                 Button(i18n.t("stop"), role: .destructive) {
-                    calibrator.stop()
+                    showStopTestAlert()
                 }
                 .buttonStyle(.bordered)
             }
@@ -415,5 +416,26 @@ extension CalibrationPanel {
                 .foregroundStyle(.tertiary)
                 .italic()
         }
+    }
+    
+    private func showStopTestAlert() {
+        let alert = NSAlert()
+        alert.messageText = i18n.t("calibration.stop.title")
+        alert.informativeText = i18n.t("calibration.stop.confirm")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: i18n.t("calibration.continue"))  // Первая кнопка - продолжить
+        alert.addButton(withTitle: i18n.t("calibration.stop.button"))  // Вторая кнопка - прервать
+        
+        // Устанавливаем деструктивную кнопку для прерывания
+        if let stopButton = alert.buttons.last {
+            stopButton.hasDestructiveAction = true
+        }
+        
+        // Показываем alert и обрабатываем ответ
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn {
+            calibrator.stop()
+        }
+        // При выборе "Продолжить тест" (.alertFirstButtonReturn) ничего не делаем
     }
 }

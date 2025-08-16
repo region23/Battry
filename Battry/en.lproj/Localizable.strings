@@ -139,3 +139,9 @@
 "about.channel.title" = "Subscribe to my channel";
 "about.channel.description" = "Where I write about AI and AI-powered development";
 "about.copyright" = "© 2025 region23. Open source under MIT License.";
+
+// Confirmation dialog for stopping calibration test
+"calibration.stop.title" = "Stop Test?";
+"calibration.stop.confirm" = "The test has been running for some time. Are you sure you want to stop it? All progress will be lost.";
+"calibration.continue" = "Continue Test";
+"calibration.stop.button" = "Stop Test";
