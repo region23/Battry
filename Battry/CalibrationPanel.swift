@@ -5,6 +5,7 @@ import AppKit
 struct CalibrationPanel: View {
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var history: HistoryStore
+    @ObservedObject var analytics: AnalyticsEngine
     let snapshot: BatterySnapshot
     @ObservedObject var loadGenerator: LoadGenerator
     @ObservedObject var videoLoadEngine: VideoLoadEngine
@@ -32,6 +33,7 @@ struct CalibrationPanel: View {
         nonmutating set { calibrator.loadGeneratorSettings.autoStart = newValue }
     }
     @State private var showHeavyProfileWarning: Bool = false
+    @State private var showStopTestConfirm: Bool = false
     
 
     var body: some View {
@@ -87,13 +89,24 @@ struct CalibrationPanel: View {
                 }
             }
         }
-        .alert(i18n.t("heavy.profile.warning.title"), isPresented: $showHeavyProfileWarning) {
-            Button(i18n.t("heavy.profile.warning.cancel"), role: .cancel) { }
-            Button(i18n.t("heavy.profile.warning.continue"), role: .destructive) {
-                selectedProfile = .heavy
+        
+        .confirmationDialog(
+            i18n.t("calibration.stop.title"),
+            isPresented: $showStopTestConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(i18n.t("calibration.stop.button"), role: .destructive) {
+                calibrator.stop()
+                if loadGenerator.isRunning {
+                    loadGenerator.stop(reason: .userStopped)
+                }
+                if videoLoadEngine.isRunning {
+                    videoLoadEngine.stop()
+                }
             }
+            Button(i18n.t("calibration.continue"), role: .cancel) { }
         } message: {
-            Text(i18n.t("heavy.profile.warning.message"))
+            Text(i18n.t("calibration.stop.confirm"))
         }
     }
 
@@ -129,6 +142,45 @@ struct CalibrationPanel: View {
         let elapsedSec = Date().timeIntervalSince(start)
         let dropped = Double(max(0, startPercent - currentPercent))
         return elapsedSec >= 15 * 60 && dropped >= 3
+    }
+    
+    /// Регенерирует HTML отчет с актуальными данными и открывает его
+    private func regenerateAndOpenReport(result: CalibrationResult, originalPath: String) {
+        // Получаем историю для периода калибровки
+        let sessionHistory = history.between(from: result.startedAt, to: result.finishedAt)
+        
+        // Генерируем актуальный анализ с текущими данными
+        let analysis = analytics.analyze(history: sessionHistory, snapshot: snapshot)
+        
+        // Генерируем HTML контент с актуальными данными
+        if let htmlContent = ReportGenerator.generateHTMLContent(
+            result: analysis,
+            snapshot: snapshot,
+            history: sessionHistory,
+            calibration: result,
+            loadGeneratorMetadata: calibrator.currentLoadMetadata
+        ) {
+            // Перезаписываем существующий файл
+            let reportURL = URL(fileURLWithPath: originalPath)
+            
+            do {
+                try htmlContent.write(to: reportURL, atomically: true, encoding: .utf8)
+                print("Report regenerated successfully at: \(originalPath)")
+                
+                // Открываем обновленный отчет
+                NSWorkspace.shared.open(reportURL)
+            } catch {
+                print("Failed to regenerate report: \(error)")
+                
+                // Если не удалось перезаписать, пытаемся открыть существующий файл
+                NSWorkspace.shared.open(reportURL)
+            }
+        } else {
+            print("Failed to generate HTML content for report")
+            
+            // Если не удалось сгенерировать, пытаемся открыть существующий файл
+            NSWorkspace.shared.open(URL(fileURLWithPath: originalPath))
+        }
     }
 }
 
@@ -291,14 +343,7 @@ extension CalibrationPanel {
                 }
                 
                 Button(i18n.t("cancel.test"), role: .destructive) {
-                    showStopTestAlert()
-                    // Also stop load generator and video when canceling test
-                    if loadGenerator.isRunning {
-                        loadGenerator.stop(reason: .userStopped)
-                    }
-                    if videoLoadEngine.isRunning {
-                        videoLoadEngine.stop()
-                    }
+                    showStopTestConfirm = true
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
@@ -354,7 +399,7 @@ extension CalibrationPanel {
                 VStack(spacing: 8) {
                     if let path = result.reportPath {
                         Button {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                            regenerateAndOpenReport(result: result, originalPath: path)
                         } label: {
                             HStack {
                                 Image(systemName: "doc.text")
@@ -427,7 +472,7 @@ extension CalibrationPanel {
                             
                             if let path = result.reportPath {
                                 Button {
-                                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                                    regenerateAndOpenReport(result: result, originalPath: path)
                                 } label: {
                                     Image(systemName: "doc.text")
                                         .font(.system(size: 16))
@@ -445,7 +490,7 @@ extension CalibrationPanel {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             if let path = result.reportPath {
-                                NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                                regenerateAndOpenReport(result: result, originalPath: path)
                             }
                         }
                     }
@@ -521,26 +566,7 @@ extension CalibrationPanel {
         }
     }
     
-    private func showStopTestAlert() {
-        let alert = NSAlert()
-        alert.messageText = i18n.t("calibration.stop.title")
-        alert.informativeText = i18n.t("calibration.stop.confirm")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: i18n.t("calibration.continue"))  // Первая кнопка - продолжить
-        alert.addButton(withTitle: i18n.t("calibration.stop.button"))  // Вторая кнопка - прервать
-        
-        // Устанавливаем деструктивную кнопку для прерывания
-        if let stopButton = alert.buttons.last {
-            stopButton.hasDestructiveAction = true
-        }
-        
-        // Показываем alert и обрабатываем ответ
-        let response = alert.runModal()
-        if response == .alertSecondButtonReturn {
-            calibrator.stop()
-        }
-        // При выборе "Продолжить тест" (.alertFirstButtonReturn) ничего не делаем
-    }
+    
     
 }
 
@@ -594,6 +620,38 @@ extension CalibrationPanel {
                                 }
                                 .buttonStyle(.plain)
                             }
+                        }
+
+                        if showHeavyProfileWarning {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "bolt.fill")
+                                        .foregroundStyle(Color.accentColor)
+                                    Text(i18n.t("heavy.profile.warning.title"))
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                Text(i18n.t("heavy.profile.warning.message"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                HStack(spacing: 8) {
+                                    Button(i18n.t("heavy.profile.warning.continue"), role: .destructive) {
+                                        selectedProfile = .heavy
+                                        showHeavyProfileWarning = false
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    Button(i18n.t("heavy.profile.warning.cancel"), role: .cancel) {
+                                        showHeavyProfileWarning = false
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            .padding(8)
+                            .background(
+                                .regularMaterial,
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            )
                         }
                         
                         Toggle(i18n.t("load.generator.auto.start"), isOn: Binding(

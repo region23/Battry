@@ -47,15 +47,6 @@ final class CalibrationEngine: ObservableObject {
     @Published private(set) var recentResults: [CalibrationResult] = []
     /// Флаг: был авто‑сброс из‑за слишком большого разрыва в данных
     @Published var autoResetDueToGap: Bool = false
-    /// Настройка: не засыпать во время активного теста
-    @Published var preventSleepDuringTesting: Bool = {
-        return UserDefaults.standard.bool(forKey: "preventSleepDuringTesting")
-    }() {
-        didSet {
-            UserDefaults.standard.set(preventSleepDuringTesting, forKey: "preventSleepDuringTesting")
-            updateSleepPrevention()
-        }
-    }
     
     // MARK: - Load Generator Integration
     
@@ -450,14 +441,13 @@ final class CalibrationEngine: ObservableObject {
         return 0
     }
 
-    /// Включает/выключает запрет сна при активном тесте в зависимости от настройки
+    /// Включает/выключает запрет сна при активном тесте автоматически
     private func updateSleepPrevention() {
-        // Отключаем, если нет настройки или не идёт активный забег (только running)
+        // Автоматически предотвращаем сон только во время активного теста (running)
         let isRunning: Bool = {
             if case .running = state { return true } else { return false }
         }()
-        let need = preventSleepDuringTesting && isRunning
-        if need {
+        if isRunning {
             beginPreventingSleepIfNeeded()
         } else {
             endPreventingSleepIfNeeded()

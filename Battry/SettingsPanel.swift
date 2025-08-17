@@ -6,6 +6,7 @@ struct SettingsPanel: View {
     @ObservedObject var history: HistoryStore
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var i18n: Localization = .shared
+    @State private var showClearDataConfirm: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -30,16 +31,6 @@ struct SettingsPanel: View {
                         .frame(width: 120)
                     }
                     
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.t("settings.prevent.sleep"),
-                            icon: "bed.double",
-                            description: i18n.t("settings.prevent.sleep.description")
-                        )
-                        Spacer()
-                        Toggle("", isOn: $calibrator.preventSleepDuringTesting)
-                            .labelsHidden()
-                    }
                 }
             }
             
@@ -86,7 +77,7 @@ struct SettingsPanel: View {
                     }
                     
                     Button(role: .destructive) {
-                        showNativeAlert()
+                        showClearDataConfirm = true
                     } label: {
                         HStack {
                             Image(systemName: "trash")
@@ -101,6 +92,16 @@ struct SettingsPanel: View {
             
             Spacer()
         }
+        .confirmationDialog(
+            i18n.t("settings.data.clear"),
+            isPresented: $showClearDataConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(i18n.t("reset"), role: .destructive) { clearAllData() }
+            Button(i18n.t("cancel"), role: .cancel) { }
+        } message: {
+            Text(i18n.t("settings.data.confirm"))
+        }
     }
 
     private func clearAllData() {
@@ -108,25 +109,7 @@ struct SettingsPanel: View {
         calibrator.clearPersistentData()
     }
     
-    private func showNativeAlert() {
-        let alert = NSAlert()
-        alert.messageText = i18n.t("settings.data.clear")
-        alert.informativeText = i18n.t("settings.data.confirm")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: i18n.t("cancel"))
-        alert.addButton(withTitle: i18n.t("reset"))
-        
-        // Устанавливаем деструктивную кнопку
-        if let resetButton = alert.buttons.last {
-            resetButton.hasDestructiveAction = true
-        }
-        
-        // Показываем alert и обрабатываем ответ
-        let response = alert.runModal()
-        if response == .alertSecondButtonReturn {
-            clearAllData()
-        }
-    }
+    
 
     private var totalBytes: Int64 {
         return history.fileSizeBytes + calibrator.fileSizeBytes

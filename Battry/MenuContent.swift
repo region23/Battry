@@ -120,7 +120,8 @@ struct MenuContent: View {
                 case .trends: ChartsPanel(history: history, calibrator: calibrator, snapshot: battery.state)
                 case .test: CalibrationPanel(
                     calibrator: calibrator, 
-                    history: history, 
+                    history: history,
+                    analytics: analytics, 
                     snapshot: battery.state,
                     loadGenerator: loadGenerator,
                     videoLoadEngine: videoLoadEngine,

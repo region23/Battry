@@ -97,7 +97,6 @@
 // Настройки
 "settings" = "Настройки";
 "settings.language" = "Язык";
-"settings.prevent.sleep" = "Не засыпать во время анализа батареи";
 "settings.data" = "Данные";
 "settings.data.entries.label" = "Записей";
 "settings.data.size.label" = "Объём";
@@ -107,7 +106,6 @@
 // Новые строки для улучшенного интерфейса настроек
 "settings.general" = "Основные настройки";
 "settings.language.description" = "Язык интерфейса приложения";
-"settings.prevent.sleep.description" = "Предотвращает засыпание системы во время тестирования батареи";
 "settings.data.entries.description" = "Количество сохранённых записей мониторинга";
 "settings.data.size.description" = "Общий размер файлов данных на диске";
 "settings.data.danger.zone" = "Опасная зона";

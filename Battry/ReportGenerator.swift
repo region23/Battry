@@ -4,13 +4,7 @@ import AppKit
 
 /// Генерация HTML‑отчёта с графиками на основе истории и снимка
 enum ReportGenerator {
-    /// Загружает текстовый ресурс из бандла
-    private static func loadResourceText(name: String, ext: String) -> String? {
-        if let url = Bundle.main.url(forResource: name, withExtension: ext) {
-            return try? String(contentsOf: url, encoding: .utf8)
-        }
-        return nil
-    }
+    
     
     /// Загружает изображение из бандла и конвертирует в base64 data URL
     private static func loadImageAsDataURL(named: String) -> String? {
@@ -62,36 +56,9 @@ enum ReportGenerator {
         df.dateStyle = .medium
         df.timeStyle = .short
         
-        let isoFormatter = ISO8601DateFormatter()
         let lang = getReportLanguage()
         let recent = history
 
-        // Готовим данные для интерактивных графиков (безопасный JSON)
-        let itemsForJson: [[String: Any]] = recent.map { r in
-            return [
-                "t": isoFormatter.string(from: r.timestamp),
-                "p": r.percentage,
-                "c": r.isCharging,
-                "v": Double(String(format: "%.3f", r.voltage)) ?? r.voltage,
-                "temp": Double(String(format: "%.2f", r.temperature)) ?? r.temperature
-            ]
-        }
-        let jsonData: Data = (try? JSONSerialization.data(withJSONObject: ["items": itemsForJson], options: [])) ?? Data("{\"items\":[]}".utf8)
-        let jsonText: String = String(data: jsonData, encoding: String.Encoding.utf8) ?? "{\"items\":[]}"
-        
-        // Полная энергия батареи (оценка) в Вт⋅ч: (mAh/1000)*V
-        let eFullWh: String = {
-            let cap = snapshot.maxCapacity
-            let volt = snapshot.voltage
-            if cap > 0 && volt > 0 {
-                return String(format: "%.3f", (Double(cap) / 1000.0) * volt)
-            } else {
-                return "null"
-            }
-        }()
-        
-        let uplotCSS = loadResourceText(name: "uPlot.min", ext: "css") ?? ""
-        let uplotJS = loadResourceText(name: "uPlot.iife.min", ext: "js") ?? ""
         
         // Загружаем логотип Battry
         let logoDataURL = loadImageAsDataURL(named: "battry_logo_alpha_horizontal")
@@ -690,103 +657,6 @@ enum ReportGenerator {
               margin-bottom: 0.5rem;
             }
 
-            /* Charts section */
-            .charts-section {
-              margin: 3rem 0;
-            }
-
-            .section-header {
-              text-align: center;
-              margin-bottom: 2rem;
-            }
-
-            .section-header h2 {
-              font-size: 1.8rem;
-              font-weight: 700;
-              color: var(--text-primary);
-              margin-bottom: 0.5rem;
-            }
-
-            .section-subtitle {
-              color: var(--text-secondary);
-              font-size: 1rem;
-            }
-
-            /* Tabs */
-            .tabs {
-              display: flex;
-              gap: 0.5rem;
-              margin-bottom: 1.5rem;
-              padding: 0.25rem;
-              background: var(--bg-secondary);
-              border-radius: 0.75rem;
-              border: 1px solid var(--border-subtle);
-              overflow-x: auto;
-            }
-
-            .tab {
-              flex: 1;
-              min-width: max-content;
-              background: transparent;
-              border: none;
-              color: var(--text-secondary);
-              border-radius: 0.5rem;
-              padding: 0.75rem 1rem;
-              cursor: pointer;
-              font-size: 0.9rem;
-              font-weight: 500;
-              transition: all 0.2s ease;
-              white-space: nowrap;
-            }
-
-            .tab:hover {
-              background: var(--bg-card);
-              color: var(--text-primary);
-            }
-
-            .tab.active {
-              background: var(--bg-card);
-              color: var(--accent-primary);
-              box-shadow: var(--shadow-sm);
-              font-weight: 600;
-            }
-
-            .tab-content {
-              display: none;
-            }
-
-            .tab-content.active {
-              display: block;
-            }
-
-            .chart-container {
-              background: var(--bg-card);
-              border: 1px solid var(--border-subtle);
-              border-radius: 1rem;
-              padding: 1.5rem;
-              box-shadow: var(--shadow-md);
-            }
-
-            .chart-header {
-              margin-bottom: 1rem;
-            }
-
-            .chart-title {
-              font-size: 1.1rem;
-              font-weight: 600;
-              color: var(--text-primary);
-              margin-bottom: 0.25rem;
-            }
-
-            .chart-subtitle {
-              color: var(--text-muted);
-              font-size: 0.9rem;
-            }
-
-            .chart {
-              height: 400px;
-              margin-top: 1rem;
-            }
 
             /* Calibration specific styles */
             .calibration-card {
@@ -920,17 +790,6 @@ enum ReportGenerator {
                 text-align: center;
               }
 
-              .tabs {
-                flex-direction: column;
-              }
-
-              .tab {
-                text-align: center;
-              }
-
-              .chart {
-                height: 300px;
-              }
             }
 
             @media (max-width: 480px) {
@@ -964,37 +823,8 @@ enum ReportGenerator {
                 border: 1px solid #ccc;
               }
 
-              .tabs,
-              .tab {
-                display: none;
-              }
-
-              .tab-content {
-                display: block !important;
-              }
-
-              .chart {
-                height: 300px;
-              }
             }
 
-            /* Custom uPlot overrides */
-            \(uplotCSS)
-            
-            .u-legend {
-              background: var(--bg-card) !important;
-              border: 1px solid var(--border-subtle) !important;
-              border-radius: 0.5rem !important;
-              color: var(--text-primary) !important;
-            }
-
-            .u-tooltip {
-              background: var(--bg-card) !important;
-              border: 1px solid var(--border-subtle) !important;
-              border-radius: 0.5rem !important;
-              color: var(--text-primary) !important;
-              box-shadow: var(--shadow-lg) !important;
-            }
           </style>
         </head>
         <body>
@@ -1132,59 +962,14 @@ enum ReportGenerator {
             \(calibrationHTML)
 
             <!-- Charts Section -->
-            <section class=\"charts-section\">
-              <div class=\"section-header\">
-                <h2>\(lang == "ru" ? "Детальная аналитика" : "Detailed Analytics")</h2>
-                <div class=\"section-subtitle\">\(lang == "ru" ? "Интерактивные графики данных батареи" : "Interactive battery data visualizations")</div>
+            <section style="margin: 3rem 0;">
+              <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">\(lang == "ru" ? "Детальная аналитика" : "Detailed Analytics")</h2>
+                <div style="color: var(--text-secondary); font-size: 1rem;">\(lang == "ru" ? "Графики данных батареи" : "Battery data visualizations")</div>
               </div>
-
-              <div class=\"tabs\">
-                <button class=\"tab active\" data-target=\"tab-pct\">\(lang == "ru" ? "📊 Заряд" : "📊 Charge")</button>
-                <button class=\"tab\" data-target=\"tab-rate\">\(lang == "ru" ? "📉 Разряд" : "📉 Discharge")</button>
-                <button class=\"tab\" data-target=\"tab-vt\">\(lang == "ru" ? "⚡ Напряжение/Температура" : "⚡ Voltage/Temperature")</button>
-                <button class=\"tab\" data-target=\"tab-w\">\(lang == "ru" ? "💡 Потребление" : "💡 Power")</button>
-              </div>
-
-              <div class=\"tab-content active\" id=\"tab-pct\">
-                <div class=\"chart-container\">
-                  <div class=\"chart-header\">
-                    <div class=\"chart-title\">\(lang == "ru" ? "Уровень заряда батареи" : "Battery Charge Level")</div>
-                    <div class=\"chart-subtitle\">\(lang == "ru" ? "Процент заряда во времени с отметками зарядки" : "Charge percentage over time with charging periods")</div>
-                  </div>
-                  <div id=\"chart-pct\" class=\"chart\"></div>
-                </div>
-              </div>
-
-              <div class=\"tab-content\" id=\"tab-rate\">
-                <div class=\"chart-container\">
-                  <div class=\"chart-header\">
-                    <div class=\"chart-title\">\(lang == "ru" ? "Скорость разряда" : "Discharge Rate")</div>
-                    <div class=\"chart-subtitle\">\(lang == "ru" ? "Скорость разряда в процентах за час" : "Discharge rate in percent per hour")</div>
-                  </div>
-                  <div id=\"chart-rate\" class=\"chart\"></div>
-                </div>
-              </div>
-
-              <div class=\"tab-content\" id=\"tab-vt\">
-                <div class=\"chart-container\">
-                  <div class=\"chart-header\">
-                    <div class=\"chart-title\">\(lang == "ru" ? "Напряжение и температура" : "Voltage and Temperature")</div>
-                    <div class=\"chart-subtitle\">\(lang == "ru" ? "Технические параметры батареи" : "Technical battery parameters")</div>
-                  </div>
-                  <div id=\"chart-vt\" class=\"chart\"></div>
-                </div>
-              </div>
-
-              <div class=\"tab-content\" id=\"tab-w\">
-                <div class=\"chart-container\">
-                  <div class=\"chart-header\">
-                    <div class=\"chart-title\">\(lang == "ru" ? "Потребление энергии" : "Power Consumption")</div>
-                    <div class=\"chart-subtitle\">\(lang == "ru" ? "Потребление в ваттах" : "Power consumption in watts")</div>
-                  </div>
-                  <div id=\"chart-w\" class=\"chart\"></div>
-                  <div id=\"w-note\" style=\"margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem;\"></div>
-                </div>
-              </div>
+              
+              \(generateChargeChart(history: recent, lang: lang))
+              \(generateDischargeRateChart(history: recent, lang: lang))
             </section>
 
             <!-- Footer -->
@@ -1192,472 +977,7 @@ enum ReportGenerator {
               <p>\(lang == "ru" ? "Сгенерировано приложением" : "Generated by") <a href=\"https://github.com/region23/Battry\" target=\"_blank\">Battry</a> • \(lang == "ru" ? "Мониторинг состояния батареи macOS" : "macOS Battery Health Monitoring")</p>
             </footer>
 
-            <script type=\"application/json\" id=\"readings-json\">\(jsonText)</script>
           </div>
-        
-         <script>\(uplotJS)</script>
-         <script>
-           // Language settings
-           const isRussian = '\(lang)' === 'ru';
-           
-           // Data preparation
-           const data = JSON.parse(document.getElementById('readings-json').textContent);
-           const items = data.items || [];
-           const x = items.map(r => new Date(r.t).getTime() / 1000);
-           const pct = items.map(r => r.p);
-           const volt = items.map(r => r.v);
-           const temp = items.map(r => r.temp);
-           const charging = items.map(r => !!r.c);
-           const eFullWh = \(eFullWh);
-           
-           // Chart themes
-           const chartColors = {
-             primary: getComputedStyle(document.documentElement).getPropertyValue('--accent-primary').trim() || '#3b82f6',
-             secondary: getComputedStyle(document.documentElement).getPropertyValue('--accent-secondary').trim() || '#06b6d4',
-             success: getComputedStyle(document.documentElement).getPropertyValue('--success').trim() || '#10b981',
-             warning: getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#f59e0b',
-             danger: getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#ef4444',
-             textPrimary: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#0f172a',
-             textSecondary: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#475569',
-             borderSubtle: getComputedStyle(document.documentElement).getPropertyValue('--border-subtle').trim() || '#e2e8f0'
-           };
-
-           // Enhanced utility functions
-           function containerWidth(el) { 
-             return Math.min(1100, Math.max(300, el.clientWidth - 32)); 
-           }
-           
-           function formatTime(ts) {
-             return new Date(ts * 1000).toLocaleString(isRussian ? 'ru-RU' : 'en-US', {
-               hour: '2-digit',
-               minute: '2-digit',
-               month: 'short',
-               day: 'numeric'
-             });
-           }
-           
-           // Charging bands for visualization
-           function mkBandsCharging() {
-             const bands = [];
-             let start = null;
-             for (let i = 0; i < charging.length; i++) {
-               const xi = x[i];
-               if (charging[i] && start === null) start = xi;
-               if (!charging[i] && start !== null) { 
-                 bands.push([start, xi]); 
-                 start = null; 
-               }
-             }
-             if (start !== null) bands.push([start, x[x.length - 1]]);
-             return bands;
-           }
-           
-           // Micro-drop detection for anomaly visualization
-           function mkMicroDropMarkers() {
-             const ev = new Array(pct.length).fill(null);
-             for (let i = 1; i < pct.length; i++) {
-               const dt = (x[i] - x[i - 1]);
-               const d = pct[i] - pct[i - 1];
-               if (!charging[i] && !charging[i - 1] && dt <= 120 && d <= -2) { 
-                 ev[i] = pct[i]; 
-               }
-             }
-             return ev;
-           }
-           
-           // Enhanced discharge rate calculation
-           function dischargeRatePctPerHour(windowSec = 1800) {
-             const rate = new Array(pct.length).fill(null);
-             let j = 0;
-             for (let i = 0; i < pct.length; i++) {
-               const t = x[i];
-               while (j < i && t - x[j] > windowSec) j++;
-               const dt = (t - x[j]) / 3600;
-               if (dt > 0) {
-                 const startPct = pct[j];
-                 const endPct = pct[i];
-                 const anyCh = charging.slice(j, i + 1).some(Boolean);
-                 if (!anyCh && startPct != null && endPct != null) {
-                   const d = startPct - endPct;
-                   rate[i] = Math.max(0, d / dt);
-                 }
-               }
-             }
-             return rate;
-           }
-           
-           function powerWattsFromRate(rate) { 
-             if (eFullWh == null) return null; 
-             return rate.map(r => r == null ? null : (r / 100) * eFullWh); 
-           }
-           
-           // Prepare chart data
-           const bands = mkBandsCharging();
-           const drops = mkMicroDropMarkers();
-           const rate = dischargeRatePctPerHour();
-           const watts = powerWattsFromRate(rate);
-           
-           // Charging background plugin
-           const shadeCharging = {
-             hooks: {
-               draw: (u) => {
-                 const ctx = u.ctx;
-                 ctx.save();
-                 ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
-                 bands.forEach(([a, b]) => {
-                   const x0 = u.valToPos(a, 'x', true);
-                   const x1 = u.valToPos(b, 'x', true);
-                   ctx.fillRect(x0, u.bbox.top, x1 - x0, u.bbox.height);
-                 });
-                 ctx.restore();
-               }
-             }
-           };
-           
-           // Progress ring animation
-           function animateProgressRing() {
-             const progressRings = document.querySelectorAll('.progress-ring');
-             progressRings.forEach((ring, index) => {
-               setTimeout(() => {
-                 const healthScore = \(result.healthScore);
-                 const circumference = 339.29;
-                 const offset = circumference * (1 - healthScore / 100);
-                 ring.style.strokeDashoffset = offset;
-                 
-                 // Set color based on health score
-                 if (healthScore >= 85) ring.setAttribute('stroke', chartColors.success);
-                 else if (healthScore >= 70) ring.setAttribute('stroke', chartColors.warning);
-                 else if (healthScore >= 50) ring.setAttribute('stroke', '#f97316');
-                 else ring.setAttribute('stroke', chartColors.danger);
-               }, index * 200);
-             });
-           }
-           
-           // Chart storage
-           const charts = {};
-           
-           // Common chart options
-           const commonOpts = {
-             cursor: {
-               drag: { x: true, y: false, setScale: true },
-               sync: { key: 'battry-charts' }
-             },
-             legend: { 
-               live: true,
-               mount: (self, legend) => {
-                 legend.style.background = 'var(--bg-card)';
-                 legend.style.border = '1px solid var(--border-subtle)';
-                 legend.style.borderRadius = '0.5rem';
-                 legend.style.color = 'var(--text-primary)';
-               }
-             },
-             scales: {
-               x: { 
-                 time: true,
-                 distr: 1
-               }
-             },
-             axes: [
-               {
-                 stroke: chartColors.borderSubtle,
-                 ticks: { stroke: chartColors.borderSubtle },
-                 font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                 size: 12,
-                 values: (self, vals) => vals.map(v => formatTime(v))
-               }
-             ]
-           };
-           
-           // Battery percentage chart
-           function mkPctChart() {
-             const el = document.getElementById('chart-pct');
-             const opts = {
-               ...commonOpts,
-               width: containerWidth(el),
-               height: 400,
-               scales: {
-                 ...commonOpts.scales,
-                 y: { range: [0, 100] }
-               },
-               axes: [
-                 ...commonOpts.axes,
-                 {
-                   stroke: chartColors.borderSubtle,
-                   ticks: { stroke: chartColors.borderSubtle },
-                   font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                   size: 12,
-                   values: (u, vals) => vals.map(v => v + '%')
-                 }
-               ],
-               series: [
-                 {},
-                 {
-                   label: isRussian ? 'Заряд %' : 'Charge %',
-                   stroke: chartColors.primary,
-                   width: 3,
-                   fill: chartColors.primary + '20',
-                   paths: u => uPlot.paths.spline()([u.data[0], u.data[1]], 0.5)
-                 },
-                 {
-                   label: isRussian ? 'Микро-просадки' : 'Micro-drops',
-                   stroke: 'transparent',
-                   width: 0,
-                   points: {
-                     size: 8,
-                     width: 3,
-                     stroke: chartColors.warning,
-                     fill: chartColors.warning + '80'
-                   }
-                 }
-               ],
-               plugins: [shadeCharging]
-             };
-             
-             const u = new uPlot(opts, [x, pct, drops], el);
-             charts.pct = u;
-           }
-           
-           // Discharge rate chart
-           function mkRateChart() {
-             const el = document.getElementById('chart-rate');
-             const opts = {
-               ...commonOpts,
-               width: containerWidth(el),
-               height: 400,
-               scales: {
-                 ...commonOpts.scales,
-                 y: { range: [0, (u) => Math.max(5, (u.series[1].max || 0) * 1.1)] }
-               },
-               axes: [
-                 ...commonOpts.axes,
-                 {
-                   stroke: chartColors.borderSubtle,
-                   ticks: { stroke: chartColors.borderSubtle },
-                   font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                   size: 12,
-                   values: (u, vals) => vals.map(v => v.toFixed(1) + (isRussian ? ' %/ч' : ' %/h'))
-                 }
-               ],
-               series: [
-                 {},
-                 {
-                   label: isRussian ? 'Разряд %/ч' : 'Discharge %/h',
-                   stroke: chartColors.secondary,
-                   width: 3,
-                   fill: chartColors.secondary + '20'
-                 }
-               ]
-             };
-             
-             const u = new uPlot(opts, [x, rate], el);
-             charts.rate = u;
-           }
-           
-           // Voltage and temperature chart
-           function mkVTChart() {
-             const el = document.getElementById('chart-vt');
-             const opts = {
-               ...commonOpts,
-               width: containerWidth(el),
-               height: 400,
-               scales: {
-                 ...commonOpts.scales,
-                 y: {},
-                 temp: {}
-               },
-               axes: [
-                 ...commonOpts.axes,
-                 {
-                   label: 'V',
-                   side: 3,
-                   stroke: chartColors.borderSubtle,
-                   ticks: { stroke: chartColors.borderSubtle },
-                   font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                   size: 12,
-                   values: (u, vals) => vals.map(v => v.toFixed(2) + 'V')
-                 },
-                 {
-                   label: '°C',
-                   scale: 'temp',
-                   side: 1,
-                   stroke: chartColors.borderSubtle,
-                   ticks: { stroke: chartColors.borderSubtle },
-                   font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                   size: 12,
-                   values: (u, vals) => vals.map(v => v.toFixed(1) + '°C')
-                 }
-               ],
-               series: [
-                 {},
-                 {
-                   label: isRussian ? 'Напряжение (V)' : 'Voltage (V)',
-                   stroke: chartColors.success,
-                   width: 3
-                 },
-                 {
-                   label: isRussian ? 'Температура (°C)' : 'Temperature (°C)',
-                   stroke: chartColors.warning,
-                   width: 3,
-                   scale: 'temp'
-                 }
-               ]
-             };
-             
-             const u = new uPlot(opts, [x, volt, temp], el);
-             charts.vt = u;
-           }
-           
-           // Power consumption chart
-           function mkWChart() {
-             const el = document.getElementById('chart-w');
-             const note = document.getElementById('w-note');
-             
-             if (eFullWh == null) {
-               note.textContent = isRussian ? 
-                 'Недоступно: недостаточно данных о ёмкости/напряжении.' :
-                 'Unavailable: insufficient capacity/voltage data.';
-               return;
-             }
-             
-             const opts = {
-               ...commonOpts,
-               width: containerWidth(el),
-               height: 400,
-               axes: [
-                 ...commonOpts.axes,
-                 {
-                   label: isRussian ? 'Ватт' : 'Watts',
-                   stroke: chartColors.borderSubtle,
-                   ticks: { stroke: chartColors.borderSubtle },
-                   font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                   size: 12,
-                   values: (u, vals) => vals.map(v => v.toFixed(1) + 'W')
-                 }
-               ],
-               series: [
-                 {},
-                 {
-                   label: isRussian ? 'Потребление (Вт)' : 'Power (W)',
-                   stroke: chartColors.danger,
-                   width: 3,
-                   fill: chartColors.danger + '20'
-                 }
-               ]
-             };
-             
-             const u = new uPlot(opts, [x, watts], el);
-             charts.w = u;
-           }
-           
-           // Responsive chart resizing
-           function onResize() {
-             requestAnimationFrame(() => {
-               for (const id in charts) {
-                 const chartEl = charts[id].root.parentElement;
-                 const newWidth = containerWidth(chartEl);
-                 charts[id].setSize({ width: newWidth, height: 400 });
-               }
-             });
-           }
-           
-           // Tab management
-           function mountTabs() {
-             const tabs = Array.from(document.querySelectorAll('.tab'));
-             tabs.forEach(btn => {
-               btn.addEventListener('click', () => {
-                 // Remove active class from all tabs and content
-                 tabs.forEach(b => b.classList.remove('active'));
-                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                 
-                 // Add active class to clicked tab and corresponding content
-                 btn.classList.add('active');
-                 const id = btn.getAttribute('data-target');
-                 const content = document.getElementById(id);
-                 if (content) {
-                   content.classList.add('active');
-                   // Trigger resize for the newly visible chart
-                   setTimeout(onResize, 50);
-                 }
-               });
-             });
-           }
-           
-           // Smooth scroll enhancement
-           function enhanceScrolling() {
-             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-               anchor.addEventListener('click', function (e) {
-                 e.preventDefault();
-                 const target = document.querySelector(this.getAttribute('href'));
-                 if (target) {
-                   target.scrollIntoView({
-                     behavior: 'smooth',
-                     block: 'start'
-                   });
-                 }
-               });
-             });
-           }
-           
-           // Intersection observer for animations
-           function setupAnimations() {
-             const observer = new IntersectionObserver((entries) => {
-               entries.forEach(entry => {
-                 if (entry.isIntersecting) {
-                   entry.target.style.opacity = '1';
-                   entry.target.style.transform = 'translateY(0)';
-                 }
-               });
-             }, { threshold: 0.1 });
-             
-             document.querySelectorAll('.card, .executive-summary').forEach(el => {
-               el.style.opacity = '0';
-               el.style.transform = 'translateY(20px)';
-               el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-               observer.observe(el);
-             });
-           }
-           
-           // Initialize everything
-           function init() {
-             try {
-               mkPctChart();
-               mkRateChart(); 
-               mkVTChart(); 
-               mkWChart();
-               mountTabs();
-               enhanceScrolling();
-               setupAnimations();
-               animateProgressRing();
-               
-               // Event listeners
-               window.addEventListener('resize', onResize);
-               
-               // Print handling
-               window.addEventListener('beforeprint', () => {
-                 document.querySelectorAll('.tab-content').forEach(content => {
-                   content.style.display = 'block';
-                 });
-               });
-               
-               window.addEventListener('afterprint', () => {
-                 document.querySelectorAll('.tab-content:not(.active)').forEach(content => {
-                   content.style.display = 'none';
-                 });
-               });
-               
-               console.log('Battry report initialized successfully');
-             } catch (error) {
-               console.error('Error initializing Battry report:', error);
-             }
-           }
-           
-           // Start when DOM is ready
-           if (document.readyState === 'loading') {
-             document.addEventListener('DOMContentLoaded', init);
-           } else {
-             init();
-           }
-         </script>
         </body>
         </html>
         """
@@ -1690,6 +1010,235 @@ enum ReportGenerator {
             return nil
         }
     }
+    
+    // MARK: - SVG Chart Generation
+    
+    /// Generates SVG chart for battery charge level over time
+    private static func generateChargeChart(history: [BatteryReading], width: Int = 800, height: Int = 300, lang: String) -> String {
+        guard !history.isEmpty else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == "ru" ? "Нет данных об уровне заряда" : "No battery charge data available")</div>"
+        }
+        
+        let chartWidth = width - 80
+        let chartHeight = height - 80
+        let marginLeft = 50
+        let marginTop = 20
+        
+        // Find data bounds
+        let timestamps = history.map { $0.timestamp.timeIntervalSince1970 }
+        let minTime = timestamps.min() ?? 0
+        let maxTime = timestamps.max() ?? 1
+        let timeRange = max(maxTime - minTime, 1)
+        
+        // Generate SVG path for charge line
+        var pathCommands: [String] = []
+        var chargingBands: [String] = []
+        
+        for (index, reading) in history.enumerated() {
+            let x = Double(chartWidth) * (reading.timestamp.timeIntervalSince1970 - minTime) / timeRange
+            let y = Double(chartHeight) * (1.0 - Double(reading.percentage) / 100.0)
+            
+            if index == 0 {
+                pathCommands.append("M\(Int(x + Double(marginLeft))),\(Int(y + Double(marginTop)))")
+            } else {
+                pathCommands.append("L\(Int(x + Double(marginLeft))),\(Int(y + Double(marginTop)))")
+            }
+            
+            // Track charging periods for background bands
+            if reading.isCharging {
+                let bandX = Int(x + Double(marginLeft))
+                chargingBands.append("<rect x=\"\(bandX-1)\" y=\"\(marginTop)\" width=\"2\" height=\"\(chartHeight)\" fill=\"rgba(16, 185, 129, 0.2)\" />")
+            }
+        }
+        
+        let pathData = pathCommands.joined(separator: " ")
+        
+        // Create time axis labels
+        let timeLabels = generateTimeLabels(minTime: minTime, maxTime: maxTime, width: chartWidth, marginLeft: marginLeft, marginTop: marginTop, chartHeight: chartHeight, lang: lang)
+        
+        // Create percentage axis labels
+        let percentageLabels = generatePercentageLabels(chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang)
+        
+        return """
+        <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
+          <div class="chart-header" style="margin-bottom: 1rem; text-align: center;">
+            <div class="chart-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">\(lang == "ru" ? "Уровень заряда батареи" : "Battery Charge Level")</div>
+            <div class="chart-subtitle" style="color: var(--text-muted); font-size: 0.9rem;">\(lang == "ru" ? "Процент заряда во времени с периодами зарядки" : "Charge percentage over time with charging periods")</div>
+          </div>
+          <svg viewBox="0 0 \(width) \(height)" style="width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;">
+            <!-- Grid lines -->
+            <defs>
+              <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="var(--border-subtle)" stroke-width="0.5"/>
+              </pattern>
+            </defs>
+            <rect x="\(marginLeft)" y="\(marginTop)" width="\(chartWidth)" height="\(chartHeight)" fill="url(#grid)" opacity="0.3"/>
+            
+            <!-- Charging periods background -->
+            \(chargingBands.joined(separator: "\n            "))
+            
+            <!-- Charge line -->
+            <path d="\(pathData)" fill="none" stroke="var(--accent-primary)" stroke-width="2.5" opacity="0.9"/>
+            
+            <!-- Axes -->
+            <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            <line x1="\(marginLeft)" y1="\(marginTop + chartHeight)" x2="\(marginLeft + chartWidth)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            
+            <!-- Axis labels -->
+            \(timeLabels)
+            \(percentageLabels)
+          </svg>
+        </div>
+        """
+    }
+    
+    /// Generates SVG chart for discharge rate over time
+    private static func generateDischargeRateChart(history: [BatteryReading], width: Int = 800, height: Int = 300, lang: String) -> String {
+        guard history.count > 1 else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == "ru" ? "Недостаточно данных для расчета скорости разряда" : "Insufficient data for discharge rate calculation")</div>"
+        }
+        
+        let chartWidth = width - 80
+        let chartHeight = height - 80
+        let marginLeft = 50
+        let marginTop = 20
+        
+        // Calculate discharge rates
+        var dischargeRates: [(timestamp: Double, rate: Double)] = []
+        
+        for i in 1..<history.count {
+            let prev = history[i-1]
+            let curr = history[i]
+            
+            if !prev.isCharging && !curr.isCharging {
+                let timeDiff = curr.timestamp.timeIntervalSince(prev.timestamp) / 3600.0 // hours
+                if timeDiff > 0 && timeDiff < 2 { // Only consider reasonable time intervals
+                    let percentageDiff = Double(prev.percentage - curr.percentage)
+                    if percentageDiff > 0 {
+                        let rate = percentageDiff / timeDiff
+                        dischargeRates.append((timestamp: curr.timestamp.timeIntervalSince1970, rate: rate))
+                    }
+                }
+            }
+        }
+        
+        guard !dischargeRates.isEmpty else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == "ru" ? "Нет данных о скорости разряда" : "No discharge rate data available")</div>"
+        }
+        
+        let timestamps = dischargeRates.map { $0.timestamp }
+        let rates = dischargeRates.map { $0.rate }
+        let minTime = timestamps.min() ?? 0
+        let maxTime = timestamps.max() ?? 1
+        let timeRange = max(maxTime - minTime, 1)
+        let maxRate = rates.max() ?? 10
+        
+        // Generate SVG path
+        var pathCommands: [String] = []
+        
+        for (index, dataPoint) in dischargeRates.enumerated() {
+            let x = Double(chartWidth) * (dataPoint.timestamp - minTime) / timeRange
+            let y = Double(chartHeight) * (1.0 - dataPoint.rate / maxRate)
+            
+            if index == 0 {
+                pathCommands.append("M\(Int(x + Double(marginLeft))),\(Int(y + Double(marginTop)))")
+            } else {
+                pathCommands.append("L\(Int(x + Double(marginLeft))),\(Int(y + Double(marginTop)))")
+            }
+        }
+        
+        let pathData = pathCommands.joined(separator: " ")
+        let timeLabels = generateTimeLabels(minTime: minTime, maxTime: maxTime, width: chartWidth, marginLeft: marginLeft, marginTop: marginTop, chartHeight: chartHeight, lang: lang)
+        let rateLabels = generateRateLabels(maxRate: maxRate, chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang)
+        
+        return """
+        <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
+          <div class="chart-header" style="margin-bottom: 1rem; text-align: center;">
+            <div class="chart-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">\(lang == "ru" ? "Скорость разряда" : "Discharge Rate")</div>
+            <div class="chart-subtitle" style="color: var(--text-muted); font-size: 0.9rem;">\(lang == "ru" ? "Скорость разряда в процентах за час" : "Discharge rate in percent per hour")</div>
+          </div>
+          <svg viewBox="0 0 \(width) \(height)" style="width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;">
+            <!-- Grid lines -->
+            <defs>
+              <pattern id="grid2" width="40" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="var(--border-subtle)" stroke-width="0.5"/>
+              </pattern>
+            </defs>
+            <rect x="\(marginLeft)" y="\(marginTop)" width="\(chartWidth)" height="\(chartHeight)" fill="url(#grid2)" opacity="0.3"/>
+            
+            <!-- Discharge rate line -->
+            <path d="\(pathData)" fill="none" stroke="var(--accent-secondary)" stroke-width="2.5" opacity="0.9"/>
+            
+            <!-- Axes -->
+            <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            <line x1="\(marginLeft)" y1="\(marginTop + chartHeight)" x2="\(marginLeft + chartWidth)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            
+            <!-- Axis labels -->
+            \(timeLabels)
+            \(rateLabels)
+          </svg>
+        </div>
+        """
+    }
+    
+    /// Generates time axis labels for charts
+    private static func generateTimeLabels(minTime: Double, maxTime: Double, width: Int, marginLeft: Int, marginTop: Int, chartHeight: Int, lang: String) -> String {
+        let timeRange = maxTime - minTime
+        let numberOfLabels = 5
+        let labelInterval = timeRange / Double(numberOfLabels - 1)
+        
+        var labels: [String] = []
+        
+        for i in 0..<numberOfLabels {
+            let timestamp = minTime + Double(i) * labelInterval
+            let date = Date(timeIntervalSince1970: timestamp)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            let timeLabel = formatter.string(from: date)
+            
+            let x = Int(Double(width) * Double(i) / Double(numberOfLabels - 1)) + marginLeft
+            let y = marginTop + chartHeight + 15
+            
+            labels.append("<text x=\"\(x)\" y=\"\(y)\" text-anchor=\"middle\" fill=\"var(--text-secondary)\" font-size=\"10px\">\(timeLabel)</text>")
+        }
+        
+        return labels.joined(separator: "\n            ")
+    }
+    
+    /// Generates percentage axis labels for charge chart
+    private static func generatePercentageLabels(chartHeight: Int, marginLeft: Int, marginTop: Int, lang: String) -> String {
+        var labels: [String] = []
+        
+        for percentage in stride(from: 0, through: 100, by: 25) {
+            let y = marginTop + Int(Double(chartHeight) * (1.0 - Double(percentage) / 100.0))
+            labels.append("<text x=\"\(marginLeft - 8)\" y=\"\(y + 4)\" text-anchor=\"end\" fill=\"var(--text-secondary)\" font-size=\"10px\">\(percentage)%</text>")
+            
+            // Grid line
+            labels.append("<line x1=\"\(marginLeft)\" y1=\"\(y)\" x2=\"\(marginLeft + 750)\" y2=\"\(y)\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\" opacity=\"0.5\"/>")
+        }
+        
+        return labels.joined(separator: "\n            ")
+    }
+    
+    /// Generates rate axis labels for discharge rate chart
+    private static func generateRateLabels(maxRate: Double, chartHeight: Int, marginLeft: Int, marginTop: Int, lang: String) -> String {
+        var labels: [String] = []
+        let steps = 5
+        
+        for i in 0...steps {
+            let rate = maxRate * Double(i) / Double(steps)
+            let y = marginTop + Int(Double(chartHeight) * (1.0 - Double(i) / Double(steps)))
+            let rateText = String(format: "%.1f", rate) + (lang == "ru" ? " %/ч" : " %/h")
+            
+            labels.append("<text x=\"\(marginLeft - 8)\" y=\"\(y + 4)\" text-anchor=\"end\" fill=\"var(--text-secondary)\" font-size=\"10px\">\(rateText)</text>")
+            
+            // Grid line
+            if i > 0 {
+                labels.append("<line x1=\"\(marginLeft)\" y1=\"\(y)\" x2=\"\(marginLeft + 750)\" y2=\"\(y)\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\" opacity=\"0.5\"/>")
+            }
+        }
+        
+        return labels.joined(separator: "\n            ")
+    }
 
-    // Legacy sparkline removed in favor of uPlot interactive charts
 }
