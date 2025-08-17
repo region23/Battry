@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battry - Advanced macOS Battery Monitor</title>
+    <meta name="description" content="Professional battery monitoring for macOS. Real-time analytics, health scoring, and comprehensive autonomy testing.">
+    <meta name="keywords" content="macOS, battery, monitor, analytics, health, autonomy, testing, report">
+    <meta property="og:title" content="Battry - Advanced macOS Battery Monitor">
+    <meta property="og:description" content="Professional battery monitoring for macOS with real-time analytics and health scoring.">
+    <meta property="og:image" content="https://region23.github.io/Battry/battry.png">
+    <meta property="og:url" content="https://region23.github.io/Battry/">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="battry.png">
+</head>
+<body>
+    <!-- Language Toggle -->
+    <div class="language-toggle">
+        <button id="lang-en" class="lang-btn active" data-lang="en">EN</button>
+        <button id="lang-ru" class="lang-btn" data-lang="ru">РУ</button>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <img src="battry.png" alt="Battry Logo" class="hero-logo">
+                <h1 class="hero-title" data-key="hero.title">Advanced Battery Monitoring for macOS</h1>
+                <p class="hero-subtitle" data-key="hero.subtitle">Professional-grade battery analytics, health scoring, and autonomy testing in your menu bar</p>
+                <div class="hero-buttons">
+                    <a href="https://github.com/region23/Battry/releases/latest" class="btn btn-primary" data-key="hero.download">
+                        <span class="btn-icon">⬇</span>
+                        Download for macOS
+                    </a>
+                    <a href="https://github.com/region23/Battry" class="btn btn-secondary" data-key="hero.github">
+                        <span class="btn-icon">⌘</span>
+                        View on GitHub
+                    </a>
+                </div>
+                <div class="hero-note">
+                    <span data-key="hero.requirements">macOS 14.6+ • Apple Silicon & Intel</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title" data-key="features.title">Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card" data-animation="fade-up">
+                    <div class="feature-icon">📊</div>
+                    <h3 data-key="features.realtime.title">Real-time Monitoring</h3>
+                    <p data-key="features.realtime.desc">Live battery metrics in your menu bar with detailed percentage, cycles, temperature, and voltage tracking</p>
+                </div>
+                <div class="feature-card" data-animation="fade-up">
+                    <div class="feature-icon">🔋</div>
+                    <h3 data-key="features.autonomy.title">Autonomy Testing</h3>
+                    <p data-key="features.autonomy.desc">Complete 100% → 5% discharge tests with automatic start/stop and comprehensive HTML reports</p>
+                </div>
+                <div class="feature-card" data-animation="fade-up">
+                    <div class="feature-icon">❤️</div>
+                    <h3 data-key="features.health.title">Health Scoring</h3>
+                    <p data-key="features.health.desc">Advanced analytics engine with 0-100 health scoring, wear analysis, and personalized recommendations</p>
+                </div>
+                <div class="feature-card" data-animation="fade-up">
+                    <div class="feature-icon">📈</div>
+                    <h3 data-key="features.charts.title">Interactive Charts</h3>
+                    <p data-key="features.charts.desc">Detailed Swift Charts visualization with charge trends, temperature, voltage, and discharge rate analysis</p>
+                </div>
+                <div class="feature-card" data-animation="fade-up">
+                    <div class="feature-icon">⚡</div>
+                    <h3 data-key="features.loadgen.title">Load Generator</h3>
+                    <p data-key="features.loadgen.desc">Built-in CPU/GPU stress testing with configurable profiles for consistent discharge testing</p>
+                </div>
+                <div class="feature-card" data-animation="fade-up">
+                    <div class="feature-icon">📄</div>
+                    <h3 data-key="features.reports.title">HTML Reports</h3>
+                    <p data-key="features.reports.desc">Beautiful, shareable reports with embedded charts, device info, and detailed analysis results</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshots Section -->
+    <section class="screenshots">
+        <div class="container">
+            <h2 class="section-title" data-key="screenshots.title">Application Interface</h2>
+            <div class="screenshots-grid">
+                <div class="screenshot-item" data-animation="fade-up">
+                    <img src="screenshots/en/screenshot1.png" alt="Overview Panel" class="screenshot-img" data-screenshot="1" onclick="openLightbox(this)">
+                    <div class="screenshot-caption" data-key="screenshots.overview">Overview Panel</div>
+                </div>
+                <div class="screenshot-item" data-animation="fade-up">
+                    <img src="screenshots/en/screenshot2.png" alt="Charts Panel" class="screenshot-img" data-screenshot="2" onclick="openLightbox(this)">
+                    <div class="screenshot-caption" data-key="screenshots.charts">Charts & Analytics</div>
+                </div>
+                <div class="screenshot-item" data-animation="fade-up">
+                    <img src="screenshots/en/screenshot3.png" alt="Test Panel" class="screenshot-img" data-screenshot="3" onclick="openLightbox(this)">
+                    <div class="screenshot-caption" data-key="screenshots.test">Autonomy Testing</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technical Details Section -->
+    <section class="technical">
+        <div class="container">
+            <h2 class="section-title" data-key="technical.title">Technical Excellence</h2>
+            <div class="technical-grid">
+                <div class="technical-card" data-animation="fade-up">
+                    <h3 data-key="technical.native.title">Native SwiftUI</h3>
+                    <p data-key="technical.native.desc">Built with SwiftUI and Combine for optimal performance and seamless macOS integration</p>
+                    <ul>
+                        <li data-key="technical.native.menubar">Menu bar integration</li>
+                        <li data-key="technical.native.iokit">Direct IOKit access</li>
+                        <li data-key="technical.native.reactive">Reactive data flow</li>
+                    </ul>
+                </div>
+                <div class="technical-card" data-animation="fade-up">
+                    <h3 data-key="technical.data.title">Smart Data Management</h3>
+                    <p data-key="technical.data.desc">Efficient history storage with automatic cleanup and intelligent data aggregation</p>
+                    <ul>
+                        <li data-key="technical.data.retention">30-day data retention</li>
+                        <li data-key="technical.data.aggregation">Automatic aggregation</li>
+                        <li data-key="technical.data.json">JSON persistence</li>
+                    </ul>
+                </div>
+                <div class="technical-card" data-animation="fade-up">
+                    <h3 data-key="technical.safety.title">Safety Systems</h3>
+                    <p data-key="technical.safety.desc">Built-in safety guards to protect your device during intensive testing</p>
+                    <ul>
+                        <li data-key="technical.safety.temperature">Temperature monitoring</li>
+                        <li data-key="technical.safety.battery">Battery level protection</li>
+                        <li data-key="technical.safety.thermal">Thermal pressure detection</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section class="download">
+        <div class="container">
+            <div class="download-content">
+                <h2 class="section-title" data-key="download.title">Get Battry Today</h2>
+                <p class="download-desc" data-key="download.desc">Free, open-source, and ready to provide deep insights into your Mac's battery health</p>
+                
+                <div class="requirements">
+                    <h3 data-key="download.requirements.title">System Requirements</h3>
+                    <div class="requirements-grid">
+                        <div class="requirement-item">
+                            <span class="requirement-label" data-key="download.requirements.macos">macOS:</span>
+                            <span class="requirement-value">14.6+</span>
+                        </div>
+                        <div class="requirement-item">
+                            <span class="requirement-label" data-key="download.requirements.processor">Processor:</span>
+                            <span class="requirement-value">Apple Silicon / Intel</span>
+                        </div>
+                        <div class="requirement-item">
+                            <span class="requirement-label" data-key="download.requirements.space">Storage:</span>
+                            <span class="requirement-value">~10 MB</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="download-buttons">
+                    <a href="https://github.com/region23/Battry/releases/latest" class="btn btn-primary btn-large" data-key="download.button">
+                        <span class="btn-icon">⬇</span>
+                        Download Latest Version
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <img src="battry.png" alt="Battry" class="footer-logo-img">
+                    <span class="footer-logo-text">Battry</span>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/region23/Battry" class="footer-link" data-key="footer.github">GitHub Repository</a>
+                    <a href="https://github.com/region23/Battry/releases" class="footer-link" data-key="footer.releases">All Releases</a>
+                    <a href="https://github.com/region23/Battry/issues" class="footer-link" data-key="footer.issues">Report Issues</a>
+                    <a href="https://t.me/region23" class="footer-link" data-key="footer.contact">Contact Developer</a>
+                </div>
+                <div class="footer-info">
+                    <p data-key="footer.made">Made with ❤️ by region23</p>
+                    <p data-key="footer.license">Licensed under MIT • Open Source</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <div class="lightbox-content">
+            <img id="lightbox-img" src="" alt="">
+            <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
