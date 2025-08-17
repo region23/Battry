@@ -6,8 +6,14 @@ struct CalibrationPanel: View {
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var history: HistoryStore
     let snapshot: BatterySnapshot
+    @ObservedObject var loadGenerator: LoadGenerator
+    @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
     @ObservedObject private var reportHistory = ReportHistory.shared
+    
+    @State private var selectedProfile: LoadProfile = .medium
+    @State private var enableLoadGenerator: Bool = false
+    @State private var autoStartGenerator: Bool = true
     
 
     var body: some View {
@@ -58,6 +64,17 @@ struct CalibrationPanel: View {
             reportsSection
             
             Spacer()
+        }
+        .onChange(of: calibrator.state) { _, newState in
+            // Stop load generator when calibration stops or completes
+            if loadGenerator.isRunning {
+                switch newState {
+                case .idle, .completed:
+                    loadGenerator.stop(reason: .userStopped)
+                default:
+                    break
+                }
+            }
         }
     }
 
@@ -123,8 +140,15 @@ extension CalibrationPanel {
                     }
                 }
                 
+                // Load Generator Section
+                loadGeneratorControls
+                
                 Button {
                     calibrator.start()
+                    // Auto-start load generator if enabled
+                    if autoStartGenerator && enableLoadGenerator {
+                        loadGenerator.start(profile: selectedProfile)
+                    }
                 } label: {
                     HStack {
                         Image(systemName: "target")
@@ -229,8 +253,18 @@ extension CalibrationPanel {
                         .italic()
                 }
                 
+                // Load Generator Status during running test
+                if enableLoadGenerator || loadGenerator.isRunning {
+                    SpacedDivider(padding: 4)
+                    loadGeneratorStatusView
+                }
+                
                 Button(i18n.t("cancel.test"), role: .destructive) {
                     showStopTestAlert()
+                    // Also stop load generator when canceling test
+                    if loadGenerator.isRunning {
+                        loadGenerator.stop(reason: .userStopped)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
@@ -569,6 +603,139 @@ struct ReportRowView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             reportHistory.openReport(report)
+        }
+    }
+}
+
+// MARK: - Load Generator Controls
+
+extension CalibrationPanel {
+    private var loadGeneratorControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "cpu")
+                    .foregroundStyle(.orange)
+                Text(i18n.t("load.generator.title"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle(i18n.t("load.generator.enable"), isOn: $enableLoadGenerator)
+                    .toggleStyle(.checkbox)
+                
+                if enableLoadGenerator {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(i18n.t("load.generator.profile"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        HStack(spacing: 8) {
+                            ForEach([LoadProfile.light, LoadProfile.medium, LoadProfile.heavy], id: \.localizationKey) { profile in
+                                Button {
+                                    selectedProfile = profile
+                                } label: {
+                                    Text(i18n.t(profile.localizationKey))
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            selectedProfile.localizationKey == profile.localizationKey ? Color.accentColor : Color.clear,
+                                            in: Capsule()
+                                        )
+                                        .foregroundStyle(selectedProfile.localizationKey == profile.localizationKey ? .white : .secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        
+                        Toggle(i18n.t("load.generator.auto.start"), isOn: $autoStartGenerator)
+                            .toggleStyle(.checkbox)
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+        .padding(8)
+        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private var loadGeneratorStatusView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "cpu")
+                    .foregroundStyle(loadGenerator.isRunning ? .green : .secondary)
+                Text(i18n.t("load.generator.status"))
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Spacer()
+                
+                if loadGenerator.isRunning {
+                    Circle()
+                        .fill(.green)
+                        .frame(width: 8, height: 8)
+                        .overlay(
+                            Circle()
+                                .stroke(.green, lineWidth: 1)
+                                .scaleEffect(1.5)
+                                .opacity(0.5)
+                        )
+                        .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: loadGenerator.isRunning)
+                }
+            }
+            
+            if loadGenerator.isRunning {
+                if let profile = loadGenerator.currentProfile {
+                    Text(String(format: i18n.t("load.generator.running.profile"), i18n.t(profile.localizationKey)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                HStack(spacing: 8) {
+                    Button(i18n.t("load.generator.pause")) {
+                        loadGenerator.stop(reason: .userStopped)
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.caption)
+                }
+            } else if let reason = loadGenerator.lastStopReason {
+                if case .userStopped = reason {
+                    Text(i18n.t("load.generator.stopped"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.caption2)
+                        Text(getStopReasonText(reason))
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+        }
+        .padding(8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private func getStopReasonText(_ reason: LoadStopReason) -> String {
+        switch reason {
+        case .lowBattery(let percentage):
+            return String(format: i18n.t("load.stop.battery.text"), percentage)
+        case .highTemperature(let temp):
+            return String(format: i18n.t("load.stop.temperature.text"), temp)
+        case .thermalPressure(let state):
+            let stateText = state == .critical ? i18n.t("thermal.critical") : i18n.t("thermal.serious")
+            return String(format: i18n.t("load.stop.thermal.text"), stateText)
+        case .powerConnected:
+            return i18n.t("load.stop.power.text")
+        case .charging:
+            return i18n.t("load.stop.charging.text")
+        case .userStopped:
+            return i18n.t("load.generator.stopped")
         }
     }
 }

@@ -26,6 +26,8 @@ struct MenuContent: View {
     @ObservedObject var history: HistoryStore
     @ObservedObject var analytics: AnalyticsEngine
     @ObservedObject var calibrator: CalibrationEngine
+    @ObservedObject var loadGenerator: LoadGenerator
+    @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
     @State private var isAnalyzing = false
     @State private var panel: Panel = .overview
@@ -115,7 +117,13 @@ struct MenuContent: View {
                 switch panel {
                 case .overview: overview
                 case .trends: ChartsPanel(history: history, calibrator: calibrator, snapshot: battery.state)
-                case .test: CalibrationPanel(calibrator: calibrator, history: history, snapshot: battery.state)
+                case .test: CalibrationPanel(
+                    calibrator: calibrator, 
+                    history: history, 
+                    snapshot: battery.state,
+                    loadGenerator: loadGenerator,
+                    safetyGuard: safetyGuard
+                )
                 case .settings: SettingsPanel(history: history, calibrator: calibrator)
                 case .about: AboutPanel()
                 }

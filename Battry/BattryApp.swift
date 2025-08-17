@@ -18,13 +18,28 @@ struct BattryApp: App {
     @StateObject private var analytics = AnalyticsEngine()
     /// Движок калибровки/теста автономности
     @StateObject private var calibrator = CalibrationEngine()
+    /// Генератор CPU нагрузки
+    @StateObject private var loadGenerator = LoadGenerator()
+    /// Охранник безопасности генератора
+    @StateObject private var safetyGuard = LoadSafetyGuard { reason in
+        Task { @MainActor in
+            loadGenerator.stop(reason: reason)
+        }
+    }
     /// Локализация (переключение языка в UI)
     @StateObject private var i18n = Localization.shared
 
     var body: some Scene {
         MenuBarExtra {
             // Основное содержимое окна из строки меню
-            MenuContent(battery: battery, history: history, analytics: analytics, calibrator: calibrator)
+            MenuContent(
+                battery: battery, 
+                history: history, 
+                analytics: analytics, 
+                calibrator: calibrator,
+                loadGenerator: loadGenerator,
+                safetyGuard: safetyGuard
+            )
                 .frame(width: 460)
                 .task {
                     // Стартуем периодический опрос и сбор истории при запуске
@@ -32,6 +47,8 @@ struct BattryApp: App {
                     history.start()
                     calibrator.bind(to: battery.publisher, viewModel: battery)
                     calibrator.attachHistory(history)
+                    // Связываем генератор нагрузки с охранником безопасности
+                    safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
                 }
         } label: {
             if let iconName = getMenuBarIcon() {

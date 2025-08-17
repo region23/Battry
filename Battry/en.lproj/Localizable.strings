@@ -168,3 +168,40 @@
 "reports.success.title" = "Report Generated";
 "reports.success.message" = "The report has been generated and opened in your browser.";
 "ok" = "OK";
+
+// Load Generator
+"load.generator.title" = "Load Generator";
+"load.generator.enable" = "Enable load generator";
+"load.generator.profile" = "Profile";
+"load.generator.auto.start" = "Auto-start with test";
+"load.generator.status" = "Generator Status";
+"load.generator.pause" = "Pause";
+"load.generator.stopped" = "Stopped";
+"load.generator.running.profile" = "Running: %@";
+
+// Load Profiles
+"load.profile.light" = "Light";
+"load.profile.medium" = "Medium"; 
+"load.profile.heavy" = "Heavy";
+"load.profile.custom" = "Custom";
+
+// Load Stop Reasons
+"load.stop.battery.text" = "Auto-stopped: low battery (%d%%)";
+"load.stop.temperature.text" = "Auto-stopped: high temperature (%.1f°C)";
+"load.stop.thermal.text" = "Auto-stopped: thermal pressure (%@)";
+"load.stop.power.text" = "Auto-stopped: power connected";
+"load.stop.charging.text" = "Auto-stopped: charging started";
+
+// Thermal States
+"thermal.serious" = "serious";
+"thermal.critical" = "critical";
+
+// Safety Violations
+"safety.violation.battery" = "Stopped: battery level %d%%";
+"safety.violation.temperature" = "Stopped: temperature %.1f°C";
+"safety.violation.thermal" = "Stopped: thermal pressure (%@)";
+"safety.violation.power" = "Stopped: power connected";
+"safety.violation.charging" = "Stopped: charging started";
+
+// SoH and Capacity
+"capacity.fact.design" = "Capacity";

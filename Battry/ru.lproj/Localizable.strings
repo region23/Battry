@@ -168,3 +168,40 @@
 "reports.success.title" = "Отчет создан";
 "reports.success.message" = "Отчет создан и открыт в браузере.";
 "ok" = "ОК";
+
+// Генератор нагрузки
+"load.generator.title" = "Генератор нагрузки";
+"load.generator.enable" = "Включить генератор нагрузки";
+"load.generator.profile" = "Профиль";
+"load.generator.auto.start" = "Автозапуск с тестом";
+"load.generator.status" = "Статус генератора";
+"load.generator.pause" = "Пауза";
+"load.generator.stopped" = "Остановлен";
+"load.generator.running.profile" = "Запущен: %@";
+
+// Профили нагрузки
+"load.profile.light" = "Лёгкий";
+"load.profile.medium" = "Средний";
+"load.profile.heavy" = "Тяжёлый";
+"load.profile.custom" = "Настраиваемый";
+
+// Причины остановки генератора
+"load.stop.battery.text" = "Автостоп: низкий заряд (%d%%)";
+"load.stop.temperature.text" = "Автостоп: высокая температура (%.1f°C)";
+"load.stop.thermal.text" = "Автостоп: тепловое давление (%@)";
+"load.stop.power.text" = "Автостоп: подключено питание";
+"load.stop.charging.text" = "Автостоп: начата зарядка";
+
+// Тепловые состояния
+"thermal.serious" = "серьёзное";
+"thermal.critical" = "критическое";
+
+// Нарушения безопасности
+"safety.violation.battery" = "Остановлено: заряд %d%%";
+"safety.violation.temperature" = "Остановлено: температура %.1f°C";
+"safety.violation.thermal" = "Остановлено: тепловое давление (%@)";
+"safety.violation.power" = "Остановлено: подключено питание";
+"safety.violation.charging" = "Остановлено: началась зарядка";
+
+// SoH и ёмкость
+"capacity.fact.design" = "Ёмкость";
