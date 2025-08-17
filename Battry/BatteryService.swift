@@ -79,7 +79,12 @@ enum BatteryService {
 
             if let cc = dict["CycleCount"] as? Int { snap.cycleCount = cc }
             if let mv = dict["Voltage"] as? Int { snap.voltage = Double(mv) / 1000.0 } // mV -> V
-            if let t = dict["Temperature"] as? Int { snap.temperature = Double(t) / 100.0 } // centi-°C -> °C
+            // Приоритет VirtualTemperature, fallback на Temperature
+            if let vt = dict["VirtualTemperature"] as? Int { 
+                snap.temperature = Double(vt) / 100.0 // centi-°C -> °C
+            } else if let t = dict["Temperature"] as? Int { 
+                snap.temperature = Double(t) / 100.0 // centi-°C -> °C
+            }
         }
 
         return snap

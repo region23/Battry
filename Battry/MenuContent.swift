@@ -30,6 +30,7 @@ struct MenuContent: View {
     @ObservedObject var videoLoadEngine: VideoLoadEngine
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
+    @Environment(\.colorScheme) var colorScheme
     @State private var isAnalyzing = false
     @State private var panel: Panel = .overview
     @State private var overviewAnalysis: BatteryAnalysis? = nil
@@ -206,26 +207,11 @@ struct MenuContent: View {
                     .help(i18n.t("tooltip.time.remaining.header"))
                     .accessibilityLabel(i18n.t("time.remaining"))
             }
+            
             Spacer()
             
             // Generator active badges
-            VStack(alignment: .trailing, spacing: 2) {
-                if loadGenerator.isRunning {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(.orange)
-                            .frame(width: 6, height: 6)
-                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: loadGenerator.isRunning)
-                        Text("CPU")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.orange)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.orange.opacity(0.1), in: Capsule())
-                }
-                
+            HStack(spacing: 6) {
                 if videoLoadEngine.isRunning {
                     HStack(spacing: 4) {
                         Circle()
@@ -241,9 +227,27 @@ struct MenuContent: View {
                     .padding(.vertical, 2)
                     .background(.blue.opacity(0.1), in: Capsule())
                 }
+                
+                if loadGenerator.isRunning {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(.orange)
+                            .frame(width: 6, height: 6)
+                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: loadGenerator.isRunning)
+                        Text("CPU")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.orange.opacity(0.1), in: Capsule())
+                }
             }
             
-			Image("battry_logo_alpha_horizontal")
+            Spacer()
+            
+			Image(colorScheme == .dark ? "battry-white" : "battry_logo_alpha_horizontal")
 				.resizable()
 				.aspectRatio(contentMode: .fit)
 				.frame(height: 24)
