@@ -10,7 +10,6 @@ struct CalibrationPanel: View {
     @ObservedObject var videoLoadEngine: VideoLoadEngine
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
-    @ObservedObject private var reportHistory = ReportHistory.shared
     
     // Используем настройки из CalibrationEngine вместо локального state
     private var selectedProfile: LoadProfile {
@@ -73,9 +72,6 @@ struct CalibrationPanel: View {
             
             // Секция результатов анализов - отображается всегда
             analysisResultsSection
-            
-            // Секция отчетов - отображается всегда
-            reportsSection
             
             Spacer()
         }
@@ -145,6 +141,9 @@ extension CalibrationPanel {
                 Text(i18n.t("analysis.intro"))
                     .font(.subheadline)
                     .foregroundStyle(.primary)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
                 
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -454,11 +453,11 @@ extension CalibrationPanel {
             } else {
                 // Показываем подсказку когда нет результатов
                 VStack(spacing: 8) {
-                    Image(systemName: "list.bullet")
+                    Image(systemName: "doc.text")
                         .font(.system(size: 24))
                         .foregroundStyle(.secondary.opacity(0.6))
                     
-                    Text(i18n.t("analysis.results.empty"))
+                    Text(i18n.t("analysis.results.empty.with.report"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -543,129 +542,8 @@ extension CalibrationPanel {
         // При выборе "Продолжить тест" (.alertFirstButtonReturn) ничего не делаем
     }
     
-    // MARK: - Reports Section
-    
-    private var reportsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: "doc.text.image")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
-                Text(i18n.t("reports.title"))
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Spacer()
-            }
-            
-            if !reportHistory.reports.isEmpty {
-                // Подсказка о том, как создаются отчеты
-                Text(i18n.t("reports.auto.hint"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 4)
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(reportHistory.reports.prefix(3)) { report in
-                        ReportRowView(report: report, reportHistory: reportHistory)
-                    }
-                    
-                    if reportHistory.reports.count > 3 {
-                        Button {
-                            // TODO: Показать все отчеты в отдельном окне
-                        } label: {
-                            HStack {
-                                Text(i18n.t("reports.show.all"))
-                                    .font(.caption)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption2)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-            } else {
-                // Показываем подсказку когда отчетов нет
-                VStack(spacing: 8) {
-                    Image(systemName: "doc.text.image")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.secondary.opacity(0.6))
-                    
-                    Text(i18n.t("reports.empty.hint"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 8)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-            }
-        }
-        .padding(12)
-        .background(
-            .regularMaterial,
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
-        )
-    }
 }
 
-struct ReportRowView: View {
-    let report: ReportMetadata
-    let reportHistory: ReportHistory
-    @ObservedObject private var i18n = Localization.shared
-    
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(report.displayTitle)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                
-                Text("\(report.dataPoints) \(i18n.t("reports.data.points"))")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-            
-            HStack(spacing: 4) {
-                Button {
-                    reportHistory.openReport(report)
-                } label: {
-                    Image(systemName: "eye")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-                .help(i18n.t("reports.open"))
-                
-                Button {
-                    reportHistory.deleteReport(report)
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.red)
-                .help(i18n.t("reports.delete"))
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.quaternary.opacity(0.5))
-        )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            reportHistory.openReport(report)
-        }
-    }
-}
 
 // MARK: - Load Generator Controls
 

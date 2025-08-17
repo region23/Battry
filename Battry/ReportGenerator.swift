@@ -1665,7 +1665,7 @@ enum ReportGenerator {
         return html
     }
     
-    /// Создаёт HTML‑отчёт и сохраняет через ReportHistory для обратной совместимости
+    /// Создаёт HTML‑отчёт и сохраняет во временную папку
     static func generateHTML(result: BatteryAnalysis,
                              snapshot: BatterySnapshot,
                              history: [BatteryReading],
@@ -1677,11 +1677,18 @@ enum ReportGenerator {
             return nil
         }
         
-        return ReportHistory.shared.addReport(
-            htmlContent: htmlContent,
-            healthScore: result.healthScore,
-            dataPoints: history.count
-        )
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let filename = "Battry_Report_\(timestamp).html"
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+        let reportURL = tempDir.appendingPathComponent(filename)
+        
+        do {
+            try htmlContent.write(to: reportURL, atomically: true, encoding: .utf8)
+            return reportURL
+        } catch {
+            print("Failed to save report: \(error)")
+            return nil
+        }
     }
 
     // Legacy sparkline removed in favor of uPlot interactive charts

@@ -278,13 +278,17 @@ final class CalibrationEngine: ObservableObject {
                                                                          history: sessionHistory,
                                                                          calibration: res,
                                                                          loadGeneratorMetadata: currentLoadMetadata) {
-                    // Автоматически сохраняем отчет в историю
-                    if let reportURL = ReportHistory.shared.addReport(
-                        htmlContent: htmlContent,
-                        healthScore: analysis.healthScore,
-                        dataPoints: sessionHistory.count
-                    ) {
+                    // Сохраняем отчет во временную папку
+                    let timestamp = Int(Date().timeIntervalSince1970)
+                    let filename = "Battry_Report_\(timestamp).html"
+                    let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+                    let reportURL = tempDir.appendingPathComponent(filename)
+                    
+                    do {
+                        try htmlContent.write(to: reportURL, atomically: true, encoding: .utf8)
                         res.reportPath = reportURL.path
+                    } catch {
+                        print("Failed to save report: \(error)")
                     }
                 }
 

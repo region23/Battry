@@ -44,6 +44,7 @@
 "recent.line" = "%@ → %@ • %@ %%/h";
 "analysis.results" = "Analysis Results";
 "analysis.results.empty" = "No analysis results yet. Complete a full analysis (100% to 5%) to see results here.";
+"analysis.results.empty.with.report" = "No analysis results yet. Complete a full analysis (100% → 5%) to see results and reports here.";
 "panel.overview" = "Overview";
 "panel.charts" = "Charts";
 "panel.analysis" = "Analysis";
@@ -160,18 +161,6 @@
 "calibration.continue" = "Continue Test";
 "calibration.stop.button" = "Stop Test";
 
-// Reports section
-"reports.title" = "Battery Reports";
-"reports.generate" = "Generate Report";
-"reports.empty" = "No reports yet. Complete a full analysis (100% to 5%) to get your first report.";
-"reports.empty.hint" = "After completing a full battery analysis, new reports will appear here.";
-"reports.auto.hint" = "Reports are created automatically after completing a full battery analysis from 100% to 5%.";
-"reports.data.points" = "data points";
-"reports.open" = "Open report";
-"reports.delete" = "Delete report";
-"reports.show.all" = "Show all reports";
-"reports.success.title" = "Report Generated";
-"reports.success.message" = "The report has been generated and opened in your browser.";
 "ok" = "OK";
 
 // Load Generator
