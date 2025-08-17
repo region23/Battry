@@ -94,24 +94,6 @@ struct CalibrationPanel: View {
             }
         }
         
-        .confirmationDialog(
-            i18n.t("calibration.stop.title"),
-            isPresented: $showStopTestConfirm,
-            titleVisibility: .visible
-        ) {
-            Button(i18n.t("calibration.stop.button"), role: .destructive) {
-                calibrator.stop()
-                if loadGenerator.isRunning {
-                    loadGenerator.stop(reason: .userStopped)
-                }
-                if videoLoadEngine.isRunning {
-                    videoLoadEngine.stop()
-                }
-            }
-            Button(i18n.t("calibration.continue"), role: .cancel) { }
-        } message: {
-            Text(i18n.t("calibration.stop.confirm"))
-        }
     }
 
     private func estimateETA(start: Date, startPercent: Int, currentPercent: Int) -> String? {
@@ -349,11 +331,51 @@ extension CalibrationPanel {
                     loadGeneratorStatusView
                 }
                 
-                Button(i18n.t("cancel.test"), role: .destructive) {
-                    showStopTestConfirm = true
+                VStack(alignment: .leading, spacing: 8) {
+                    Button(i18n.t("cancel.test"), role: .destructive) {
+                        showStopTestConfirm = true
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
+
+                    if showStopTestConfirm {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                                Text(i18n.t("calibration.stop.title"))
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
+                            Text(i18n.t("calibration.stop.confirm"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            HStack(spacing: 8) {
+                                Button(i18n.t("calibration.stop.button"), role: .destructive) {
+                                    calibrator.stop()
+                                    if loadGenerator.isRunning {
+                                        loadGenerator.stop(reason: .userStopped)
+                                    }
+                                    if videoLoadEngine.isRunning {
+                                        videoLoadEngine.stop()
+                                    }
+                                    showStopTestConfirm = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                                Button(i18n.t("calibration.continue"), role: .cancel) {
+                                    showStopTestConfirm = false
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        .padding(8)
+                        .background(
+                            .regularMaterial,
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        )
+                    }
                 }
-                .buttonStyle(.bordered)
-                .tint(.red)
             }
         }
     }

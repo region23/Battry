@@ -86,21 +86,43 @@ struct SettingsPanel: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+
+                    if showClearDataConfirm {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                                Text(i18n.t("settings.data.clear"))
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
+                            Text(i18n.t("settings.data.confirm"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            HStack(spacing: 8) {
+                                Button(i18n.t("reset"), role: .destructive) {
+                                    clearAllData()
+                                    showClearDataConfirm = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                                Button(i18n.t("cancel"), role: .cancel) {
+                                    showClearDataConfirm = false
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        .padding(8)
+                        .background(
+                            .regularMaterial,
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        )
+                    }
                 }
                 .padding(.top, 4)
             }
             
             Spacer()
-        }
-        .confirmationDialog(
-            i18n.t("settings.data.clear"),
-            isPresented: $showClearDataConfirm,
-            titleVisibility: .visible
-        ) {
-            Button(i18n.t("reset"), role: .destructive) { clearAllData() }
-            Button(i18n.t("cancel"), role: .cancel) { }
-        } message: {
-            Text(i18n.t("settings.data.confirm"))
         }
     }
 
