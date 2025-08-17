@@ -314,11 +314,15 @@ section {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 40px;
+    align-items: end;
 }
 
 .screenshot-item {
     text-align: center;
     transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .screenshot-item:hover {
@@ -334,6 +338,8 @@ section {
     transition: all 0.3s ease;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.02);
+    flex-grow: 1;
+    object-fit: cover;
 }
 
 .screenshot-img:hover {
@@ -533,16 +539,18 @@ section {
 
 .lightbox-content {
     position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
+    width: 100vw;
+    height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .lightbox-content img {
-    max-width: 100%;
-    max-height: 100%;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
     width: auto;
     height: auto;
     object-fit: contain;
