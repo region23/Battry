@@ -49,6 +49,16 @@
 "panel.charts" = "Charts";
 "panel.analysis" = "Analysis";
 
+// Process steps
+"process.step.prepare" = "Prepare";
+"process.step.charge" = "Charge";
+"process.step.test" = "Test";
+"process.step.results" = "Results";
+
+// Result card labels
+"discharge.rate" = "Discharge";
+"runtime.estimated" = "Runtime";
+
 "analysis.auto.reset" = "A long gap was detected. Analysis was reset and will start again at 99–100% on battery.";
 "got.it" = "Got it";
 
@@ -162,7 +172,8 @@
 "ok" = "OK";
 
 // Load Generator
-"load.generator.title" = "Load Generator";
+"load.generator.title" = "Usage Simulation";
+"advanced.settings.title" = "Advanced Settings";
 "load.generator.enable" = "Enable load generator";
 "load.generator.profile" = "Profile";
 "load.generator.auto.start" = "Auto-start with test";

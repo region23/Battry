@@ -34,10 +34,14 @@ struct CalibrationPanel: View {
     }
     @State private var showHeavyProfileWarning: Bool = false
     @State private var showStopTestConfirm: Bool = false
+    @State private var isAdvancedExpanded: Bool = false
     
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // Process indicator for all states
+            processIndicator
+            
             // Сообщение о сбросе сессии из‑за большого разрыва между сэмплами
             if calibrator.autoResetDueToGap {
                 StatusCard(
@@ -219,8 +223,8 @@ extension CalibrationPanel {
                     }
                 }
                 
-                // Load Generator Section
-                loadGeneratorControls
+                // Advanced Settings Section (Collapsible)
+                advancedSettingsSection
                 
                 Button {
                     calibrator.start()
@@ -235,9 +239,12 @@ extension CalibrationPanel {
                 } label: {
                     HStack {
                         Image(systemName: "target")
+                            .font(.system(size: 16, weight: .semibold))
                         Text(i18n.t("analysis.start"))
+                            .font(.system(size: 16, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -443,56 +450,7 @@ extension CalibrationPanel {
             if !calibrator.recentResults.isEmpty {
                 VStack(spacing: 8) {
                     ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { result in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                // Время и дата анализа
-                                HStack {
-                                    Text(result.startedAt.formatted(date: .abbreviated, time: .shortened))
-                                    Image(systemName: "arrow.right")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                    Text(result.finishedAt.formatted(date: .omitted, time: .shortened))
-                                    Spacer()
-                                }
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                
-                                // Результаты анализа
-                                HStack {
-                                    Text(String(format: i18n.t("last.result.line"), 
-                                               String(format: "%.1f", result.avgDischargePerHour), 
-                                               String(format: "%.1f", result.estimatedRuntimeFrom100To0Hours)))
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            if let path = result.reportPath {
-                                Button {
-                                    regenerateAndOpenReport(result: result, originalPath: path)
-                                } label: {
-                                    Image(systemName: "doc.text")
-                                        .font(.system(size: 16))
-                                }
-                                .buttonStyle(.borderless)
-                                .help(i18n.t("reports.open"))
-                            }
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(.quaternary.opacity(0.5))
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if let path = result.reportPath {
-                                regenerateAndOpenReport(result: result, originalPath: path)
-                            }
-                        }
+                        enhancedResultCard(for: result)
                     }
                 }
             } else {
@@ -574,6 +532,71 @@ extension CalibrationPanel {
 // MARK: - Load Generator Controls
 
 extension CalibrationPanel {
+    
+    private var processIndicator: some View {
+        let steps = [
+            ProcessStep(title: i18n.t("process.step.prepare")),
+            ProcessStep(title: i18n.t("process.step.charge")),
+            ProcessStep(title: i18n.t("process.step.test")),
+            ProcessStep(title: i18n.t("process.step.results"))
+        ]
+        
+        let currentStep: Int = {
+            switch calibrator.state {
+            case .idle:
+                return 0
+            case .waitingFull:
+                return 1
+            case .running, .paused:
+                return 2
+            case .completed:
+                return 3
+            }
+        }()
+        
+        return ProcessStepIndicator(steps: steps, currentStep: currentStep)
+    }
+    
+    private var advancedSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    isAdvancedExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "gear")
+                        .foregroundStyle(.secondary)
+                    Text(i18n.t("advanced.settings.title"))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 12, weight: .medium))
+                        .rotationEffect(.degrees(isAdvancedExpanded ? 90 : 0))
+                        .animation(.easeInOut(duration: 0.25), value: isAdvancedExpanded)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(.quaternary.opacity(0.3))
+            )
+            
+            if isAdvancedExpanded {
+                loadGeneratorControls
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
+            }
+        }
+    }
+    
     private var loadGeneratorControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -798,6 +821,106 @@ extension CalibrationPanel {
             return i18n.t("load.stop.charging.text")
         case .userStopped:
             return i18n.t("load.generator.stopped")
+        }
+    }
+    
+    private func enhancedResultCard(for result: CalibrationResult) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header with date and time
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(result.startedAt.formatted(date: .abbreviated, time: .omitted))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    
+                    HStack(spacing: 4) {
+                        Text(result.startedAt.formatted(date: .omitted, time: .shortened))
+                        Image(systemName: "arrow.right")
+                            .font(.caption2)
+                        Text(result.finishedAt.formatted(date: .omitted, time: .shortened))
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Mini trend visualization
+                let sessionHistory = history.between(from: result.startedAt, to: result.finishedAt)
+                let percentages = sessionHistory.map { Double($0.percentage) }
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    if !percentages.isEmpty {
+                        MiniSparkline(
+                            values: percentages,
+                            color: result.estimatedRuntimeFrom100To0Hours < 3 ? .red : Color.accentColor,
+                            height: 16
+                        )
+                        .frame(width: 40)
+                        
+                        Text("\(percentages.first?.formatted(.number.precision(.fractionLength(0))) ?? "--")% → \(percentages.last?.formatted(.number.precision(.fractionLength(0))) ?? "-")%")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+            
+            // Key metrics in compact grid
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(String(format: "%.1f %%/ч", result.avgDischargePerHour))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.accentColor)
+                    Text(i18n.t("discharge.rate"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Divider()
+                    .frame(height: 20)
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(String(format: "%.1f ч", result.estimatedRuntimeFrom100To0Hours))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(result.estimatedRuntimeFrom100To0Hours < 3 ? .red : .primary)
+                    Text(i18n.t("runtime.estimated"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Report button
+                if let path = result.reportPath {
+                    Button {
+                        regenerateAndOpenReport(result: result, originalPath: path)
+                    } label: {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(i18n.t("reports.open"))
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let path = result.reportPath {
+                regenerateAndOpenReport(result: result, originalPath: path)
+            }
         }
     }
 }

@@ -298,3 +298,116 @@ struct SpacedDivider: View {
             .padding(.vertical, padding)
     }
 }
+
+/// Индикатор этапов процесса
+struct ProcessStepIndicator: View {
+    let steps: [ProcessStep]
+    let currentStep: Int
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(circleColor(for: index))
+                        .frame(width: 8, height: 8)
+                        .overlay(
+                            Circle()
+                                .stroke(circleColor(for: index), lineWidth: 1)
+                                .scaleEffect(1.5)
+                                .opacity(index == currentStep ? 0.3 : 0)
+                                .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: index == currentStep)
+                        )
+                    
+                    Text(step.title)
+                        .font(.caption)
+                        .foregroundStyle(textColor(for: index))
+                    
+                    if index < steps.count - 1 {
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(Color(NSColor.quaternaryLabelColor))
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+    }
+    
+    private func circleColor(for index: Int) -> Color {
+        if index < currentStep {
+            return .green
+        } else if index == currentStep {
+            return Color.accentColor
+        } else {
+            return Color(NSColor.quaternaryLabelColor)
+        }
+    }
+    
+    private func textColor(for index: Int) -> Color {
+        if index <= currentStep {
+            return .primary
+        } else {
+            return .secondary
+        }
+    }
+}
+
+struct ProcessStep {
+    let title: String
+    let icon: String?
+    
+    init(title: String, icon: String? = nil) {
+        self.title = title
+        self.icon = icon
+    }
+}
+
+/// Мини-спарклайн для отображения тренда
+struct MiniSparkline: View {
+    let values: [Double]
+    let color: Color
+    let height: CGFloat
+    
+    init(values: [Double], color: Color = Color.accentColor, height: CGFloat = 20) {
+        self.values = values
+        self.color = color
+        self.height = height
+    }
+    
+    var body: some View {
+        GeometryReader { geometry in
+            if values.count > 1, let min = values.min(), let max = values.max(), max > min {
+                Path { path in
+                    let width = geometry.size.width
+                    let height = geometry.size.height
+                    let stepX = width / CGFloat(values.count - 1)
+                    let range = max - min
+                    
+                    for (index, value) in values.enumerated() {
+                        let x = CGFloat(index) * stepX
+                        let y = height - (CGFloat(value - min) / CGFloat(range)) * height
+                        
+                        if index == 0 {
+                            path.move(to: CGPoint(x: x, y: y))
+                        } else {
+                            path.addLine(to: CGPoint(x: x, y: y))
+                        }
+                    }
+                }
+                .stroke(color, lineWidth: 1.5)
+                .opacity(0.8)
+            } else {
+                Rectangle()
+                    .fill(color.opacity(0.3))
+                    .frame(height: 2)
+            }
+        }
+        .frame(height: height)
+    }
+}

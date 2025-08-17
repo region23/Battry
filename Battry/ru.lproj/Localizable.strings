@@ -49,6 +49,16 @@
 "panel.charts" = "Графики";
 "panel.analysis" = "Анализ";
 
+// Process steps
+"process.step.prepare" = "Подготовка";
+"process.step.charge" = "Зарядка";
+"process.step.test" = "Тест";
+"process.step.results" = "Результаты";
+
+// Result card labels
+"discharge.rate" = "Разряд";
+"runtime.estimated" = "Время работы";
+
 "analysis.auto.reset" = "Обнаружен большой разрыв в данных. Анализ сброшен и начнётся заново при 99–100% на батарее.";
 "got.it" = "Понятно";
 
@@ -162,7 +172,8 @@
 "ok" = "ОК";
 
 // Генератор нагрузки
-"load.generator.title" = "Генератор нагрузки";
+"load.generator.title" = "Имитация нагрузки";
+"advanced.settings.title" = "Дополнительные настройки";
 "load.generator.enable" = "Включить генератор нагрузки";
 "load.generator.profile" = "Профиль";
 "load.generator.auto.start" = "Автозапуск с тестом";
