@@ -127,7 +127,7 @@ final class LoadGenerator: ObservableObject {
         let workDurationNs = UInt64(Double(params.periodMs) * params.dutyCycle * 1_000_000) // ms -> ns
         let sleepDurationNs = UInt64(Double(params.periodMs) * (1.0 - params.dutyCycle) * 1_000_000)
         
-        for threadIndex in 0..<params.threads {
+        for _ in 0..<params.threads {
             let timer = DispatchSource.makeTimerSource(
                 flags: [],
                 queue: DispatchQueue.global(qos: .utility)
@@ -171,9 +171,8 @@ final class LoadGenerator: ObservableObject {
     }
     
     deinit {
-        if isRunning {
-            stop()
-        }
+        // Can't access MainActor isolated properties in deinit
+        // Timer cleanup will happen automatically when timers are deallocated
     }
 }
 

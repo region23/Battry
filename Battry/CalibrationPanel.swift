@@ -7,13 +7,32 @@ struct CalibrationPanel: View {
     @ObservedObject var history: HistoryStore
     let snapshot: BatterySnapshot
     @ObservedObject var loadGenerator: LoadGenerator
+    @ObservedObject var videoLoadEngine: VideoLoadEngine
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
     @ObservedObject private var reportHistory = ReportHistory.shared
     
-    @State private var selectedProfile: LoadProfile = .medium
-    @State private var enableLoadGenerator: Bool = false
-    @State private var autoStartGenerator: Bool = true
+    // Используем настройки из CalibrationEngine вместо локального state
+    private var selectedProfile: LoadProfile {
+        get { calibrator.loadGeneratorSettings.profile }
+        nonmutating set { calibrator.loadGeneratorSettings.profile = newValue }
+    }
+    
+    private var enableLoadGenerator: Bool {
+        get { calibrator.loadGeneratorSettings.isEnabled }
+        nonmutating set { calibrator.loadGeneratorSettings.isEnabled = newValue }
+    }
+    
+    private var enableVideoLoad: Bool {
+        get { calibrator.loadGeneratorSettings.videoEnabled }
+        nonmutating set { calibrator.loadGeneratorSettings.videoEnabled = newValue }
+    }
+    
+    private var autoStartGenerator: Bool {
+        get { calibrator.loadGeneratorSettings.autoStart }
+        nonmutating set { calibrator.loadGeneratorSettings.autoStart = newValue }
+    }
+    @State private var showHeavyProfileWarning: Bool = false
     
 
     var body: some View {
@@ -66,15 +85,24 @@ struct CalibrationPanel: View {
             Spacer()
         }
         .onChange(of: calibrator.state) { _, newState in
-            // Stop load generator when calibration stops or completes
-            if loadGenerator.isRunning {
+            // Stop load generator and video when calibration stops or completes
+            if loadGenerator.isRunning || videoLoadEngine.isRunning {
                 switch newState {
                 case .idle, .completed:
                     loadGenerator.stop(reason: .userStopped)
+                    videoLoadEngine.stop()
                 default:
                     break
                 }
             }
+        }
+        .alert(i18n.t("heavy.profile.warning.title"), isPresented: $showHeavyProfileWarning) {
+            Button(i18n.t("heavy.profile.warning.cancel"), role: .cancel) { }
+            Button(i18n.t("heavy.profile.warning.continue"), role: .destructive) {
+                selectedProfile = .heavy
+            }
+        } message: {
+            Text(i18n.t("heavy.profile.warning.message"))
         }
     }
 
@@ -137,6 +165,11 @@ extension CalibrationPanel {
                         checklistItem(i18n.t("precheck.brightness"))
                         checklistItem(i18n.t("precheck.background"))  
                         checklistItem(i18n.t("precheck.load"))
+                        checklistItem(i18n.t("precheck.network"))
+                        checklistItem(i18n.t("precheck.temperature"))
+                        if enableLoadGenerator {
+                            checklistItem(i18n.t("precheck.load.generator"))
+                        }
                     }
                 }
                 
@@ -148,6 +181,10 @@ extension CalibrationPanel {
                     // Auto-start load generator if enabled
                     if autoStartGenerator && enableLoadGenerator {
                         loadGenerator.start(profile: selectedProfile)
+                    }
+                    // Auto-start video load if enabled
+                    if autoStartGenerator && enableVideoLoad {
+                        videoLoadEngine.start()
                     }
                 } label: {
                     HStack {
@@ -254,16 +291,19 @@ extension CalibrationPanel {
                 }
                 
                 // Load Generator Status during running test
-                if enableLoadGenerator || loadGenerator.isRunning {
+                if enableLoadGenerator || loadGenerator.isRunning || enableVideoLoad || videoLoadEngine.isRunning {
                     SpacedDivider(padding: 4)
                     loadGeneratorStatusView
                 }
                 
                 Button(i18n.t("cancel.test"), role: .destructive) {
                     showStopTestAlert()
-                    // Also stop load generator when canceling test
+                    // Also stop load generator and video when canceling test
                     if loadGenerator.isRunning {
                         loadGenerator.stop(reason: .userStopped)
+                    }
+                    if videoLoadEngine.isRunning {
+                        videoLoadEngine.stop()
                     }
                 }
                 .buttonStyle(.bordered)
@@ -622,7 +662,10 @@ extension CalibrationPanel {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Toggle(i18n.t("load.generator.enable"), isOn: $enableLoadGenerator)
+                Toggle(i18n.t("load.generator.enable"), isOn: Binding(
+                    get: { enableLoadGenerator },
+                    set: { enableLoadGenerator = $0 }
+                ))
                     .toggleStyle(.checkbox)
                 
                 if enableLoadGenerator {
@@ -634,7 +677,11 @@ extension CalibrationPanel {
                         HStack(spacing: 8) {
                             ForEach([LoadProfile.light, LoadProfile.medium, LoadProfile.heavy], id: \.localizationKey) { profile in
                                 Button {
-                                    selectedProfile = profile
+                                    if profile.localizationKey == LoadProfile.heavy.localizationKey {
+                                        showHeavyProfileWarning = true
+                                    } else {
+                                        selectedProfile = profile
+                                    }
                                 } label: {
                                     Text(i18n.t(profile.localizationKey))
                                         .font(.caption)
@@ -651,9 +698,31 @@ extension CalibrationPanel {
                             }
                         }
                         
-                        Toggle(i18n.t("load.generator.auto.start"), isOn: $autoStartGenerator)
+                        Toggle(i18n.t("load.generator.auto.start"), isOn: Binding(
+                            get: { autoStartGenerator },
+                            set: { autoStartGenerator = $0 }
+                        ))
                             .toggleStyle(.checkbox)
                             .font(.caption)
+                    }
+                }
+                
+                // Video Load Section
+                VStack(alignment: .leading, spacing: 6) {
+                    Divider()
+                        .padding(.vertical, 4)
+                    
+                    Toggle(i18n.t("video.load.enable"), isOn: Binding(
+                        get: { enableVideoLoad },
+                        set: { enableVideoLoad = $0 }
+                    ))
+                        .toggleStyle(.checkbox)
+                    
+                    if enableVideoLoad {
+                        Text(i18n.t("video.load.description"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 20)
                     }
                 }
             }
@@ -713,6 +782,43 @@ extension CalibrationPanel {
                         Text(getStopReasonText(reason))
                             .font(.caption2)
                             .foregroundStyle(.orange)
+                    }
+                }
+            }
+            
+            // Video Load Status
+            if enableVideoLoad || videoLoadEngine.isRunning {
+                Divider()
+                    .padding(.vertical, 2)
+                
+                HStack {
+                    Image(systemName: "play.rectangle")
+                        .foregroundStyle(videoLoadEngine.isRunning ? .green : .secondary)
+                    Text(i18n.t("video.load.status"))
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                    
+                    if videoLoadEngine.isRunning {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 6, height: 6)
+                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: videoLoadEngine.isRunning)
+                    }
+                }
+                
+                if videoLoadEngine.isRunning {
+                    Text(i18n.t("video.load.running"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else if let error = videoLoadEngine.lastError {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                            .font(.caption2)
+                        Text(error.localizedDescription)
+                            .font(.caption2)
+                            .foregroundStyle(.red)
                     }
                 }
             }

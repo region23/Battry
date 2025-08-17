@@ -68,6 +68,9 @@
 "precheck.brightness" = "Задайте фиксированную яркость (не авто)";
 "precheck.background" = "Закройте тяжёлые фоновые приложения";
 "precheck.load" = "Избегайте высокой нагрузки во время теста";
+"precheck.network" = "Рассмотрите отключение от сети для лучших результатов";
+"precheck.temperature" = "Убедитесь, что температура окружающей среды умеренная";
+"precheck.load.generator" = "Генератор нагрузки создаст стабильное потребление энергии";
 "trends.series.charge" = "Заряд %";
 "trends.series.temperature" = "Температура";
 "trends.series.voltage" = "Напряжение V";
@@ -205,3 +208,24 @@
 
 // SoH и ёмкость
 "capacity.fact.design" = "Ёмкость";
+
+// Видео движок
+"video.load.enable" = "Включить воспроизведение 1080p видео";
+"video.load.description" = "Воспроизводит HD видео в цикле для нагрузки GPU";
+"video.load.status" = "Статус видео";
+"video.load.running" = "Воспроизводится 1080p видео";
+
+// Ошибки видео
+"video.error.file.not.found" = "Видео файл не найден";
+"video.error.player.item" = "Не удалось создать элемент плеера";
+"video.error.player.creation" = "Не удалось создать видео плеер";
+"video.error.unknown" = "Неизвестная ошибка видео: %@";
+"video.error.file.recovery" = "Попробуйте переустановить приложение";
+"video.error.restart.recovery" = "Попробуйте перезапустить видео нагрузку";
+"video.error.general.recovery" = "Попробуйте отключить видео нагрузку";
+
+// Предупреждение для тяжёлого профиля
+"heavy.profile.warning.title" = "Предупреждение о высокой нагрузке";
+"heavy.profile.warning.message" = "Тяжёлый профиль использует все ядра процессора на 80% интенсивности. Это создаст значительное тепловыделение и может вызвать термотроттлинг. Используйте только для стресс-тестирования.";
+"heavy.profile.warning.continue" = "Использовать тяжёлый профиль";
+"heavy.profile.warning.cancel" = "Отмена";

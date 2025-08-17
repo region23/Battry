@@ -27,6 +27,7 @@ struct MenuContent: View {
     @ObservedObject var analytics: AnalyticsEngine
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var loadGenerator: LoadGenerator
+    @ObservedObject var videoLoadEngine: VideoLoadEngine
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
     @State private var isAnalyzing = false
@@ -122,6 +123,7 @@ struct MenuContent: View {
                     history: history, 
                     snapshot: battery.state,
                     loadGenerator: loadGenerator,
+                    videoLoadEngine: videoLoadEngine,
                     safetyGuard: safetyGuard
                 )
                 case .settings: SettingsPanel(history: history, calibrator: calibrator)
@@ -204,6 +206,42 @@ struct MenuContent: View {
                     .accessibilityLabel(i18n.t("time.remaining"))
             }
             Spacer()
+            
+            // Generator active badges
+            VStack(alignment: .trailing, spacing: 2) {
+                if loadGenerator.isRunning {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(.orange)
+                            .frame(width: 6, height: 6)
+                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: loadGenerator.isRunning)
+                        Text("CPU")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.orange.opacity(0.1), in: Capsule())
+                }
+                
+                if videoLoadEngine.isRunning {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(.blue)
+                            .frame(width: 6, height: 6)
+                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: videoLoadEngine.isRunning)
+                        Text("GPU")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.blue)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.blue.opacity(0.1), in: Capsule())
+                }
+            }
+            
 			Image("battry_logo_alpha_horizontal")
 				.resizable()
 				.aspectRatio(contentMode: .fit)

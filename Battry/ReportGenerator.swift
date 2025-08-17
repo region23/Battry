@@ -37,11 +37,27 @@ enum ReportGenerator {
     private static func localizedString(_ key: String) -> String {
         return Localization.shared.t(key)
     }
+    /// Метаданные генератора нагрузки для отчётов
+    struct LoadGeneratorMetadata {
+        let wasUsed: Bool
+        let profile: String?
+        let videoEnabled: Bool
+        let autoStopReasons: [String]
+        
+        init(wasUsed: Bool = false, profile: String? = nil, videoEnabled: Bool = false, autoStopReasons: [String] = []) {
+            self.wasUsed = wasUsed
+            self.profile = profile
+            self.videoEnabled = videoEnabled
+            self.autoStopReasons = autoStopReasons
+        }
+    }
+    
     /// Создаёт HTML‑отчёт и сохраняет в постоянную директорию
     static func generateHTMLContent(result: BatteryAnalysis,
                                     snapshot: BatterySnapshot,
                                     history: [BatteryReading],
-                                    calibration: CalibrationResult?) -> String? {
+                                    calibration: CalibrationResult?,
+                                    loadGeneratorMetadata: LoadGeneratorMetadata? = nil) -> String? {
         let df = DateFormatter()
         df.dateStyle = .medium
         df.timeStyle = .short
@@ -158,6 +174,45 @@ enum ReportGenerator {
             <div class="anomalies-section">
               <h4>\(anomaliesTitle)</h4>
               <ul class="anomalies-list">\(items)</ul>
+            </div>
+            """
+        }()
+        
+        // Generate load generator metadata section
+        let loadGeneratorHTML: String = {
+            guard let metadata = loadGeneratorMetadata, metadata.wasUsed else { return "" }
+            let title = lang == "ru" ? "Генератор нагрузки" : "Load Generator"
+            let profileText = metadata.profile ?? (lang == "ru" ? "Неизвестно" : "Unknown")
+            let videoStatus = metadata.videoEnabled ? 
+                (lang == "ru" ? "Включено" : "Enabled") : 
+                (lang == "ru" ? "Отключено" : "Disabled")
+            
+            var autoStopsHTML = ""
+            if !metadata.autoStopReasons.isEmpty {
+                let autoStopsTitle = lang == "ru" ? "Автостопы:" : "Auto-stops:"
+                let stopItems = metadata.autoStopReasons.map { "<li>\($0)</li>" }.joined()
+                autoStopsHTML = """
+                <div class="auto-stops">
+                  <h5>\(autoStopsTitle)</h5>
+                  <ul>\(stopItems)</ul>
+                </div>
+                """
+            }
+            
+            return """
+            <div class="load-generator-info">
+              <h4>\(title)</h4>
+              <div class="generator-details">
+                <div>
+                  <span class="label">\(lang == "ru" ? "Профиль:" : "Profile:")</span>
+                  <span class="value">\(profileText)</span>
+                </div>
+                <div>
+                  <span class="label">\(lang == "ru" ? "Видео 1080p:" : "1080p Video:")</span>
+                  <span class="value">\(videoStatus)</span>
+                </div>
+              </div>
+              \(autoStopsHTML)
             </div>
             """
         }()
@@ -764,6 +819,66 @@ enum ReportGenerator {
               font-weight: 600;
             }
 
+            /* Load Generator Section */
+            .load-generator-info {
+              margin-top: 1.5rem;
+              padding: 1rem;
+              background: var(--bg-secondary);
+              border-radius: 8px;
+              border-left: 3px solid var(--accent-primary);
+            }
+
+            .load-generator-info h4 {
+              color: var(--text-primary);
+              margin-bottom: 0.75rem;
+              font-size: 1rem;
+            }
+
+            .generator-details > div {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 0.5rem;
+            }
+
+            .generator-details .label {
+              color: var(--text-secondary);
+              font-weight: 500;
+            }
+
+            .generator-details .value {
+              color: var(--text-primary);
+              font-weight: 600;
+            }
+
+            .auto-stops {
+              margin-top: 0.75rem;
+            }
+
+            .auto-stops h5 {
+              color: var(--text-secondary);
+              font-size: 0.9rem;
+              margin-bottom: 0.5rem;
+            }
+
+            .auto-stops ul {
+              list-style: none;
+              padding-left: 0;
+            }
+
+            .auto-stops li {
+              color: var(--warning);
+              font-size: 0.85rem;
+              margin-bottom: 0.25rem;
+              padding-left: 1rem;
+              position: relative;
+            }
+
+            .auto-stops li::before {
+              content: "⚠️";
+              position: absolute;
+              left: 0;
+            }
+
             /* Footer */
             .footer {
               text-align: center;
@@ -955,6 +1070,7 @@ enum ReportGenerator {
                 <h4 style=\"color: var(--text-primary); margin-bottom: 0.5rem;\">\(lang == "ru" ? "Рекомендация" : "Recommendation"):</h4>
                 <p style=\"font-size: 1rem; line-height: 1.6;\">\(result.recommendation)</p>
                 \(anomaliesHTML)
+                \(loadGeneratorHTML)
               </div>
             </section>
 

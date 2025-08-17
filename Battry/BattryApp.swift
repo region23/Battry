@@ -20,11 +20,11 @@ struct BattryApp: App {
     @StateObject private var calibrator = CalibrationEngine()
     /// Генератор CPU нагрузки
     @StateObject private var loadGenerator = LoadGenerator()
+    /// Движок видео нагрузки
+    @StateObject private var videoLoadEngine = VideoLoadEngine()
     /// Охранник безопасности генератора
-    @StateObject private var safetyGuard = LoadSafetyGuard { reason in
-        Task { @MainActor in
-            loadGenerator.stop(reason: reason)
-        }
+    @StateObject private var safetyGuard = LoadSafetyGuard { _ in
+        // Callback будет настроен позже в onAppear
     }
     /// Локализация (переключение языка в UI)
     @StateObject private var i18n = Localization.shared
@@ -38,15 +38,25 @@ struct BattryApp: App {
                 analytics: analytics, 
                 calibrator: calibrator,
                 loadGenerator: loadGenerator,
+                videoLoadEngine: videoLoadEngine,
                 safetyGuard: safetyGuard
             )
                 .frame(width: 460)
                 .task {
+                    // Настраиваем callback для safetyGuard
+                    safetyGuard.setStopCallback { reason in
+                        Task { @MainActor in
+                            loadGenerator.stop(reason: reason)
+                            videoLoadEngine.stop()
+                        }
+                    }
+                    
                     // Стартуем периодический опрос и сбор истории при запуске
                     battery.start()
                     history.start()
                     calibrator.bind(to: battery.publisher, viewModel: battery)
                     calibrator.attachHistory(history)
+                    calibrator.attachLoadGenerators(cpu: loadGenerator, video: videoLoadEngine)
                     // Связываем генератор нагрузки с охранником безопасности
                     safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
                 }

@@ -68,6 +68,9 @@
 "precheck.brightness" = "Set brightness to a fixed level (not auto)";
 "precheck.background" = "Close heavy background apps";
 "precheck.load" = "Avoid heavy load during the test";
+"precheck.network" = "Consider going offline for best results";
+"precheck.temperature" = "Ensure ambient temperature is moderate";
+"precheck.load.generator" = "Load generator will create consistent power draw";
 "trends.series.charge" = "Charge %";
 "trends.series.temperature" = "Temperature";
 "trends.series.voltage" = "Voltage V";
@@ -205,3 +208,24 @@
 
 // SoH and Capacity
 "capacity.fact.design" = "Capacity";
+
+// Video Load Engine
+"video.load.enable" = "Enable 1080p video playback";
+"video.load.description" = "Plays HD video in loop for GPU load";
+"video.load.status" = "Video Status";
+"video.load.running" = "Playing 1080p video";
+
+// Video Errors
+"video.error.file.not.found" = "Video file not found";
+"video.error.player.item" = "Failed to create player item";
+"video.error.player.creation" = "Failed to create video player";
+"video.error.unknown" = "Unknown video error: %@";
+"video.error.file.recovery" = "Try reinstalling the application";
+"video.error.restart.recovery" = "Try restarting the video load";
+"video.error.general.recovery" = "Try disabling video load";
+
+// Heavy Profile Warning
+"heavy.profile.warning.title" = "Heavy Load Warning";
+"heavy.profile.warning.message" = "Heavy profile uses all CPU cores at 80% intensity. This will generate significant heat and may trigger thermal throttling. Use only for stress testing.";
+"heavy.profile.warning.continue" = "Use Heavy Profile";
+"heavy.profile.warning.cancel" = "Cancel";

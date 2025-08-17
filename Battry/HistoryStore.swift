@@ -12,10 +12,26 @@ struct BatteryReading: Codable, Equatable {
     var designCapacity: Int?
 }
 
+/// Событие для отображения маркеров на графиках
+struct HistoryEvent: Codable, Equatable {
+    var timestamp: Date
+    var type: EventType
+    var details: String?
+    
+    enum EventType: String, Codable {
+        case generatorStarted = "generator_started"
+        case generatorStopped = "generator_stopped"
+        case videoStarted = "video_started"
+        case videoStopped = "video_stopped"
+    }
+}
+
 @MainActor
 final class HistoryStore: ObservableObject {
     /// Все записи истории (в памяти)
     @Published private(set) var items: [BatteryReading] = []
+    /// События для маркеров на графиках (в памяти, не сохраняется)
+    @Published private(set) var events: [HistoryEvent] = []
 
     /// Путь к файлу истории в Application Support
     private let url: URL = {
@@ -69,10 +85,28 @@ final class HistoryStore: ObservableObject {
         trimIfNeeded()
         save()
     }
+    
+    /// Добавляет событие для отображения маркера на графике
+    func addEvent(_ type: HistoryEvent.EventType, details: String? = nil) {
+        let event = HistoryEvent(timestamp: Date(), type: type, details: details)
+        events.append(event)
+        
+        // Очищаем старые события (старше 30 дней)
+        let cutoff = Date().addingTimeInterval(-30 * 86400)
+        events.removeAll { $0.timestamp < cutoff }
+    }
+    
+    /// Возвращает события за указанный интервал времени [from; to]
+    func eventsBetween(from: Date, to: Date) -> [HistoryEvent] {
+        let start = min(from, to)
+        let end = max(from, to)
+        return events.filter { $0.timestamp >= start && $0.timestamp <= end }
+    }
 
     /// Полная очистка истории и удаление файла
     func clearAll() {
         items.removeAll()
+        events.removeAll()
         let fm = FileManager.default
         try? fm.removeItem(at: url)
     }

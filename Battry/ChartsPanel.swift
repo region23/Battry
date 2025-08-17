@@ -144,6 +144,7 @@ struct ChartsPanel: View {
             EnhancedChartCard(title: titleForChart(readings: readings)) {
                 let segments = chargingSegments(readings: readings)
                 let raw = data()
+                let generatorEvents = getGeneratorEvents()
 
                 Chart {
                     // Заштриховываем интервалы, когда устройство было на зарядке
@@ -154,6 +155,16 @@ struct ChartsPanel: View {
                             xEnd: .value("End", s.1)
                         )
                         .foregroundStyle(Color.blue.opacity(0.08))
+                    }
+                    
+                    // Маркеры событий генератора нагрузки
+                    ForEach(generatorEvents.indices, id: \.self) { i in
+                        let event = generatorEvents[i]
+                        RuleMark(
+                            x: .value("Event", event.timestamp)
+                        )
+                        .foregroundStyle(event.type == .generatorStarted || event.type == .videoStarted ? Color.orange.opacity(0.6) : Color.gray.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
                     }
                     // Ряды данных
                     if showPercent {
@@ -363,6 +374,13 @@ struct ChartsPanel: View {
         guard denom != 0 else { return 0 }
         let slope = (n * sumXY - sumX * sumY) / denom  // % per hour change
         return max(0, -slope)
+    }
+    
+    /// Получает события генератора для текущего временного диапазона
+    private func getGeneratorEvents() -> [HistoryEvent] {
+        let readings = data()
+        guard let firstReading = readings.first, let lastReading = readings.last else { return [] }
+        return history.eventsBetween(from: firstReading.timestamp, to: lastReading.timestamp)
     }
 }
 

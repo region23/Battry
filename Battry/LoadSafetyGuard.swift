@@ -26,12 +26,17 @@ final class LoadSafetyGuard: ObservableObject {
     @Published private(set) var lastViolation: SafetyViolation? = nil
     
     private var cancellables = Set<AnyCancellable>()
-    private let stopCallback: (LoadStopReason) -> Void
+    private var stopCallback: (LoadStopReason) -> Void
     private var thermalStateObserver: NSObjectProtocol?
     
     /// Инициализирует охранника с колбэком для остановки генератора
     init(stopCallback: @escaping (LoadStopReason) -> Void) {
         self.stopCallback = stopCallback
+    }
+    
+    /// Устанавливает новый callback для остановки генератора
+    func setStopCallback(_ callback: @escaping (LoadStopReason) -> Void) {
+        self.stopCallback = callback
     }
     
     /// Запускает мониторинг безопасности
@@ -105,7 +110,9 @@ final class LoadSafetyGuard: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.checkThermalState()
+            Task { @MainActor [weak self] in
+                self?.checkThermalState()
+            }
         }
         
         // Проверяем текущее состояние
@@ -139,7 +146,12 @@ final class LoadSafetyGuard: ObservableObject {
     }
     
     deinit {
-        stopMonitoring()
+        // Can't call MainActor isolated methods in deinit
+        // Combine cancellables and observers will be cleaned up automatically
+        cancellables.removeAll()
+        if let observer = thermalStateObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 }
 

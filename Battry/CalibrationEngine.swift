@@ -1,6 +1,14 @@
 import Foundation
 import Combine
 
+/// Настройки генератора нагрузки для сессии калибровки
+struct LoadGeneratorSessionSettings {
+    var isEnabled: Bool = false
+    var profile: LoadProfile = .medium
+    var videoEnabled: Bool = false
+    var autoStart: Bool = true
+}
+
 /// Итог одного сеанса калибровки/теста
 struct CalibrationResult: Codable, Equatable {
     var startedAt: Date
@@ -48,6 +56,18 @@ final class CalibrationEngine: ObservableObject {
             updateSleepPrevention()
         }
     }
+    
+    // MARK: - Load Generator Integration
+    
+    /// Ссылки на генераторы нагрузки
+    private weak var loadGenerator: LoadGenerator?
+    private weak var videoLoadEngine: VideoLoadEngine?
+    
+    /// Настройки генератора для текущей сессии
+    @Published var loadGeneratorSettings = LoadGeneratorSessionSettings()
+    
+    /// Метаданные генератора для текущей сессии
+    @Published private(set) var currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata()
 
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
@@ -102,6 +122,12 @@ final class CalibrationEngine: ObservableObject {
      func attachHistory(_ store: HistoryStore) {
          self.historyStore = store
      }
+     
+     /// Привязывает генераторы нагрузки для автоматического управления
+     func attachLoadGenerators(cpu: LoadGenerator, video: VideoLoadEngine) {
+         self.loadGenerator = cpu
+         self.videoLoadEngine = video
+     }
 
     /// Отвязывает подписку и сохраняет прогресс
     func unbind() {
@@ -116,6 +142,10 @@ final class CalibrationEngine: ObservableObject {
         samples.removeAll()
         lastSampleAt = nil
         autoResetDueToGap = false
+        
+        // Инициализируем метаданные генератора
+        currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata()
+        
         save()
         updateSleepPrevention()
         updatePollingMode()
@@ -123,6 +153,9 @@ final class CalibrationEngine: ObservableObject {
 
     /// Останавливает и сбрасывает текущую сессию
     func stop() {
+        // Останавливаем генераторы
+        stopLoadGenerators()
+        
         state = .idle
         samples.removeAll()
         lastSampleAt = nil
@@ -180,6 +213,12 @@ final class CalibrationEngine: ObservableObject {
                 state = .running(start: Date(), atPercent: snapshot.percentage)
                 samples.removeAll()
                 lastSampleAt = Date()
+                
+                // Автозапуск генератора если включен
+                if loadGeneratorSettings.isEnabled && loadGeneratorSettings.autoStart {
+                    startLoadGenerators()
+                }
+                
                 save()
                 updateSleepPrevention()
                 updatePollingMode()
@@ -188,6 +227,9 @@ final class CalibrationEngine: ObservableObject {
         case .running(let start, let startPercent):
             // Если подключено питание — пауза
             if snapshot.isCharging || snapshot.powerSource == .ac {
+                // Останавливаем генераторы при паузе
+                stopLoadGenerators()
+                
                 state = .paused
                 save()
                 updateSleepPrevention()
@@ -234,7 +276,8 @@ final class CalibrationEngine: ObservableObject {
                 if let htmlContent = ReportGenerator.generateHTMLContent(result: analysis,
                                                                          snapshot: snapshot,
                                                                          history: sessionHistory,
-                                                                         calibration: res) {
+                                                                         calibration: res,
+                                                                         loadGeneratorMetadata: currentLoadMetadata) {
                     // Автоматически сохраняем отчет в историю
                     if let reportURL = ReportHistory.shared.addReport(
                         htmlContent: htmlContent,
@@ -245,6 +288,9 @@ final class CalibrationEngine: ObservableObject {
                     }
                 }
 
+                // Останавливаем генераторы при завершении
+                stopLoadGenerators()
+                
                 state = .completed(result: res)
                 lastResult = res
                 recentResults.append(res)
@@ -262,6 +308,12 @@ final class CalibrationEngine: ObservableObject {
                 state = .running(start: Date(), atPercent: snapshot.percentage)
                 samples.removeAll()
                 lastSampleAt = Date()
+                
+                // Перезапускаем генератор если был включен
+                if loadGeneratorSettings.isEnabled && loadGeneratorSettings.autoStart {
+                    startLoadGenerators()
+                }
+                
                 save()
                 updateSleepPrevention()
                 updatePollingMode()
@@ -448,5 +500,52 @@ final class CalibrationEngine: ObservableObject {
             // Обычный опрос в остальных случаях
             vm.disableFastMode()
         }
+    }
+    
+    // MARK: - Load Generator Management
+    
+    /// Запускает генераторы нагрузки согласно настройкам
+    private func startLoadGenerators() {
+        guard loadGeneratorSettings.isEnabled else { return }
+        
+        // Обновляем метаданные
+        currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata(
+            wasUsed: true,
+            profile: Localization.shared.t(loadGeneratorSettings.profile.localizationKey),
+            videoEnabled: loadGeneratorSettings.videoEnabled,
+            autoStopReasons: []
+        )
+        
+        // Запускаем CPU генератор
+        loadGenerator?.start(profile: loadGeneratorSettings.profile)
+        
+        // Трекируем событие запуска CPU генератора
+        historyStore?.addEvent(.generatorStarted, details: loadGeneratorSettings.profile.localizationKey)
+        
+        // Запускаем видео если включено
+        if loadGeneratorSettings.videoEnabled {
+            videoLoadEngine?.start()
+            // Трекируем событие запуска видео
+            historyStore?.addEvent(.videoStarted)
+        }
+        
+        print("CalibrationEngine: Started load generators - CPU: \(loadGeneratorSettings.profile), Video: \(loadGeneratorSettings.videoEnabled)")
+    }
+    
+    /// Останавливает все генераторы нагрузки
+    private func stopLoadGenerators() {
+        if loadGenerator?.isRunning == true {
+            loadGenerator?.stop(reason: .userStopped)
+            // Трекируем событие остановки CPU генератора
+            historyStore?.addEvent(.generatorStopped)
+        }
+        
+        if videoLoadEngine?.isRunning == true {
+            videoLoadEngine?.stop()
+            // Трекируем событие остановки видео
+            historyStore?.addEvent(.videoStopped)
+        }
+        
+        print("CalibrationEngine: Stopped all load generators")
     }
 }
