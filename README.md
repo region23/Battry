@@ -160,4 +160,4 @@ BatteryService ──▶ BatteryViewModel ──▶ HistoryStore
 
 ## Лицензия
 
-MIT — см. `LICENSE`.
+MIT 
