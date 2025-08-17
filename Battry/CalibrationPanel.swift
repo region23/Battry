@@ -70,14 +70,9 @@ struct CalibrationPanel: View {
                 completedStateView(result: res)
             }
             
-            // Секция истории результатов
-            if let last = calibrator.lastResult {
-                lastResultSection(result: last)
-            }
             
-            if !calibrator.recentResults.isEmpty {
-                recentResultsSection
-            }
+            // Секция результатов анализов - отображается всегда
+            analysisResultsSection
             
             // Секция отчетов - отображается всегда
             reportsSection
@@ -371,20 +366,6 @@ extension CalibrationPanel {
                         .buttonStyle(.bordered)
                     }
                     
-                    Button {
-                        let analytics = AnalyticsEngine()
-                        let analysis = analytics.analyze(history: history.recent(days: 7), snapshot: snapshot)
-                        if let url = ReportGenerator.generateHTML(result: analysis, snapshot: snapshot, history: history.recent(days: 7), calibration: result) {
-                            NSWorkspace.shared.open(url)
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "square.and.arrow.down")
-                            Text(i18n.t("save.to.report"))
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
                     
                     HStack(spacing: 8) {
                         Button(i18n.t("analysis.repeat")) { 
@@ -402,61 +383,100 @@ extension CalibrationPanel {
         }
     }
     
-    private func lastResultSection(result: CalibrationResult) -> some View {
-        CardSection(title: i18n.t("last.result"), icon: "clock.arrow.circlepath") {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("\(result.startedAt.formatted(date: .abbreviated, time: .shortened))")
-                    Image(systemName: "arrow.right")
+    
+    private var analysisResultsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+                Text(i18n.t("analysis.results"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+            
+            if !calibrator.recentResults.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { result in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                // Время и дата анализа
+                                HStack {
+                                    Text(result.startedAt.formatted(date: .abbreviated, time: .shortened))
+                                    Image(systemName: "arrow.right")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text(result.finishedAt.formatted(date: .omitted, time: .shortened))
+                                    Spacer()
+                                }
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                
+                                // Результаты анализа
+                                HStack {
+                                    Text(String(format: i18n.t("last.result.line"), 
+                                               String(format: "%.1f", result.avgDischargePerHour), 
+                                               String(format: "%.1f", result.estimatedRuntimeFrom100To0Hours)))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            if let path = result.reportPath {
+                                Button {
+                                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                                } label: {
+                                    Image(systemName: "doc.text")
+                                        .font(.system(size: 16))
+                                }
+                                .buttonStyle(.borderless)
+                                .help(i18n.t("reports.open"))
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(.quaternary.opacity(0.5))
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if let path = result.reportPath {
+                                NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Показываем подсказку когда нет результатов
+                VStack(spacing: 8) {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.secondary.opacity(0.6))
+                    
+                    Text(i18n.t("analysis.results.empty"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("\(result.finishedAt.formatted(date: .abbreviated, time: .shortened))")
-                    Spacer()
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 8)
                 }
-                .font(.subheadline)
-                .fontWeight(.medium)
-                
-                Text(String(format: i18n.t("last.result.line"), 
-                           String(format: "%.1f", result.avgDischargePerHour), 
-                           String(format: "%.1f", result.estimatedRuntimeFrom100To0Hours)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
             }
         }
-    }
-    
-    private var recentResultsSection: some View {
-        CardSection(title: i18n.t("recent.analyses"), icon: "list.bullet") {
-            VStack(spacing: 8) {
-                ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { result in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(String(format: i18n.t("recent.line"),
-                                        result.startedAt.formatted(date: .abbreviated, time: .shortened),
-                                        result.finishedAt.formatted(date: .omitted, time: .shortened),
-                                        String(format: "%.1f", result.avgDischargePerHour)))
-                                .font(.caption)
-                        }
-                        
-                        Spacer()
-                        
-                        if let path = result.reportPath {
-                            Button {
-                                NSWorkspace.shared.open(URL(fileURLWithPath: path))
-                            } label: {
-                                Image(systemName: "doc.text")
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                    if result.finishedAt != calibrator.recentResults.reversed().prefix(5).last?.finishedAt {
-                        Divider()
-                    }
-                }
-            }
-        }
+        .padding(12)
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
+        )
     }
     
     private func checklistItem(_ text: String) -> some View {

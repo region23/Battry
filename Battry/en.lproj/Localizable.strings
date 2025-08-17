@@ -42,6 +42,8 @@
 "last.result.line" = "Avg: %@ %%/h • Runtime: %@ h";
 "recent.analyses" = "Recent Analyses";
 "recent.line" = "%@ → %@ • %@ %%/h";
+"analysis.results" = "Analysis Results";
+"analysis.results.empty" = "No analysis results yet. Complete a full analysis (100% to 5%) to see results here.";
 "panel.overview" = "Overview";
 "panel.charts" = "Charts";
 "panel.analysis" = "Analysis";

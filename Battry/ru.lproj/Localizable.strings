@@ -42,6 +42,8 @@
 "last.result.line" = "Средний: %@ %/ч • Автономность: %@ ч";
 "recent.analyses" = "Последние анализы";
 "recent.line" = "%@ → %@ • %@ %/ч";
+"analysis.results" = "Результаты анализов";
+"analysis.results.empty" = "Результатов пока нет. Завершите полный анализ (100% → 5%), чтобы увидеть результаты здесь.";
 "panel.overview" = "Обзор";
 "panel.charts" = "Графики";
 "panel.analysis" = "Анализ";
