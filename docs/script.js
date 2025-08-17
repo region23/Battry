@@ -61,7 +61,7 @@ const translations = {
         'footer.releases': 'All Releases',
         'footer.issues': 'Report Issues',
         'footer.contact': 'Contact Developer',
-        'footer.made': 'Made with ❤️ by region23',
+        'footer.made': 'Made with ◉ by region23',
         'footer.license': 'Licensed under MIT • Open Source'
     },
     ru: {
@@ -125,7 +125,7 @@ const translations = {
         'footer.releases': 'Все релизы',
         'footer.issues': 'Сообщить об ошибке',
         'footer.contact': 'Связаться с разработчиком',
-        'footer.made': 'Сделано с ❤️ от region23',
+        'footer.made': 'Сделано с ◉ от region23',
         'footer.license': 'Лицензия MIT • Открытый исходный код'
     }
 };
@@ -346,9 +346,9 @@ window.addEventListener('scroll', function() {
     });
 });
 
-// Add loading states for images
+// Add loading states for images (excluding hero logo)
 document.addEventListener('DOMContentLoaded', function() {
-    const images = document.querySelectorAll('img');
+    const images = document.querySelectorAll('img:not(.hero-logo):not(.footer-logo-img)');
     
     images.forEach(img => {
         // Add loading placeholder

@@ -86,12 +86,29 @@ body {
     z-index: 1;
 }
 
+.hero-logo-container {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 30px;
+    animation: float 6s ease-in-out infinite;
+}
+
 .hero-logo {
     width: 240px;
     height: auto;
-    margin-bottom: 30px;
+    display: block;
     filter: drop-shadow(0 10px 30px rgba(0, 122, 255, 0.3));
-    animation: float 6s ease-in-out infinite;
+    
+    /* Применяем хue-rotate и brightness для создания голубоватого оттенка */
+    filter: 
+        hue-rotate(200deg) 
+        saturate(1.5) 
+        brightness(1.1) 
+        drop-shadow(0 10px 30px rgba(0, 122, 255, 0.3));
+}
+
+.hero-logo-gradient {
+    display: none;
 }
 
 @keyframes float {
@@ -185,9 +202,6 @@ body {
     font-size: 18px;
 }
 
-.btn-icon {
-    font-size: 18px;
-}
 
 .hero-note {
     color: #666;
@@ -268,9 +282,15 @@ section {
 }
 
 .feature-icon {
-    font-size: 60px;
+    font-size: 48px;
     margin-bottom: 20px;
-    filter: drop-shadow(0 5px 15px rgba(0, 122, 255, 0.3));
+    color: #007AFF;
+    text-shadow: 0 0 20px rgba(0, 122, 255, 0.4);
+}
+
+.btn i {
+    margin-right: 10px;
+    font-size: 16px;
 }
 
 .feature-card h3 {

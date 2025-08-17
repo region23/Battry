@@ -10,6 +10,7 @@
     <meta property="og:description" content="Professional battery monitoring for macOS with real-time analytics and health scoring.">
     <meta property="og:image" content="https://region23.github.io/Battry/battry.png">
     <meta property="og:url" content="https://region23.github.io/Battry/">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="battry.png">
 </head>
@@ -24,16 +25,19 @@
     <section class="hero">
         <div class="container">
             <div class="hero-content">
-                <img src="battry-white.png" alt="Battry Logo" class="hero-logo">
+                <div class="hero-logo-container">
+                    <img src="battry-white.png" alt="Battry Logo" class="hero-logo">
+                    <div class="hero-logo-gradient"></div>
+                </div>
                 <h1 class="hero-title" data-key="hero.title">Advanced Battery Monitoring for macOS</h1>
                 <p class="hero-subtitle" data-key="hero.subtitle">Professional-grade battery analytics, health scoring, and autonomy testing in your menu bar</p>
                 <div class="hero-buttons">
                     <a href="https://github.com/region23/Battry/releases/latest" class="btn btn-primary" data-key="hero.download">
-                        <span class="btn-icon">⬇</span>
+                        <i class="fas fa-download"></i>
                         Download for macOS
                     </a>
                     <a href="https://github.com/region23/Battry" class="btn btn-secondary" data-key="hero.github">
-                        <span class="btn-icon">⌘</span>
+                        <i class="fab fa-github"></i>
                         View on GitHub
                     </a>
                 </div>
@@ -50,32 +54,44 @@
             <h2 class="section-title" data-key="features.title">Key Features</h2>
             <div class="features-grid">
                 <div class="feature-card" data-animation="fade-up">
-                    <div class="feature-icon">📊</div>
+                    <div class="feature-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
                     <h3 data-key="features.realtime.title">Real-time Monitoring</h3>
                     <p data-key="features.realtime.desc">Live battery metrics in your menu bar with detailed percentage, cycles, temperature, and voltage tracking</p>
                 </div>
                 <div class="feature-card" data-animation="fade-up">
-                    <div class="feature-icon">🔋</div>
+                    <div class="feature-icon">
+                        <i class="fas fa-battery-three-quarters"></i>
+                    </div>
                     <h3 data-key="features.autonomy.title">Autonomy Testing</h3>
                     <p data-key="features.autonomy.desc">Complete 100% → 5% discharge tests with automatic start/stop and comprehensive HTML reports</p>
                 </div>
                 <div class="feature-card" data-animation="fade-up">
-                    <div class="feature-icon">❤️</div>
+                    <div class="feature-icon">
+                        <i class="fas fa-heartbeat"></i>
+                    </div>
                     <h3 data-key="features.health.title">Health Scoring</h3>
                     <p data-key="features.health.desc">Advanced analytics engine with 0-100 health scoring, wear analysis, and personalized recommendations</p>
                 </div>
                 <div class="feature-card" data-animation="fade-up">
-                    <div class="feature-icon">📈</div>
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
                     <h3 data-key="features.charts.title">Interactive Charts</h3>
                     <p data-key="features.charts.desc">Detailed Swift Charts visualization with charge trends, temperature, voltage, and discharge rate analysis</p>
                 </div>
                 <div class="feature-card" data-animation="fade-up">
-                    <div class="feature-icon">⚡</div>
+                    <div class="feature-icon">
+                        <i class="fas fa-microchip"></i>
+                    </div>
                     <h3 data-key="features.loadgen.title">Load Generator</h3>
                     <p data-key="features.loadgen.desc">Built-in CPU/GPU stress testing with configurable profiles for consistent discharge testing</p>
                 </div>
                 <div class="feature-card" data-animation="fade-up">
-                    <div class="feature-icon">📄</div>
+                    <div class="feature-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
                     <h3 data-key="features.reports.title">HTML Reports</h3>
                     <p data-key="features.reports.desc">Beautiful, shareable reports with embedded charts, device info, and detailed analysis results</p>
                 </div>
@@ -158,16 +174,12 @@
                             <span class="requirement-label" data-key="download.requirements.processor">Processor:</span>
                             <span class="requirement-value">Apple Silicon / Intel</span>
                         </div>
-                        <div class="requirement-item">
-                            <span class="requirement-label" data-key="download.requirements.space">Storage:</span>
-                            <span class="requirement-value">~10 MB</span>
-                        </div>
                     </div>
                 </div>
 
                 <div class="download-buttons">
                     <a href="https://github.com/region23/Battry/releases/latest" class="btn btn-primary btn-large" data-key="download.button">
-                        <span class="btn-icon">⬇</span>
+                        <i class="fas fa-download"></i>
                         Download Latest Version
                     </a>
                 </div>
@@ -190,7 +202,7 @@
                     <a href="https://t.me/region23" class="footer-link" data-key="footer.contact">Contact Developer</a>
                 </div>
                 <div class="footer-info">
-                    <p data-key="footer.made">Made with ❤️ by region23</p>
+                    <p data-key="footer.made">Made with ◉ by region23</p>
                     <p data-key="footer.license">Licensed under MIT • Open Source</p>
                 </div>
             </div>
@@ -201,9 +213,23 @@
     <div id="lightbox" class="lightbox" onclick="closeLightbox()">
         <div class="lightbox-content">
             <img id="lightbox-img" src="" alt="">
-            <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+            <button class="lightbox-close" onclick="closeLightbox()">×</button>
         </div>
     </div>
+
+    <!-- SVG Filters for logo gradient -->
+    <svg style="position: absolute; width: 0; height: 0; visibility: hidden;">
+        <defs>
+            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#007AFF;stop-opacity:1" />
+            </linearGradient>
+            <filter id="gradientFilter">
+                <feFlood flood-color="url(#logoGradient)" result="flood"/>
+                <feComposite in="flood" in2="SourceGraphic" operator="in"/>
+            </filter>
+        </defs>
+    </svg>
 
     <script src="script.js"></script>
 </body>
