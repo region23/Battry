@@ -338,8 +338,6 @@ section {
     transition: all 0.3s ease;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.02);
-    flex-grow: 1;
-    object-fit: cover;
 }
 
 .screenshot-img:hover {
@@ -558,15 +556,22 @@ section {
 }
 
 .lightbox-close {
-    position: absolute;
-    top: -40px;
-    right: 0;
-    background: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.5);
     border: none;
     color: white;
     font-size: 30px;
     cursor: pointer;
     padding: 10px;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2001;
 }
 
 /* Animations */
