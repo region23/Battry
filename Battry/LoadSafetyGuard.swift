@@ -4,7 +4,7 @@ import Combine
 /// Настройки безопасности для генератора нагрузки
 struct LoadSafetySettings {
     /// Минимальный уровень заряда для работы генератора (%)
-    var minBatteryLevel: Int = 7
+    var minBatteryLevel: Int = 5
     /// Температура предупреждения (°C)
     var warningTemperature: Double = 40.0
     /// Максимальная температура батареи (°C)

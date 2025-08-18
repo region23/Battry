@@ -74,6 +74,24 @@ struct SettingsPanel: View {
                             .foregroundStyle(.secondary)
                             .font(.system(.body, design: .monospaced))
                     }
+                    
+                    SettingsRow {
+                        SettingsLabel(
+                            title: i18n.t("settings.data.open.folder"),
+                            icon: "folder",
+                            description: i18n.t("settings.data.open.folder.description")
+                        )
+                        Spacer()
+                        Button {
+                            openDataFolder()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "folder")
+                                Text(i18n.t("settings.data.open.folder"))
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
                 
                 Divider()
@@ -143,7 +161,12 @@ struct SettingsPanel: View {
         calibrator.clearPersistentData()
     }
     
-    
+    private func openDataFolder() {
+        let fm = FileManager.default
+        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let dataDir = base.appendingPathComponent("Battry", isDirectory: true)
+        NSWorkspace.shared.open(dataDir)
+    }
 
     private var totalBytes: Int64 {
         return history.fileSizeBytes + calibrator.fileSizeBytes
