@@ -274,16 +274,21 @@ final class AnalyticsEngine: ObservableObject {
         let temperatures = history.compactMap { $0.temperature }.filter { $0 > 0 }
         let avgTemperature = temperatures.isEmpty ? 25.0 : temperatures.reduce(0, +) / Double(temperatures.count)
         
-        // Композитный health score по формуле эксперта
+        // Композитный health score по формуле эксперта (унифицировано с QuickHealthTest)
+        let durationHours: Double = {
+            guard let first = history.first, let last = history.last else { return 1 }
+            return max(1e-6, last.timestamp.timeIntervalSince(first.timestamp) / 3600.0)
+        }()
+        let dropsPerHour = Double(micro) / durationHours
+        let stabilityScore = max(0, min(100, 100 - dropsPerHour * 25))
+        let temperatureQuality = TemperatureNormalizer.temperatureQuality(avgTemperature)
         result.healthScore = Int(calculateCompositeHealthScore(
             sohEnergy: result.sohEnergy,
             sohCapacity: Double(100 - Int(snapshot.wearPercent)),
             dcirAt50: result.dcirAt50Percent,
             dcirAt20: result.dcirAt20Percent,
-            kneeIndex: result.kneeIndex,
-            microDrops: micro,
-            avgTemperature: avgTemperature,
-            cycleCount: snapshot.cycleCount
+            stabilityScore: stabilityScore,
+            temperatureQuality: temperatureQuality
         ))
 
         // Аномалии
@@ -388,75 +393,27 @@ final class AnalyticsEngine: ObservableObject {
         sohCapacity: Double,
         dcirAt50: Double?,
         dcirAt20: Double?,
-        kneeIndex: Double,
-        microDrops: Int,
-        avgTemperature: Double,
-        cycleCount: Int
+        stabilityScore: Double,
+        temperatureQuality: Double
     ) -> Double {
-        
         // 40% - SOH по энергии
-        let energyScore = sohEnergy * 0.4
-        
-        // 25% - DCIR оценка
-        var dcirScore: Double = 100.0
-        if let dcir50 = dcirAt50 {
-            // Нормальный DCIR: 50-150 мОм, плохой: >300 мОм
-            if dcir50 > 300 {
-                dcirScore = max(0, 100 - (dcir50 - 150) / 5)
-            } else if dcir50 > 150 {
-                dcirScore = 100 - (dcir50 - 150) / 10
-            }
-        }
+        var score: Double = 0
+        score += 0.4 * sohEnergy
+        // 25% - DCIR (чем выше, тем хуже) — унифицировано с QHT
+        var dcirScore: Double = 100
+        if let dcir50 = dcirAt50 { dcirScore = max(0, 100 - (dcir50 - 100) / 2) }
         if let dcir20 = dcirAt20 {
-            var dcir20Score: Double = 100.0
-            if dcir20 > 500 {
-                dcir20Score = max(0, 100 - (dcir20 - 250) / 8)
-            } else if dcir20 > 250 {
-                dcir20Score = 100 - (dcir20 - 250) / 15
-            }
-            dcirScore = (dcirScore + dcir20Score) / 2.0
+            let dcir20Score = max(0, 100 - (dcir20 - 200) / 3)
+            dcirScore = (dcirScore + dcir20Score) / 2
         }
-        
-        // 20% - SOH по емкости 
-        let capacityScore = sohCapacity * 0.2
-        
-        // 10% - стабильность (микро-дропы)
-        let stabilityScore: Double
-        if microDrops == 0 {
-            stabilityScore = 100.0
-        } else if microDrops <= 2 {
-            stabilityScore = 80.0
-        } else if microDrops <= 5 {
-            stabilityScore = 50.0
-        } else {
-            stabilityScore = max(0, 50 - Double(microDrops - 5) * 10)
-        }
-        
+        score += 0.25 * dcirScore
+        // 20% - SOH по емкости
+        score += 0.2 * sohCapacity
+        // 10% - стабильность
+        score += 0.1 * stabilityScore
         // 5% - температурная терпимость
-        let temperatureScore: Double
-        if avgTemperature <= 30 {
-            temperatureScore = 100.0
-        } else if avgTemperature <= 35 {
-            temperatureScore = 90.0
-        } else if avgTemperature <= 40 {
-            temperatureScore = 70.0
-        } else {
-            temperatureScore = max(0, 70 - (avgTemperature - 40) * 5)
-        }
-        
-        // Дополнительные штрафы за циклы и колено
-        var cyclesPenalty: Double = 0
-        if cycleCount > 800 {
-            cyclesPenalty = min(15, Double(cycleCount - 800) / 50)
-        } else if cycleCount > 600 {
-            cyclesPenalty = Double(cycleCount - 600) / 100
-        }
-        
-        let kneePenalty = max(0, (100 - kneeIndex) / 10)
-        
-        let finalScore = energyScore + dcirScore * 0.25 + capacityScore + stabilityScore * 0.1 + temperatureScore * 0.05 - cyclesPenalty - kneePenalty
-        
-        return max(0, min(100, finalScore))
+        score += 0.05 * max(0, min(100, temperatureQuality))
+        return max(0, min(100, score))
     }
     
     /// Извлекает DCIR точки из истории (простейшая реализация)
@@ -478,15 +435,14 @@ final class AnalyticsEngine: ObservableObject {
         
         // Иначе быстрый расчет только Health Score без полного анализа
         let sohCapacity = Double(100 - Int(snapshot.wearPercent))
+        let temperatureQuality = TemperatureNormalizer.temperatureQuality(snapshot.temperature)
         let simpleScore = calculateCompositeHealthScore(
             sohEnergy: snapshot.designCapacity > 0 ? Double(snapshot.maxCapacity) / Double(snapshot.designCapacity) * 100 : 100,
             sohCapacity: sohCapacity,
             dcirAt50: nil,
             dcirAt20: nil,
-            kneeIndex: 100.0,
-            microDrops: 0,
-            avgTemperature: snapshot.temperature,
-            cycleCount: snapshot.cycleCount
+            stabilityScore: 100,
+            temperatureQuality: temperatureQuality
         )
         
         return Int(simpleScore)
