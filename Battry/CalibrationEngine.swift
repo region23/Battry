@@ -19,6 +19,7 @@ struct CalibrationResult: Codable, Equatable {
     var avgDischargePerHour: Double
     var estimatedRuntimeFrom100To0Hours: Double
     var reportPath: String? = nil
+    var dataPath: String? = nil
 }
 
 /// Состояние процесса калибровки
@@ -286,6 +287,14 @@ final class CalibrationEngine: ObservableObject {
                 // Останавливаем генераторы при завершении
                 stopLoadGenerators()
                 
+                // Сохраняем полные данные теста
+                if let dataPath = saveTestData(result: res, samples: samples, snapshot: snapshot) {
+                    res.dataPath = dataPath
+                }
+                
+                // Уведомляем HistoryStore о завершении теста для корректного отображения метрик
+                historyStore?.setLastTestCompletedAt(end)
+                
                 state = .completed(result: res)
                 lastResult = res
                 recentResults.append(res)
@@ -541,5 +550,140 @@ final class CalibrationEngine: ObservableObject {
         }
         
         print("CalibrationEngine: Stopped all load generators")
+    }
+    
+    /// Сохраняет полные данные завершенного теста в отдельный файл
+    private func saveTestData(result: CalibrationResult, samples: [BatteryReading], snapshot: BatterySnapshot) -> String? {
+        let timestamp = Int(Date().timeIntervalSince1970)
+        
+        // Создаем структуру данных для сохранения
+        var testData: [String: Any] = [:]
+        testData["test_id"] = String(timestamp)
+        testData["started_at"] = ISO8601DateFormatter().string(from: result.startedAt)
+        testData["finished_at"] = ISO8601DateFormatter().string(from: result.finishedAt)
+        
+        // Результаты калибровки
+        testData["calibration_result"] = encode(result)
+        
+        // Метаданные генератора нагрузки
+        var loadMetadata: [String: Any] = [:]
+        loadMetadata["isEnabled"] = loadGeneratorSettings.isEnabled
+        loadMetadata["profile"] = loadGeneratorSettings.profile.localizationKey
+        loadMetadata["videoEnabled"] = loadGeneratorSettings.videoEnabled
+        loadMetadata["autoStart"] = loadGeneratorSettings.autoStart
+        testData["load_generator_metadata"] = loadMetadata
+        
+        // Все измерения за время теста
+        testData["samples"] = samples.map { encode($0) }
+        
+        // Настройки теста
+        var settings: [String: Any] = [:]
+        settings["endThreshold"] = endThresholdPercent
+        settings["maxResumeGap"] = maxResumeGap
+        testData["settings"] = settings
+        
+        // Финальный снимок состояния батареи
+        var finalSnapshot: [String: Any] = [:]
+        finalSnapshot["percentage"] = snapshot.percentage
+        finalSnapshot["voltage"] = snapshot.voltage
+        finalSnapshot["temperature"] = snapshot.temperature
+        finalSnapshot["isCharging"] = snapshot.isCharging
+        finalSnapshot["powerSource"] = snapshot.powerSource.rawValue
+        finalSnapshot["maxCapacity"] = snapshot.maxCapacity
+        finalSnapshot["designCapacity"] = snapshot.designCapacity
+        finalSnapshot["cycleCount"] = snapshot.cycleCount
+        testData["final_snapshot"] = finalSnapshot
+        
+        // Определяем путь для сохранения (та же папка, что и history.json)
+        let fm = FileManager.default
+        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let battryDir = base.appendingPathComponent("Battry", isDirectory: true)
+        try? fm.createDirectory(at: battryDir, withIntermediateDirectories: true)
+        
+        let filename = "analyze_\(timestamp).json"
+        let fileURL = battryDir.appendingPathComponent(filename)
+        
+        do {
+            let data = try JSONSerialization.data(withJSONObject: testData, options: [.prettyPrinted])
+            try data.write(to: fileURL, options: .atomic)
+            print("CalibrationEngine: Saved test data to \(filename)")
+            return fileURL.path
+        } catch {
+            print("CalibrationEngine: Failed to save test data: \(error)")
+            return nil
+        }
+    }
+    
+    /// Структура для хранения загруженных данных теста
+    struct TestData {
+        let samples: [BatteryReading]
+        let calibrationResult: CalibrationResult
+        let finalSnapshot: BatterySnapshot
+        let loadGeneratorMetadata: ReportGenerator.LoadGeneratorMetadata?
+    }
+    
+    /// Загружает сохраненные данные теста из JSON файла
+    func loadTestData(from path: String) -> TestData? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let testData = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("CalibrationEngine: Failed to load test data from \(path)")
+            return nil
+        }
+        
+        // Загружаем samples
+        guard let samplesArray = testData["samples"] as? [[String: Any]] else {
+            print("CalibrationEngine: Failed to parse samples from test data")
+            return nil
+        }
+        
+        var samples: [BatteryReading] = []
+        for sampleDict in samplesArray {
+            if let sample: BatteryReading = decode(sampleDict) {
+                samples.append(sample)
+            }
+        }
+        
+        // Загружаем calibration result
+        guard let resultDict = testData["calibration_result"] as? [String: Any],
+              let calibrationResult: CalibrationResult = decode(resultDict) else {
+            print("CalibrationEngine: Failed to parse calibration result from test data")
+            return nil
+        }
+        
+        // Загружаем final snapshot
+        guard let snapshotDict = testData["final_snapshot"] as? [String: Any] else {
+            print("CalibrationEngine: Failed to parse final snapshot from test data")
+            return nil
+        }
+        
+        var finalSnapshot = BatterySnapshot()
+        finalSnapshot.percentage = snapshotDict["percentage"] as? Int ?? 0
+        finalSnapshot.voltage = snapshotDict["voltage"] as? Double ?? 0.0
+        finalSnapshot.temperature = snapshotDict["temperature"] as? Double ?? 0.0
+        finalSnapshot.isCharging = snapshotDict["isCharging"] as? Bool ?? false
+        finalSnapshot.powerSource = PowerSource(rawValue: snapshotDict["powerSource"] as? String ?? "unknown") ?? .unknown
+        finalSnapshot.maxCapacity = snapshotDict["maxCapacity"] as? Int ?? 0
+        finalSnapshot.designCapacity = snapshotDict["designCapacity"] as? Int ?? 0
+        finalSnapshot.cycleCount = snapshotDict["cycleCount"] as? Int ?? 0
+        
+        // Загружаем load generator metadata (опционально)
+        var loadMetadata: ReportGenerator.LoadGeneratorMetadata? = nil
+        if let metadataDict = testData["load_generator_metadata"] as? [String: Any] {
+            let wasUsed = metadataDict["isEnabled"] as? Bool ?? false
+            let profile = metadataDict["profile"] as? String
+            let videoEnabled = metadataDict["videoEnabled"] as? Bool ?? false
+            loadMetadata = ReportGenerator.LoadGeneratorMetadata(
+                wasUsed: wasUsed,
+                profile: profile,
+                videoEnabled: videoEnabled
+            )
+        }
+        
+        return TestData(
+            samples: samples,
+            calibrationResult: calibrationResult,
+            finalSnapshot: finalSnapshot,
+            loadGeneratorMetadata: loadMetadata
+        )
     }
 }

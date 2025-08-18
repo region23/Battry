@@ -7,6 +7,7 @@ enum HealthStatus: CaseIterable {
     case normal     // нормально
     case acceptable // приемлемо
     case poor       // плохо
+    case afterTest  // после теста
     
     /// Цвет для визуального отображения статуса
     var color: String {
@@ -15,6 +16,7 @@ enum HealthStatus: CaseIterable {
         case .normal: return "blue"
         case .acceptable: return "orange" 
         case .poor: return "red"
+        case .afterTest: return "gray"
         }
     }
     
@@ -25,6 +27,7 @@ enum HealthStatus: CaseIterable {
         case .normal: return "health.status.normal"
         case .acceptable: return "health.status.acceptable"
         case .poor: return "health.status.poor"
+        case .afterTest: return "after.test"
         }
     }
 }

@@ -130,6 +130,7 @@
 // Строки для улучшенного Overview
 "overview.battery.info" = "Характеристики батареи";
 "overview.performance" = "Производительность";
+"after.test" = "После теста";
 "overview.anomalies" = "Аномалии";
 "overview.recommendation" = "Рекомендация";
 

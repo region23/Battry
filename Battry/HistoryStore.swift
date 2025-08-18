@@ -32,6 +32,8 @@ final class HistoryStore: ObservableObject {
     @Published private(set) var items: [BatteryReading] = []
     /// События для маркеров на графиках (в памяти, не сохраняется)
     @Published private(set) var events: [HistoryEvent] = []
+    /// Время завершения последнего теста калибровки
+    @Published private(set) var lastTestCompletedAt: Date? = nil
 
     /// Путь к файлу истории в Application Support
     private let url: URL = {
@@ -206,5 +208,23 @@ final class HistoryStore: ObservableObject {
            let arr = try? JSONDecoder().decode([BatteryReading].self, from: data) {
             items = arr
         }
+    }
+    
+    /// Устанавливает время завершения последнего теста калибровки
+    func setLastTestCompletedAt(_ date: Date) {
+        lastTestCompletedAt = date
+    }
+    
+    /// Возвращает количество секунд с момента завершения последнего теста
+    /// Возвращает nil, если тест не проводился
+    func getTimeSinceLastTest() -> TimeInterval? {
+        guard let lastTest = lastTestCompletedAt else { return nil }
+        return Date().timeIntervalSince(lastTest)
+    }
+    
+    /// Проверяет, прошел ли час с момента завершения последнего теста
+    func isMoreThanHourSinceLastTest() -> Bool {
+        guard let timeSince = getTimeSinceLastTest() else { return true }
+        return timeSince > 3600 // 1 час в секундах
     }
 }

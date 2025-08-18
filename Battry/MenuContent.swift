@@ -386,6 +386,39 @@ struct MenuContent: View {
         }
     }
     
+    /// Определяет цвет акцента для карточки "Разряд (1 час)" с учетом времени после теста
+    private func get1hAccentColor() -> Color {
+        guard analytics.hasEnoughData1h(history: history.items) else { 
+            return .secondary 
+        }
+        
+        let discharge = analytics.estimateDischargePerHour1h(history: history.items)
+        
+        // Если недавно был тест (менее часа назад), используем нейтральный цвет
+        if !history.isMoreThanHourSinceLastTest() {
+            return .secondary
+        }
+        
+        // Обычная логика цветов для нормального использования
+        return discharge >= 15 ? .orange : Color.accentColor
+    }
+    
+    /// Определяет статус здоровья для карточки "Разряд (1 час)" с учетом времени после теста
+    private func get1hHealthStatus() -> HealthStatus? {
+        guard analytics.hasEnoughData1h(history: history.items) && 
+              analytics.estimateDischargePerHour1h(history: history.items) >= 0.1 else { 
+            return nil 
+        }
+        
+        // Если недавно был тест (менее часа назад), показываем специальный статус
+        if !history.isMoreThanHourSinceLastTest() {
+            return .afterTest
+        }
+        
+        // Обычная оценка статуса
+        return analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour1h(history: history.items))
+    }
+    
     private func estimatedRuntimeText() -> String {
         let runtime = getEstimatedRuntime()
         guard runtime > 0 else { return i18n.t("collecting.stats") }
@@ -488,8 +521,8 @@ struct MenuContent: View {
                         title: i18n.t("discharge.per.hour.1h"),
                         value: discharge1hValueText(),
                         icon: "chart.line.downtrend.xyaxis",
-                        accentColor: analytics.hasEnoughData1h(history: history.items) && analytics.estimateDischargePerHour1h(history: history.items) >= 15 ? .orange : (analytics.hasEnoughData1h(history: history.items) ? Color.accentColor : .secondary),
-                        healthStatus: analytics.hasEnoughData1h(history: history.items) && analytics.estimateDischargePerHour1h(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour1h(history: history.items)) : nil,
+                        accentColor: get1hAccentColor(),
+                        healthStatus: get1hHealthStatus(),
                         isCollectingData: isCollecting1h()
                     )
                     EnhancedStatCard(

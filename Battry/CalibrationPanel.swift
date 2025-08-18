@@ -141,21 +141,38 @@ struct CalibrationPanel: View {
         return elapsedSec >= 15 * 60 && dropped >= 3
     }
     
-    /// Регенерирует HTML отчет с актуальными данными и открывает его
+    /// Регенерирует HTML отчет с данными из сохраненного JSON и открывает его
     private func regenerateAndOpenReport(result: CalibrationResult, originalPath: String) {
-        // Получаем историю для периода калибровки
-        let sessionHistory = history.between(from: result.startedAt, to: result.finishedAt)
+        // Попытаться загрузить сохраненные данные теста
+        var sessionHistory: [BatteryReading]
+        var finalSnapshot: BatterySnapshot
+        var loadMetadata: ReportGenerator.LoadGeneratorMetadata?
         
-        // Генерируем актуальный анализ с текущими данными
-        let analysis = analytics.analyze(history: sessionHistory, snapshot: snapshot)
+        if let dataPath = result.dataPath,
+           let testData = calibrator.loadTestData(from: dataPath) {
+            // Используем сохраненные данные из JSON файла
+            sessionHistory = testData.samples
+            finalSnapshot = testData.finalSnapshot
+            loadMetadata = testData.loadGeneratorMetadata
+            print("Using saved test data from: \(dataPath)")
+        } else {
+            // Fallback для старых отчетов без сохраненных данных
+            sessionHistory = history.between(from: result.startedAt, to: result.finishedAt)
+            finalSnapshot = snapshot
+            loadMetadata = calibrator.currentLoadMetadata
+            print("Using fallback: current data for legacy report")
+        }
         
-        // Генерируем HTML контент с актуальными данными
+        // Генерируем анализ на основе сохраненных (или текущих) данных
+        let analysis = analytics.analyze(history: sessionHistory, snapshot: finalSnapshot)
+        
+        // Генерируем HTML контент
         if let htmlContent = ReportGenerator.generateHTMLContent(
             result: analysis,
-            snapshot: snapshot,
+            snapshot: finalSnapshot,
             history: sessionHistory,
             calibration: result,
-            loadGeneratorMetadata: calibrator.currentLoadMetadata
+            loadGeneratorMetadata: loadMetadata
         ) {
             // Перезаписываем существующий файл
             let reportURL = URL(fileURLWithPath: originalPath)

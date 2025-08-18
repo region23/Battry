@@ -89,6 +89,7 @@ struct EnhancedStatCard: View {
         case .normal: return .blue
         case .acceptable: return .orange
         case .poor: return .red
+        case .afterTest: return .gray
         }
     }
     

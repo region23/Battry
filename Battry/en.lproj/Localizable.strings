@@ -130,6 +130,7 @@
 // Strings for enhanced Overview
 "overview.battery.info" = "Battery Information";
 "overview.performance" = "Performance";
+"after.test" = "After test";
 "overview.anomalies" = "Anomalies";
 "overview.recommendation" = "Recommendation";
 
