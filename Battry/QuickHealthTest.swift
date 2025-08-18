@@ -431,13 +431,19 @@ final class QuickHealthTest: ObservableObject {
             averageTemperature: avgTemperature
         )
         
+        // SOH по емкости (из последних данных)
+        let lastDesign = samples.last?.designCapacity ?? batteryViewModel?.state.designCapacity ?? 0
+        let lastMax = samples.last?.maxCapacity ?? batteryViewModel?.state.maxCapacity ?? 0
+        let sohCapacityPct: Double = (lastDesign > 0 && lastMax > 0) ? min(100, max(0, Double(lastMax) / Double(lastDesign) * 100.0)) : 100.0
+
         // Композитный скор здоровья (по формуле эксперта)
         let healthScore = calculateCompositeHealthScore(
             sohEnergy: tempNormalization.normalizedSOH,
+            sohCapacity: sohCapacityPct,
             dcirAt50: tempNormalization.normalizedDCIR,
             dcirAt20: dcirAnalysis.dcirAt20Percent,
-            kneeIndex: ocvAnalysis.kneeIndex,
-            stabilityScore: stabilityScore
+            stabilityScore: stabilityScore,
+            temperatureQuality: tempQuality
         )
         
         // Рекомендация
@@ -470,38 +476,30 @@ final class QuickHealthTest: ObservableObject {
     
     private func calculateCompositeHealthScore(
         sohEnergy: Double,
+        sohCapacity: Double,
         dcirAt50: Double?,
         dcirAt20: Double?,
-        kneeIndex: Double,
-        stabilityScore: Double
+        stabilityScore: Double,
+        temperatureQuality: Double
     ) -> Double {
-        // Формула эксперта: 40% SOH_energy + 25% DCIR + 20% колено + 10% стабильность + 5% температура
-        
+        // Формула эксперта: 40% SOH_energy + 25% DCIR + 20% SOH_capacity + 10% стабильность + 5% температура
         var score: Double = 0
-        
         // 40% - SOH по энергии
         score += 0.4 * sohEnergy
-        
-        // 25% - DCIR оценка
+        // 25% - DCIR оценка (чем выше, тем хуже)
         var dcirScore: Double = 100
-        if let dcir50 = dcirAt50 {
-            dcirScore = max(0, 100 - (dcir50 - 100) / 2) // штраф за превышение 100 мОм
-        }
+        if let dcir50 = dcirAt50 { dcirScore = max(0, 100 - (dcir50 - 100) / 2) }
         if let dcir20 = dcirAt20 {
-            let dcir20Score = max(0, 100 - (dcir20 - 200) / 3) // штраф за превышение 200 мОм
+            let dcir20Score = max(0, 100 - (dcir20 - 200) / 3)
             dcirScore = (dcirScore + dcir20Score) / 2
         }
         score += 0.25 * dcirScore
-        
-        // 20% - качество колена
-        score += 0.2 * kneeIndex
-        
+        // 20% - SOH по емкости
+        score += 0.2 * sohCapacity
         // 10% - стабильность
         score += 0.1 * stabilityScore
-        
-        // 5% - температурная терпимость (упрощенно)
-        score += 0.05 * 100 // пока оптимистично
-        
+        // 5% - температурная терпимость
+        score += 0.05 * max(0, min(100, temperatureQuality))
         return max(0, min(100, score))
     }
     
