@@ -249,6 +249,19 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
                     .help(i18n.t("tooltip.time.remaining.header"))
                     .accessibilityLabel(i18n.t("time.remaining"))
+                
+                // Текущая мощность потребления
+                if abs(battery.state.power) > 0.1 {
+                    HStack(spacing: 4) {
+                        Image(systemName: battery.state.power < 0 ? "bolt.fill" : "arrow.up.circle.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(battery.state.power < 0 ? .red : .green)
+                        Text(String(format: "%.1f W", abs(battery.state.power)))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .help(battery.state.power < 0 ? i18n.t("tooltip.power.discharging") : i18n.t("tooltip.power.charging"))
+                }
             }
             
             Spacer()

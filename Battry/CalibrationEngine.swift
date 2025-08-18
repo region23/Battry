@@ -235,7 +235,8 @@ final class CalibrationEngine: ObservableObject {
                                          voltage: snapshot.voltage,
                                          temperature: snapshot.temperature,
                                          maxCapacity: snapshot.maxCapacity,
-                                         designCapacity: snapshot.designCapacity)
+                                         designCapacity: snapshot.designCapacity,
+                                         amperage: snapshot.amperage)
             samples.append(reading)
             lastSampleAt = reading.timestamp
             save()

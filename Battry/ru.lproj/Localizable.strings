@@ -256,3 +256,15 @@
 "settings.show.percentage.description" = "Отображать процент заряда рядом с иконкой";
 "settings.data.open.folder" = "Открыть папку с данными";
 "settings.data.open.folder.description" = "Открыть папку со всеми собранными файлами данных";
+
+// Метрики мощности и энергии
+"power.consumption" = "Потребление мощности";
+"tooltip.power.discharging" = "Мощность, потребляемая от батареи";
+"tooltip.power.charging" = "Мощность, подаваемая для зарядки батареи";
+"soh.energy" = "SOH (по энергии)";
+"dcir.50.percent" = "Внутр. сопротивление @ 50%";
+"dcir.20.percent" = "Внутр. сопротивление @ 20%";
+"knee.soc" = "Точка колена OCV";
+"knee.index" = "Качество вольт-кривой";
+"quick.health.test" = "Быстрый тест здоровья";
+"health.score.composite" = "Композитный индекс здоровья";

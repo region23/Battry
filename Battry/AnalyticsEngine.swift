@@ -48,6 +48,20 @@ struct BatteryAnalysis: Equatable {
     var recommendation: String = "Замена не требуется"
     /// Количество микро‑просадок (быстрых падений процента)
     var microDropEvents: Int = 0
+    
+    // Новые энергетические и DCIR метрики
+    /// SOH по энергии (0-100%)
+    var sohEnergy: Double = 100.0
+    /// Средняя мощность за анализируемый период (Вт)
+    var averagePower: Double = 0
+    /// DCIR на 50% заряда (мОм)
+    var dcirAt50Percent: Double? = nil
+    /// DCIR на 20% заряда (мОм)  
+    var dcirAt20Percent: Double? = nil
+    /// Индекс качества OCV колена (0-100)
+    var kneeIndex: Double = 100.0
+    /// Позиция колена OCV кривой (% SOC)
+    var kneeSOC: Double? = nil
 }
 
 @MainActor
@@ -217,41 +231,64 @@ final class AnalyticsEngine: ObservableObject {
             result.estimatedRuntimeFrom100To0Hours = 100.0 / result.avgDischargePerHour
         }
 
-        let wear = snapshot.wearPercent
-        var health = 100 - Int(round(wear * 1.2)) // усиленно штрафуем износ
-
-        if snapshot.cycleCount > 500 {
-            health -= min(30, (snapshot.cycleCount - 500) / 10)
+        // Энергетический анализ
+        if snapshot.designCapacity > 0 {
+            let designEnergyWh = EnergyCalculator.designEnergyCapacity(fromCapacityMah: snapshot.designCapacity)
+            if let energyAnalysis = EnergyCalculator.analyzeEnergyPerformance(samples: history, designCapacityWh: designEnergyWh) {
+                result.sohEnergy = energyAnalysis.sohEnergy
+                result.averagePower = energyAnalysis.averagePower
+            }
         }
-
-        // Температура за последний час
-        let hour = history.filter { $0.timestamp >= Date().addingTimeInterval(-3600) }
-        let avgTemp = hour.map(\.temperature).reduce(0, +) / Double(max(1, hour.count))
-        if avgTemp > 40 { health -= 10 }
-
+        
         // Микро‑просадки
         let micro = countMicroDrops(history: history)
         result.microDropEvents = micro
-        if micro >= 1 { health -= min(20, micro * 2) }
-
-        // Границы
-        result.healthScore = max(0, min(100, health))
+        
+        // Пытаемся получить DCIR из истории (если есть пульс-тесты)
+        let dcirPoints = extractDCIRFromHistory(history: history)
+        if !dcirPoints.isEmpty {
+            let dcirAnalysis = DCIRCalculator.analyzeDCIR(dcirPoints: dcirPoints)
+            result.dcirAt50Percent = dcirAnalysis.dcirAt50Percent
+            result.dcirAt20Percent = dcirAnalysis.dcirAt20Percent
+            
+            // OCV анализ
+            let ocvAnalyzer = OCVAnalyzer(dcirPoints: dcirPoints)
+            let ocvAnalysis = ocvAnalyzer.analyzeOCV(from: history)
+            result.kneeIndex = ocvAnalysis.kneeIndex
+            result.kneeSOC = ocvAnalysis.kneeSOC
+        }
+        
+        // Композитный health score по формуле эксперта
+        result.healthScore = Int(calculateCompositeHealthScore(
+            sohEnergy: result.sohEnergy,
+            sohCapacity: Double(100 - Int(snapshot.wearPercent)),
+            dcirAt50: result.dcirAt50Percent,
+            dcirAt20: result.dcirAt20Percent,
+            kneeIndex: result.kneeIndex,
+            microDrops: micro,
+            avgTemperature: history.filter { $0.timestamp >= Date().addingTimeInterval(-3600) }.map(\.temperature).reduce(0, +) / Double(max(1, history.count)),
+            cycleCount: snapshot.cycleCount
+        ))
 
         // Аномалии
         var anomalies: [String] = []
+        let wear = snapshot.wearPercent
         if snapshot.cycleCount > 800 { anomalies.append("Высокое число циклов (\(snapshot.cycleCount)).") }
         if wear > 20 { anomalies.append(String(format: "Сильный износ аккумулятора (%.0f%%).", wear)) }
-        if avgTemp > 45 { anomalies.append("Повышенная температура за последний час (\(String(format: "%.1f", avgTemp))°C).") }
+        if result.averagePower > 25 { anomalies.append(String(format: "Высокое энергопотребление (%.1f Вт).", result.averagePower)) }
         if micro >= 3 { anomalies.append("Замечены частые микро‑просадки заряда (\(micro)).") }
+        if let kneeSOC = result.kneeSOC, kneeSOC > 40 { anomalies.append("Раннее колено OCV кривой (\(String(format: "%.0f", kneeSOC))% SOC).") }
         result.anomalies = anomalies
 
-        // Рекомендация
-        if result.healthScore < 40 || wear > 40 || micro >= 3 {
-            result.recommendation = "Рекомендуется замена в ближайшее время."
-        } else if result.healthScore < 60 || wear > 25 {
-            result.recommendation = "Понаблюдайте: возможна деградация, снизьте тепловую нагрузку."
+        // Рекомендация на основе композитного скора
+        if result.healthScore < 50 {
+            result.recommendation = "Требуется замена батареи в ближайшее время."
+        } else if result.healthScore < 70 {
+            result.recommendation = "Планируйте замену батареи. Избегайте высоких нагрузок."
+        } else if result.healthScore < 85 {
+            result.recommendation = "Состояние приемлемое. Мониторьте регулярно."
         } else {
-            result.recommendation = "Состояние хорошее. Замена не требуется."
+            result.recommendation = "Батарея в отличном состоянии."
         }
 
         lastAnalysis = result
@@ -311,5 +348,93 @@ final class AnalyticsEngine: ObservableObject {
         case 75..<85: return .acceptable
         default: return .poor
         }
+    }
+    
+    // MARK: - Composite Health Score Calculation
+    
+    /// Вычисляет композитный health score по формуле эксперта
+    /// Формула: 40% SOH_energy + 25% DCIR + 20% SOH_capacity + 10% стабильность + 5% температура
+    private func calculateCompositeHealthScore(
+        sohEnergy: Double,
+        sohCapacity: Double,
+        dcirAt50: Double?,
+        dcirAt20: Double?,
+        kneeIndex: Double,
+        microDrops: Int,
+        avgTemperature: Double,
+        cycleCount: Int
+    ) -> Double {
+        
+        // 40% - SOH по энергии
+        let energyScore = sohEnergy * 0.4
+        
+        // 25% - DCIR оценка
+        var dcirScore: Double = 100.0
+        if let dcir50 = dcirAt50 {
+            // Нормальный DCIR: 50-150 мОм, плохой: >300 мОм
+            if dcir50 > 300 {
+                dcirScore = max(0, 100 - (dcir50 - 150) / 5)
+            } else if dcir50 > 150 {
+                dcirScore = 100 - (dcir50 - 150) / 10
+            }
+        }
+        if let dcir20 = dcirAt20 {
+            var dcir20Score: Double = 100.0
+            if dcir20 > 500 {
+                dcir20Score = max(0, 100 - (dcir20 - 250) / 8)
+            } else if dcir20 > 250 {
+                dcir20Score = 100 - (dcir20 - 250) / 15
+            }
+            dcirScore = (dcirScore + dcir20Score) / 2.0
+        }
+        
+        // 20% - SOH по емкости 
+        let capacityScore = sohCapacity * 0.2
+        
+        // 10% - стабильность (микро-дропы)
+        let stabilityScore: Double
+        if microDrops == 0 {
+            stabilityScore = 100.0
+        } else if microDrops <= 2 {
+            stabilityScore = 80.0
+        } else if microDrops <= 5 {
+            stabilityScore = 50.0
+        } else {
+            stabilityScore = max(0, 50 - Double(microDrops - 5) * 10)
+        }
+        
+        // 5% - температурная терпимость
+        let temperatureScore: Double
+        if avgTemperature <= 30 {
+            temperatureScore = 100.0
+        } else if avgTemperature <= 35 {
+            temperatureScore = 90.0
+        } else if avgTemperature <= 40 {
+            temperatureScore = 70.0
+        } else {
+            temperatureScore = max(0, 70 - (avgTemperature - 40) * 5)
+        }
+        
+        // Дополнительные штрафы за циклы и колено
+        var cyclesPenalty: Double = 0
+        if cycleCount > 800 {
+            cyclesPenalty = min(15, Double(cycleCount - 800) / 50)
+        } else if cycleCount > 600 {
+            cyclesPenalty = Double(cycleCount - 600) / 100
+        }
+        
+        let kneePenalty = max(0, (100 - kneeIndex) / 10)
+        
+        let finalScore = energyScore + dcirScore * 0.25 + capacityScore + stabilityScore * 0.1 + temperatureScore * 0.05 - cyclesPenalty - kneePenalty
+        
+        return max(0, min(100, finalScore))
+    }
+    
+    /// Извлекает DCIR точки из истории (простейшая реализация)
+    /// В реальности это будет работать только если в истории есть данные от пульс-тестов
+    private func extractDCIRFromHistory(history: [BatteryReading]) -> [DCIRCalculator.DCIRPoint] {
+        // Пока возвращаем пустой массив - DCIR будет работать только через QuickHealthTest
+        // В будущем можно добавить логику поиска резких изменений тока в истории
+        return []
     }
 }

@@ -31,6 +31,10 @@ struct BatterySnapshot: Equatable {
     var voltage: Double = 0
     /// Температура (°C)
     var temperature: Double = 0 // in °C
+    /// Ток (мА, отрицательный при разряде)
+    var amperage: Double = 0 // in mA, negative while discharging
+    /// Мгновенная мощность (Вт)
+    var power: Double { voltage * amperage / 1000.0 } // in W
 }
 
 enum BatteryService {
@@ -84,6 +88,13 @@ enum BatteryService {
                 snap.temperature = Double(vt) / 100.0 // centi-°C -> °C
             } else if let t = dict["Temperature"] as? Int { 
                 snap.temperature = Double(t) / 100.0 // centi-°C -> °C
+            }
+            
+            // Ток (Amperage) - отрицательный при разряде, положительный при зарядке
+            if let amp = dict["Amperage"] as? Int {
+                snap.amperage = Double(amp) // уже в mA
+            } else if let instAmp = dict["InstantAmperage"] as? Int {
+                snap.amperage = Double(instAmp) // fallback на InstantAmperage
             }
         }
 

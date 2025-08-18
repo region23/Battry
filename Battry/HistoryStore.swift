@@ -10,6 +10,10 @@ struct BatteryReading: Codable, Equatable {
     var temperature: Double
     var maxCapacity: Int?
     var designCapacity: Int?
+    var amperage: Double = 0 // in mA, negative while discharging
+    
+    /// Мгновенная мощность (Вт)
+    var power: Double { voltage * amperage / 1000.0 } // in W
 }
 
 /// Событие для отображения маркеров на графиках
@@ -82,7 +86,8 @@ final class HistoryStore: ObservableObject {
                                voltage: snapshot.voltage,
                                temperature: snapshot.temperature,
                                maxCapacity: snapshot.maxCapacity > 0 ? snapshot.maxCapacity : nil,
-                               designCapacity: snapshot.designCapacity > 0 ? snapshot.designCapacity : nil)
+                               designCapacity: snapshot.designCapacity > 0 ? snapshot.designCapacity : nil,
+                               amperage: snapshot.amperage)
         items.append(r)
         trimIfNeeded()
         save()
@@ -145,9 +150,10 @@ final class HistoryStore: ObservableObject {
             let avgP = slice.map(\.percentage).reduce(0, +) / max(1, slice.count)
             let avgV = slice.map(\.voltage).reduce(0.0, +) / Double(max(1, slice.count))
             let avgT = slice.map(\.temperature).reduce(0.0, +) / Double(max(1, slice.count))
+            let avgA = slice.map(\.amperage).reduce(0.0, +) / Double(max(1, slice.count))
             let ts = slice[slice.startIndex].timestamp
             let ch = slice.contains(where: { $0.isCharging })
-            out.append(BatteryReading(timestamp: ts, percentage: avgP, isCharging: ch, voltage: avgV, temperature: avgT, maxCapacity: nil, designCapacity: nil))
+            out.append(BatteryReading(timestamp: ts, percentage: avgP, isCharging: ch, voltage: avgV, temperature: avgT, maxCapacity: nil, designCapacity: nil, amperage: avgA))
             i = j
         }
         return out

@@ -256,3 +256,15 @@
 "settings.show.percentage.description" = "Display battery percentage next to icon";
 "settings.data.open.folder" = "Open data folder";
 "settings.data.open.folder.description" = "Open folder containing all collected data files";
+
+// Power and energy metrics
+"power.consumption" = "Power Consumption";
+"tooltip.power.discharging" = "Power being consumed from battery";
+"tooltip.power.charging" = "Power being supplied to charge battery";
+"soh.energy" = "SOH (Energy)";
+"dcir.50.percent" = "Internal Resistance @ 50%";
+"dcir.20.percent" = "Internal Resistance @ 20%";
+"knee.soc" = "OCV Knee Point";
+"knee.index" = "Voltage Curve Quality";
+"quick.health.test" = "Quick Health Test";
+"health.score.composite" = "Composite Health Score";
