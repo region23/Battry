@@ -2,26 +2,26 @@
 const translations = {
     en: {
         // Hero section
-        'hero.title': 'Следите за здоровьем батареи вашего Mac',
-        'hero.subtitle': 'Узнайте реальное время работы от батареи и получите оценку её состояния прямо в строке меню',
+        'hero.title': 'Monitor your Mac\'s battery health',
+        'hero.subtitle': 'See real battery life and get a health assessment right in your menu bar',
         'hero.download': 'Download for macOS',
         'hero.github': 'View on GitHub',
-        'hero.requirements': 'macOS 14.6+ • Работает на всех Mac',
+        'hero.requirements': 'macOS 14.6+ • Apple Silicon & Intel',
 
         // Features section
         'features.title': 'Key Features',
         'features.realtime.title': 'Real-time Monitoring',
-        'features.realtime.desc': 'Всё о вашей батарее прямо в строке меню: заряд, температура, износ и циклы зарядки',
+        'features.realtime.desc': 'All battery details in your menu bar: charge, temperature, wear, and cycle count',
         'features.autonomy.title': 'Autonomy Testing',
-        'features.autonomy.desc': 'Узнайте, сколько часов работает ваш Mac от батареи с помощью автоматического теста и подробного отчёта',
+        'features.autonomy.desc': 'Find out how many hours your Mac runs on battery with an automatic test and detailed report',
         'features.health.title': 'Health Scoring',
-        'features.health.desc': 'Оценка состояния батареи от 0 до 100 баллов, как в медосмотре, с советами по улучшению',
+        'features.health.desc': 'A 0–100 battery health score with recommendations to improve it',
         'features.charts.title': 'Interactive Charts',
-        'features.charts.desc': 'Красивые графики с историей заряда, температуры и скорости разряда вашей батареи',
+        'features.charts.desc': 'Beautiful charts with charge history, temperature, and discharge rate',
         'features.loadgen.title': 'Load Generator',
-        'features.loadgen.desc': 'Встроенный тест нагрузки для проверки реальной работы батареи под нагрузкой',
+        'features.loadgen.desc': 'Built-in load test to measure real battery performance under stress',
         'features.reports.title': 'HTML Reports',
-        'features.reports.desc': 'Красивые отчёты, которыми можно поделиться, с графиками и полной информацией о тесте',
+        'features.reports.desc': 'Shareable reports with charts and full test information',
 
         // Screenshots section
         'screenshots.title': 'Application Interface',
@@ -30,26 +30,26 @@ const translations = {
         'screenshots.test': 'Autonomy Testing',
 
         // Technical section
-        'technical.title': 'Почему Battry лучше?',
-        'technical.native.title': 'Быстро и красиво',
-        'technical.native.desc': 'Создано специально для Mac, работает быстро и не тормозит систему',
-        'technical.native.menubar': 'Удобно расположено в строке меню',
-        'technical.native.iokit': 'Точные данные прямо от системы',
-        'technical.native.reactive': 'Мгновенные обновления показаний',
-        'technical.data.title': 'Умное хранение данных',
-        'technical.data.desc': 'Автоматически сохраняет историю батареи и освобождает место на диске',
-        'technical.data.retention': 'История за 30 дней',
-        'technical.data.aggregation': 'Автоматическая очистка старых данных',
-        'technical.data.json': 'Все данные остаются у вас',
-        'technical.safety.title': 'Безопасность вашего Mac',
-        'technical.safety.desc': 'Встроенная защита не даст навредить вашему устройству во время тестов',
-        'technical.safety.temperature': 'Остановка при перегреве',
-        'technical.safety.battery': 'Защита от полной разрядки',
-        'technical.safety.thermal': 'Контроль нагрузки на систему',
+        'technical.title': 'Why is Battry better?',
+        'technical.native.title': 'Fast and beautiful',
+        'technical.native.desc': 'Built for Mac, runs fast and doesn\'t slow down your system',
+        'technical.native.menubar': 'Conveniently located in the menu bar',
+        'technical.native.iokit': 'Accurate data straight from the system',
+        'technical.native.reactive': 'Instant reading updates',
+        'technical.data.title': 'Smart data storage',
+        'technical.data.desc': 'Automatically saves history and frees up disk space',
+        'technical.data.retention': '30-day history',
+        'technical.data.aggregation': 'Automatic cleanup of old data',
+        'technical.data.json': 'All data stays on your device',
+        'technical.safety.title': 'Protects your Mac',
+        'technical.safety.desc': 'Built-in safeguards to prevent any harm during tests',
+        'technical.safety.temperature': 'Stops on overheating',
+        'technical.safety.battery': 'Prevents full discharge',
+        'technical.safety.thermal': 'Controls system load',
 
         // Download section
         'download.title': 'Get Battry Today',
-        'download.desc': 'Бесплатное приложение, которое поможет узнать всё о батарее вашего Mac',
+        'download.desc': 'A free app that tells you everything about your Mac\'s battery',
         'download.requirements.title': 'System Requirements',
         'download.requirements.macos': 'macOS:',
         'download.requirements.processor': 'Processor:',
@@ -143,15 +143,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Language Management
 function initializeLanguage() {
-    // Detect browser language
-    const browserLang = navigator.language || navigator.userLanguage;
-    const detectedLang = browserLang.startsWith('ru') ? 'ru' : 'en';
-    
-    // Check localStorage for saved preference
+    // Default to English unless user has a saved preference
     const savedLang = localStorage.getItem('battry-lang');
-    currentLanguage = savedLang || detectedLang;
+    currentLanguage = savedLang || 'en';
     
     updateLanguage(currentLanguage);
+    
+    // Ensure the correct language badge is active on load
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === currentLanguage);
+    });
 }
 
 function initializeLanguageToggle() {
