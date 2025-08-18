@@ -312,6 +312,8 @@
 "preset.light" = "Light ~5W";
 "preset.medium" = "Medium ~10W";
 "preset.heavy" = "Heavy ~15W";
+"load.generator.enable.gpu" = "Enable GPU branch";
+"export.pdf" = "Export to PDF";
 "show.details" = "Show Details";
 "hide.details" = "Hide Details";
 "temperature.status.normal" = "Normal";

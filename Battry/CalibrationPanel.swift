@@ -544,7 +544,7 @@ extension CalibrationPanel {
                         } label: {
                             HStack {
                                 Image(systemName: "square.and.arrow.down")
-                                Text(i18n.language == .ru ? "Экспорт в PDF" : "Export to PDF")
+                                Text(i18n.t("export.pdf"))
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -882,7 +882,7 @@ extension CalibrationPanel {
                             .toggleStyle(.checkbox)
                             .font(.caption)
 
-                        Toggle(i18n.language == .ru ? "Включить GPU ветку" : "Enable GPU branch", isOn: Binding(
+                        Toggle(i18n.t("load.generator.enable.gpu"), isOn: Binding(
                             get: { enableGPUBranch },
                             set: { enabled in enableGPUBranch = enabled; loadGenerator.enableGPU(enabled) }
                         ))

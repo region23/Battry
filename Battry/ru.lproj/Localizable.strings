@@ -312,6 +312,8 @@
 "preset.light" = "Лёгкая ~5Вт";
 "preset.medium" = "Средняя ~10Вт";
 "preset.heavy" = "Тяжёлая ~15Вт";
+"load.generator.enable.gpu" = "Включить GPU ветку";
+"export.pdf" = "Экспорт в PDF";
 "show.details" = "Показать детали";
 "hide.details" = "Скрыть детали";
 "temperature.status.normal" = "Норма";
