@@ -7,8 +7,8 @@
 "health.status.normal" = "Normal";
 "health.status.acceptable" = "Acceptable";
 "health.status.poor" = "Poor";
-"time.remaining" = "~ %@ remaining";
-"time.to.full" = "~ %@ to full";
+"time.remaining" = "~ %@ remaining (macOS data)";
+"time.to.full" = "~ %@ to full (macOS data)";
 "dash" = "—";
 "cycles" = "Cycles";
 "wear" = "Wear";
@@ -19,7 +19,10 @@
 "temperature.warning.text" = "Battery temperature is above %.0f°C. The test will continue but monitor the temperature.";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Discharge, %/h";
-"discharge.per.hour.3h" = "Discharge (3h)";
+"discharge.per.hour.1h" = "Discharge (1h)";
+"discharge.per.hour.24h" = "Discharge (24h)";
+"discharge.per.hour.7d" = "Discharge (7d)";
+"collecting.stats" = "collecting data...";
 "analysis.intro" = "Battery life analysis: collect a continuous 100% → 5% discharge and generate a clear report.";
 "analysis.start" = "Start Analysis";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";

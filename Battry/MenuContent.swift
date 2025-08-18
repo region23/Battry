@@ -33,7 +33,6 @@ struct MenuContent: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var isAnalyzing = false
     @State private var panel: Panel = .overview
-    @State private var overviewAnalysis: BatteryAnalysis? = nil
     @State private var hasNotch = false
     @State private var pulseScale: CGFloat = 1.0
     @State private var isWindowVisible = true
@@ -156,8 +155,6 @@ struct MenuContent: View {
         .safeAreaPadding(.top, topPadding)
         .animation(.default, value: battery.state)
         .onAppear {
-            // Считаем обзорную аналитику за 7 дней при открытии
-            overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
             // Проверяем наличие челки на текущем экране для корректного позиционирования окна
             // На MacBook'ах с челкой (M2+) окно может провалиться под челку при скрытом меню-баре
             hasNotch = NSScreen.main?.hasNotch ?? false
@@ -194,10 +191,6 @@ struct MenuContent: View {
                 name: NSWindow.didChangeOcclusionStateNotification,
                 object: nil
             )
-        }
-        .onChange(of: battery.state) { _, _ in
-            // Обновляем аналитику при изменении состояния
-            overviewAnalysis = analytics.analyze(history: history.recent(days: 7), snapshot: battery.state)
         }
         .contextMenu {
             Button {
@@ -341,29 +334,102 @@ struct MenuContent: View {
 
 
 
-    private func hasEnoughShortDischargeData() -> Bool {
-        let discharging = history.recent(hours: 3).filter { !$0.isCharging }
-        guard discharging.count >= 2, let first = discharging.first, let last = discharging.last else { return false }
-        let span = last.timestamp.timeIntervalSince(first.timestamp)
-        return span >= 3600
-    }
-
-    private func hasEnoughAnalysisData() -> Bool {
-        let discharging = history.recent(days: 7).filter { !$0.isCharging }
-        guard discharging.count >= 4, let first = discharging.first, let last = discharging.last else { return false }
-        let span = last.timestamp.timeIntervalSince(first.timestamp)
-        return span >= 6 * 3600
-    }
-
-    private func shortDischargeValueText() -> String {
-        // Текст с краткосрочным разрядом в %/ч для последних 3 часов
-        guard hasEnoughShortDischargeData() else { return i18n.t("dash") }
-        let v = analytics.estimateDischargePerHour(history: history.recent(hours: 3))
+    private func discharge1hValueText() -> String {
+        guard analytics.hasEnoughData1h(history: history.items) else { 
+            return i18n.t("collecting.stats") 
+        }
+        let v = analytics.estimateDischargePerHour1h(history: history.items)
+        // Если разряд близок к 0, показываем "копим статистику"
+        if v < 0.1 {
+            return i18n.t("collecting.stats")
+        }
         if i18n.language == .ru {
-            return String(format: "%.1f %% в час", v)
+            return String(format: "%.1f%% в час", v)
         } else {
             return String(format: "%.1f %%/h", v)
         }
+    }
+    
+    private func discharge24hValueText() -> String {
+        guard analytics.hasEnoughData24h(history: history.items) else { 
+            return i18n.t("collecting.stats") 
+        }
+        let v = analytics.estimateDischargePerHour24h(history: history.items)
+        // Если разряд близок к 0, показываем "копим статистику"
+        if v < 0.1 {
+            return i18n.t("collecting.stats")
+        }
+        if i18n.language == .ru {
+            return String(format: "%.1f%% в час", v)
+        } else {
+            return String(format: "%.1f %%/h", v)
+        }
+    }
+    
+    private func discharge7dValueText() -> String {
+        guard analytics.hasEnoughData7d(history: history.items) else { 
+            return i18n.t("collecting.stats") 
+        }
+        let v = analytics.estimateDischargePerHour7d(history: history.items)
+        // Если разряд близок к 0, показываем "копим статистику"
+        if v < 0.1 {
+            return i18n.t("collecting.stats")
+        }
+        if i18n.language == .ru {
+            return String(format: "%.1f%% в час", v)
+        } else {
+            return String(format: "%.1f %%/h", v)
+        }
+    }
+    
+    private func estimatedRuntimeText() -> String {
+        let runtime = getEstimatedRuntime()
+        guard runtime > 0 else { return i18n.t("collecting.stats") }
+        if i18n.language == .ru {
+            return String(format: "%.1f ч", runtime)
+        } else {
+            return String(format: "%.1f h", runtime)
+        }
+    }
+    
+    private func hasAnyDischargeData() -> Bool {
+        return analytics.hasEnoughData1h(history: history.items) ||
+               analytics.hasEnoughData24h(history: history.items) ||
+               analytics.hasEnoughData7d(history: history.items)
+    }
+    
+    private func isCollecting1h() -> Bool {
+        return !analytics.hasEnoughData1h(history: history.items) || 
+               analytics.estimateDischargePerHour1h(history: history.items) < 0.1
+    }
+    
+    private func isCollecting24h() -> Bool {
+        return !analytics.hasEnoughData24h(history: history.items) || 
+               analytics.estimateDischargePerHour24h(history: history.items) < 0.1
+    }
+    
+    private func isCollecting7d() -> Bool {
+        return !analytics.hasEnoughData7d(history: history.items) || 
+               analytics.estimateDischargePerHour7d(history: history.items) < 0.1
+    }
+    
+    private func isCollectingRuntime() -> Bool {
+        return getEstimatedRuntime() <= 0
+    }
+    
+    private func getEstimatedRuntime() -> Double {
+        // Пробуем получить наиболее точную оценку автономности
+        if analytics.hasEnoughData24h(history: history.items) {
+            let dischargeRate = analytics.estimateDischargePerHour24h(history: history.items)
+            return dischargeRate > 0 ? 100.0 / dischargeRate : 0
+        } else if analytics.hasEnoughData7d(history: history.items) {
+            let dischargeRate = analytics.estimateDischargePerHour7d(history: history.items)
+            return dischargeRate > 0 ? 100.0 / dischargeRate : 0
+        } else if analytics.hasEnoughData1h(history: history.items) {
+            let dischargeRate = analytics.estimateDischargePerHour1h(history: history.items)
+            return dischargeRate > 0 ? 100.0 / dischargeRate : 0
+        }
+        return 0
     }
 
     private var overview: some View {
@@ -410,18 +476,42 @@ struct MenuContent: View {
             
             // Секция производительности
             CardSection(title: i18n.t("overview.performance"), icon: "speedometer") {
-                EnhancedStatCard(
-                    title: i18n.t("discharge.per.hour.3h"),
-                    value: shortDischargeValueText(),
-                    icon: "chart.line.downtrend.xyaxis",
-                    accentColor: hasEnoughShortDischargeData() && analytics.estimateDischargePerHour(history: history.recent(hours: 3)) >= 10 ? .orange : Color.accentColor,
-                    healthStatus: hasEnoughShortDischargeData() ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour(history: history.recent(hours: 3))) : nil
-                )
-            }
-            
-            if let a = overviewAnalysis, hasEnoughAnalysisData() {
-                // Итог аналитики за 7 дней при наличии достаточных данных
-                EnhancedHealthSummary(analysis: a)
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 6),
+                    GridItem(.flexible(), spacing: 6)
+                ], spacing: 6) {
+                    EnhancedStatCard(
+                        title: i18n.t("discharge.per.hour.1h"),
+                        value: discharge1hValueText(),
+                        icon: "chart.line.downtrend.xyaxis",
+                        accentColor: analytics.hasEnoughData1h(history: history.items) && analytics.estimateDischargePerHour1h(history: history.items) >= 15 ? .orange : (analytics.hasEnoughData1h(history: history.items) ? Color.accentColor : .secondary),
+                        healthStatus: analytics.hasEnoughData1h(history: history.items) && analytics.estimateDischargePerHour1h(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour1h(history: history.items)) : nil,
+                        isCollectingData: isCollecting1h()
+                    )
+                    EnhancedStatCard(
+                        title: i18n.t("discharge.per.hour.24h"),
+                        value: discharge24hValueText(),
+                        icon: "chart.line.downtrend.xyaxis",
+                        accentColor: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 12 ? .orange : (analytics.hasEnoughData24h(history: history.items) ? Color.accentColor : .secondary),
+                        healthStatus: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour24h(history: history.items)) : nil,
+                        isCollectingData: isCollecting24h()
+                    )
+                    EnhancedStatCard(
+                        title: i18n.t("discharge.per.hour.7d"),
+                        value: discharge7dValueText(),
+                        icon: "chart.line.downtrend.xyaxis",
+                        accentColor: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 10 ? .orange : (analytics.hasEnoughData7d(history: history.items) ? Color.accentColor : .secondary),
+                        healthStatus: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour7d(history: history.items)) : nil,
+                        isCollectingData: isCollecting7d()
+                    )
+                    EnhancedStatCard(
+                        title: i18n.t("runtime.estimated"),
+                        value: estimatedRuntimeText(),
+                        icon: "clock",
+                        accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
+                        isCollectingData: isCollectingRuntime()
+                    )
+                }
             }
         }
     }

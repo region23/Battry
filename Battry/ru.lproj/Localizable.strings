@@ -7,8 +7,8 @@
 "health.status.normal" = "Нормально";
 "health.status.acceptable" = "Приемлемо";
 "health.status.poor" = "Плохо";
-"time.remaining" = "Осталось ~ %@";
-"time.to.full" = "До 100% ~ %@";
+"time.remaining" = "Осталось ~ %@ (по данным macOS)";
+"time.to.full" = "До 100% ~ %@ (по данным macOS)";
 "dash" = "—";
 "cycles" = "Циклы";
 "wear" = "Износ";
@@ -19,7 +19,10 @@
 "temperature.warning.text" = "Температура батареи выше %.0f°C. Тест продолжается, но следите за температурой.";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Разряд, %/ч";
-"discharge.per.hour.3h" = "Разряд (3 часа)";
+"discharge.per.hour.1h" = "Разряд (1 час)";
+"discharge.per.hour.24h" = "Разряд (24 часа)";
+"discharge.per.hour.7d" = "Разряд (7 дней)";
+"collecting.stats" = "копим статистику...";
 "analysis.intro" = "Анализ автономности: соберём непрерывный разряд 100% → 5% и дадим понятный отчёт.";
 "analysis.start" = "Начать анализ";
 "analysis.waiting.full" = "Зарядите до 100% и отключите питание. Анализ стартует автоматически.";
@@ -85,7 +88,7 @@
 "precheck.brightness" = "Задайте фиксированную яркость (не авто)";
 "precheck.background" = "Закройте тяжёлые фоновые приложения";
 "precheck.load" = "Избегайте высокой нагрузки во время теста";
-"precheck.network" = "Рассмотрите отключение от сети для лучших результатов";
+"precheck.network" = "Рассмотрите отключение от Wi-Fi сети для лучших результатов";
 "precheck.temperature" = "Убедитесь, что температура окружающей среды умеренная";
 "precheck.load.generator" = "Генератор нагрузки создаст стабильное потребление энергии";
 "trends.series.charge" = "Заряд %";

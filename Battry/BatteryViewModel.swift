@@ -47,7 +47,7 @@ final class BatteryViewModel: ObservableObject {
         if let ttf = state.timeToFullMin, state.isCharging {
             return String(format: L.t("time.to.full"), format(minutes: ttf))
         }
-        return L.t("dash")
+        return ""
     }
 
     /// Запускает периодический опрос системы

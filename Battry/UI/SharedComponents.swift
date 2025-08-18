@@ -11,6 +11,7 @@ struct EnhancedStatCard: View {
     let badgeColor: Color
     let accentColor: Color
     let healthStatus: HealthStatus?
+    let isCollectingData: Bool
     
     init(
         title: String,
@@ -19,7 +20,8 @@ struct EnhancedStatCard: View {
         badge: String? = nil,
         badgeColor: Color = .secondary,
         accentColor: Color = Color.accentColor,
-        healthStatus: HealthStatus? = nil
+        healthStatus: HealthStatus? = nil,
+        isCollectingData: Bool = false
     ) {
         self.title = title
         self.value = value
@@ -28,6 +30,7 @@ struct EnhancedStatCard: View {
         self.badgeColor = badgeColor
         self.accentColor = accentColor
         self.healthStatus = healthStatus
+        self.isCollectingData = isCollectingData
     }
     
     var body: some View {
@@ -58,10 +61,17 @@ struct EnhancedStatCard: View {
             }
             
             // Значение
-            Text(value)
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            if isCollectingData {
+                Text(value)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else {
+                Text(value)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
         }
         .padding(10)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

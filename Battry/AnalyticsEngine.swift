@@ -79,6 +79,63 @@ final class AnalyticsEngine: ObservableObject {
         let dPercent = Double(first.percentage - last.percentage)
         return max(0, dPercent / dt)
     }
+    
+    /// Оценивает средний разряд (%/ч) за последний час
+    func estimateDischargePerHour1h(history: [BatteryReading]) -> Double {
+        return estimateDischargePerHour(history: history.filter { 
+            $0.timestamp >= Date().addingTimeInterval(-3600) 
+        })
+    }
+    
+    /// Оценивает средний разряд (%/ч) за последние 24 часа
+    func estimateDischargePerHour24h(history: [BatteryReading]) -> Double {
+        return estimateDischargePerHour(history: history.filter { 
+            $0.timestamp >= Date().addingTimeInterval(-24 * 3600) 
+        })
+    }
+    
+    /// Оценивает средний разряд (%/ч) за последние 7 дней
+    func estimateDischargePerHour7d(history: [BatteryReading]) -> Double {
+        return estimateDischargePerHour(history: history.filter { 
+            $0.timestamp >= Date().addingTimeInterval(-7 * 24 * 3600) 
+        })
+    }
+    
+    /// Проверяет достаточность данных для расчета разряда за 1 час
+    func hasEnoughData1h(history: [BatteryReading]) -> Bool {
+        let discharging = history.filter { 
+            !$0.isCharging && $0.timestamp >= Date().addingTimeInterval(-3600) 
+        }
+        guard discharging.count >= 2, let first = discharging.first, let last = discharging.last else { return false }
+        let span = last.timestamp.timeIntervalSince(first.timestamp)
+        let discharged = first.percentage - last.percentage
+        // Требуем минимум 30 минут данных И хотя бы 1% разряда
+        return span >= 1800 && discharged >= 1
+    }
+    
+    /// Проверяет достаточность данных для расчета разряда за 24 часа
+    func hasEnoughData24h(history: [BatteryReading]) -> Bool {
+        let discharging = history.filter { 
+            !$0.isCharging && $0.timestamp >= Date().addingTimeInterval(-24 * 3600) 
+        }
+        guard discharging.count >= 4, let first = discharging.first, let last = discharging.last else { return false }
+        let span = last.timestamp.timeIntervalSince(first.timestamp)
+        let discharged = first.percentage - last.percentage
+        // Требуем минимум 3 часа данных за последние 24 часа И хотя бы 2% разряда
+        return span >= 3 * 3600 && discharged >= 2
+    }
+    
+    /// Проверяет достаточность данных для расчета разряда за 7 дней
+    func hasEnoughData7d(history: [BatteryReading]) -> Bool {
+        let discharging = history.filter { 
+            !$0.isCharging && $0.timestamp >= Date().addingTimeInterval(-7 * 24 * 3600) 
+        }
+        guard discharging.count >= 6, let first = discharging.first, let last = discharging.last else { return false }
+        let span = last.timestamp.timeIntervalSince(first.timestamp)
+        let discharged = first.percentage - last.percentage
+        // Требуем минимум 24 часа данных за последние 7 дней И хотя бы 5% разряда
+        return span >= 24 * 3600 && discharged >= 5
+    }
 
     /// Простая медианная фильтрация последовательности процентов (окно 3)
     private func medianFilter3(_ values: [Int]) -> [Int] {
