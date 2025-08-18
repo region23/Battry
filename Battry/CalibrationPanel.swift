@@ -57,6 +57,17 @@ struct CalibrationPanel: View {
                 .buttonStyle(.borderedProminent)
             }
             
+            // Предупреждение о высокой температуре
+            if safetyGuard.hasTemperatureWarning {
+                StatusCard(
+                    title: i18n.t("temperature.warning.title"),
+                    subtitle: nil,
+                    icon: "thermometer",
+                    iconColor: .orange,
+                    content: String(format: i18n.t("temperature.warning.text"), safetyGuard.settings.warningTemperature)
+                )
+            }
+            
             // Основная карточка состояния
             switch calibrator.state {
             case .idle:

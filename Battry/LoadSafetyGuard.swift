@@ -5,8 +5,10 @@ import Combine
 struct LoadSafetySettings {
     /// Минимальный уровень заряда для работы генератора (%)
     var minBatteryLevel: Int = 7
+    /// Температура предупреждения (°C)
+    var warningTemperature: Double = 40.0
     /// Максимальная температура батареи (°C)
-    var maxTemperature: Double = 35.0
+    var maxTemperature: Double = 55.0
     /// Автостоп при подключении питания
     var stopOnPowerConnected: Bool = true
     /// Автостоп при начале зарядки
@@ -24,6 +26,8 @@ final class LoadSafetyGuard: ObservableObject {
     @Published private(set) var isMonitoring: Bool = false
     /// Последнее нарушение условий безопасности
     @Published private(set) var lastViolation: SafetyViolation? = nil
+    /// Флаг предупреждения о высокой температуре
+    @Published private(set) var hasTemperatureWarning: Bool = false
     
     private var cancellables = Set<AnyCancellable>()
     private var stopCallback: (LoadStopReason) -> Void
@@ -45,6 +49,7 @@ final class LoadSafetyGuard: ObservableObject {
         
         isMonitoring = true
         lastViolation = nil
+        hasTemperatureWarning = false
         
         // Подписываемся на изменения состояния батареи
         batteryPublisher
@@ -85,6 +90,9 @@ final class LoadSafetyGuard: ObservableObject {
             triggerStop(reason: .highTemperature(temperature: snapshot.temperature), violation: violation)
             return
         }
+        
+        // Предупреждение о высокой температуре
+        hasTemperatureWarning = snapshot.temperature > settings.warningTemperature
         
         // Проверка подключения питания
         if settings.stopOnPowerConnected && snapshot.powerSource == .ac {

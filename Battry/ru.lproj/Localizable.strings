@@ -13,6 +13,9 @@
 "wear" = "Износ";
 "voltage" = "Напряжение";
 "temperature" = "Температура";
+"temperature.tooltip" = "Температура батареи";
+"temperature.warning.title" = "Предупреждение о высокой температуре";
+"temperature.warning.text" = "Температура батареи выше %.0f°C. Тест продолжается, но следите за температурой.";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Разряд, %/ч";
 "discharge.per.hour.3h" = "Разряд (3 часа)";
@@ -229,3 +232,7 @@
 "heavy.profile.warning.message" = "Тяжёлый профиль использует все ядра процессора на 80% интенсивности. Это создаст значительное тепловыделение и может вызвать термотроттлинг. Используйте только для стресс-тестирования.";
 "heavy.profile.warning.continue" = "Использовать тяжёлый профиль";
 "heavy.profile.warning.cancel" = "Отмена";
+
+// Настройка отображения процента в меню баре
+"settings.show.percentage" = "Показывать процент в меню баре";
+"settings.show.percentage.description" = "Отображать процент заряда рядом с иконкой";

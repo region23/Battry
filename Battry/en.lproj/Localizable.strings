@@ -13,6 +13,9 @@
 "wear" = "Wear";
 "voltage" = "Voltage";
 "temperature" = "Temperature";
+"temperature.tooltip" = "Battery temperature";
+"temperature.warning.title" = "High Temperature Warning";
+"temperature.warning.text" = "Battery temperature is above %.0f°C. The test will continue but monitor the temperature.";
 "max.design" = "Max/Design";
 "discharge.per.hour" = "Discharge, %/h";
 "discharge.per.hour.3h" = "Discharge (3h)";
@@ -229,3 +232,7 @@
 "heavy.profile.warning.message" = "Heavy profile uses all CPU cores at 80% intensity. This will generate significant heat and may trigger thermal throttling. Use only for stress testing.";
 "heavy.profile.warning.continue" = "Use Heavy Profile";
 "heavy.profile.warning.cancel" = "Cancel";
+
+// Menu bar percentage setting
+"settings.show.percentage" = "Show percentage in menu bar";
+"settings.show.percentage.description" = "Display battery percentage next to icon";

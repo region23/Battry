@@ -7,6 +7,7 @@ struct SettingsPanel: View {
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var i18n: Localization = .shared
     @State private var showClearDataConfirm: Bool = false
+    @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -29,6 +30,17 @@ struct SettingsPanel: View {
                         }
                         .pickerStyle(.segmented)
                         .frame(width: 120)
+                    }
+                    
+                    SettingsRow {
+                        SettingsLabel(
+                            title: i18n.t("settings.show.percentage"),
+                            icon: "percent",
+                            description: i18n.t("settings.show.percentage.description")
+                        )
+                        Spacer()
+                        Toggle("", isOn: $showPercentageInMenuBar)
+                            .labelsHidden()
                     }
                     
                 }

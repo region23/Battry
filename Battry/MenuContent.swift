@@ -350,6 +350,7 @@ struct MenuContent: View {
                         accentColor: battery.state.temperature > 40 ? .red : Color.accentColor,
                         healthStatus: battery.state.temperature > 0 ? analytics.evaluateTemperatureStatus(temperature: battery.state.temperature) : nil
                     )
+                    .help(i18n.t("temperature.tooltip"))
                     EnhancedStatCard(
                         title: i18n.t("capacity.fact.design"),
                         value: battery.state.designCapacity > 0 && battery.state.maxCapacity > 0

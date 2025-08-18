@@ -28,6 +28,9 @@ struct BattryApp: App {
     }
     /// Локализация (переключение языка в UI)
     @StateObject private var i18n = Localization.shared
+    
+    /// Настройка отображения процента в меню баре
+    @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
 
     var body: some Scene {
         MenuBarExtra {
@@ -61,15 +64,23 @@ struct BattryApp: App {
                     safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
                 }
         } label: {
-            if let iconName = getMenuBarIcon() {
-                Image(iconName)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-            } else {
-                Image(systemName: "battery.100")
-                    .symbolRenderingMode(.hierarchical)
+            HStack(spacing: 4) {
+                if let iconName = getMenuBarIcon() {
+                    Image(iconName)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: "battery.100")
+                        .symbolRenderingMode(.hierarchical)
+                }
+                
+                if showPercentageInMenuBar {
+                    Text("\(Int(battery.state.percentage))%")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .monospacedDigit()
+                }
             }
         }
         .menuBarExtraStyle(.window)
