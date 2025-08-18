@@ -6,7 +6,7 @@ struct LoadGeneratorSessionSettings {
     var isEnabled: Bool = false
     var profile: LoadProfile = .medium
     var videoEnabled: Bool = false
-    var autoStart: Bool = true
+    var autoStart: Bool = false
 }
 
 /// Итог одного сеанса калибровки/теста

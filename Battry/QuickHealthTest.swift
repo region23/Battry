@@ -164,6 +164,12 @@ final class QuickHealthTest: ObservableObject {
             return
         }
         
+        // Строго проверяем питание: должен быть режим от батареи (не от сети)
+        guard vm.state.powerSource == .battery else {
+            state = .error(message: "Please disconnect power adapter before starting test")
+            return
+        }
+        
         guard !vm.state.isCharging else {
             state = .error(message: "Please disconnect power adapter before starting test")
             return

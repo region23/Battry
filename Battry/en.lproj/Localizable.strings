@@ -23,7 +23,7 @@
 "discharge.per.hour.24h" = "Discharge (24h)";
 "discharge.per.hour.7d" = "Discharge (7d)";
 "collecting.stats" = "collecting data...";
-"analysis.intro" = "Battery life analysis: collect a continuous 100% → 5% discharge and generate a clear report.";
+"analysis.intro" = "Battery life test (CP discharge 100%→5%): get reproducible runtime and a report.";
 "analysis.start" = "Start Analysis";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";
 "analysis.unplug.to.start" = "Unplug power to start the test.";
@@ -49,9 +49,9 @@
 "last.result.line" = "Avg: %@ %%/h • Runtime: %@ h";
 "recent.analyses" = "Recent Analyses";
 "recent.line" = "%@ → %@ • %@ %%/h";
-"analysis.results" = "Analysis Results";
-"analysis.results.empty" = "No analysis results yet. Complete a full analysis (100% to 5%) to see results here.";
-"analysis.results.empty.with.report" = "No analysis results yet. Complete a full analysis (100% → 5%) to see results and reports here.";
+"analysis.results" = "Test Results";
+"analysis.results.empty" = "No results yet. Run a battery life test (100%→5%) or a quick health test to see results here.";
+"analysis.results.empty.with.report" = "No results yet. Run a battery life test (100%→5%) or a quick health test to see results and reports here.";
 "panel.overview" = "Overview";
 "panel.charts" = "Charts";
 "panel.analysis" = "Analysis";
@@ -87,7 +87,7 @@
 "precheck.title" = "Before starting, please check";
 "precheck.brightness" = "Set brightness to a fixed level (not auto)";
 "precheck.background" = "Close heavy background apps";
-"precheck.load" = "Avoid heavy load during the test";
+"precheck.load" = "Avoid extra apps; use the generator below for a stable profile";
 "precheck.network" = "Consider going offline for best results";
 "precheck.temperature" = "Ensure ambient temperature is moderate";
 "precheck.load.generator" = "Load generator will create consistent power draw";
@@ -203,7 +203,7 @@
 "ok" = "OK";
 
 // Load Generator
-"load.generator.title" = "Usage Simulation";
+"load.generator.title" = "Power Stabilization (CP)";
 "advanced.settings.title" = "Advanced Settings";
 "load.generator.enable" = "Enable load generator";
 "load.generator.profile" = "Profile";
@@ -254,8 +254,8 @@
 "capacity.fact.design" = "Capacity";
 
 // Video Load Engine
-"video.load.enable" = "Enable 1080p video playback";
-"video.load.description" = "Plays HD video in loop for GPU load";
+"video.load.enable" = "Simulate GPU load (1080p video)";
+"video.load.description" = "Plays HD video for GPU load. Not required for the quick health test.";
 "video.load.status" = "Video Status";
 "video.load.running" = "Playing 1080p video";
 

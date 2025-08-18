@@ -514,6 +514,69 @@ extension CalibrationPanel {
                 Spacer()
             }
             
+            // Quick Health Test - last result (if available)
+            if let quick = quickHealthTest.lastResult {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "waveform.path.ecg")
+                            .foregroundStyle(.green)
+                        Text(i18n.t("quick.health.test"))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text(String(format: "%.1f %@", quick.durationMinutes, i18n.language == .ru ? "мин" : "min"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(String(format: "%.0f", quick.healthScore))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(quick.healthScore >= 85 ? .green : quick.healthScore >= 70 ? .orange : .red)
+                            Text(i18n.t("health"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Divider().frame(height: 20)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(String(format: "%.1f%%", quick.sohEnergy))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text(i18n.t("soh.energy"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let dcir50 = quick.dcirAt50Percent {
+                            Divider().frame(height: 20)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(String(format: "%.0f", dcir50))
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                Text(i18n.language == .ru ? "мОм" : "mΩ")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Button(i18n.language == .ru ? "Отчёт" : "Report") {
+                            generateQuickHealthReport(result: quick)
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.caption)
+                    }
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(.regularMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.green.opacity(0.15), lineWidth: 1)
+                        )
+                )
+            }
+            
             if !calibrator.recentResults.isEmpty {
                 VStack(spacing: 8) {
                     ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { result in
@@ -1028,13 +1091,13 @@ extension CalibrationPanel {
                         startQuickHealthTest()
                     }
                     .buttonStyle(.bordered)
-                    .disabled(snapshot.percentage < 85 || snapshot.isCharging)
+                    .disabled(snapshot.percentage < 85 || snapshot.isCharging || snapshot.powerSource == .ac)
                     
                     if snapshot.percentage < 85 {
                         Text(i18n.language == .ru ? "Требуется ≥85%" : "Requires ≥85%")
                             .font(.caption2)
                             .foregroundStyle(.orange)
-                    } else if snapshot.isCharging {
+                    } else if snapshot.isCharging || snapshot.powerSource == .ac {
                         Text(i18n.language == .ru ? "Отключите питание" : "Disconnect power")
                             .font(.caption2)
                             .foregroundStyle(.orange)
