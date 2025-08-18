@@ -37,6 +37,7 @@ struct MenuContent: View {
     @State private var hasNotch = false
     @State private var pulseScale: CGFloat = 1.0
     @State private var isWindowVisible = true
+    @State private var showDetails = false
     
     /// Вычисляет отступ сверху для корректного позиционирования под челкой
     private var topPadding: CGFloat {
@@ -531,6 +532,15 @@ struct MenuContent: View {
             return i18n.t("collecting.stats")
         }
     }
+    
+    private func temperatureStatus(_ temperature: Double) -> String {
+        // Simple text label for user clarity: Normal / High
+        if temperature > 40 {
+            return i18n.t("temperature.status.high")
+        } else {
+            return i18n.t("temperature.status.normal")
+        }
+    }
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -550,21 +560,13 @@ struct MenuContent: View {
                                    getHealthStatus().color == "red" ? .red : .blue,
                         healthStatus: getHealthStatus()
                     )
-                    // Состояние батареи
+                    // Заменяем «Состояние» и «Циклы» на ключевую метрику — время работы сейчас
                     EnhancedStatCard(
-                        title: i18n.t("battery.condition"),
-                        value: getHealthConditionText(),
-                        icon: "checkmark.shield.fill",
-                        accentColor: getHealthStatus().color == "green" ? .green : 
-                                   getHealthStatus().color == "orange" ? .orange : 
-                                   getHealthStatus().color == "red" ? .red : .blue
-                    )
-                    // Циклы без оценочных ярлыков
-                    EnhancedStatCard(
-                        title: i18n.t("cycles"),
-                        value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)",
-                        icon: "repeat.circle"
-                        // Убираем healthStatus согласно рекомендациям
+                        title: i18n.t("runtime.estimated"),
+                        value: estimatedRuntimeText(),
+                        icon: "clock",
+                        accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
+                        isCollectingData: isCollectingRuntime()
                     )
                     // Износ - только процент, синхронизирован с Health Score
                     EnhancedStatCard(
@@ -577,59 +579,18 @@ struct MenuContent: View {
                                    getHealthStatus().color == "orange" ? .orange : 
                                    getHealthStatus().color == "red" ? .red : .blue
                     )
-                    // Температура с пояснением, без health status 
+                    // Температура с простым текстовым ярлыком «Норма/Высокая»
                     EnhancedStatCard(
                         title: i18n.t("temperature"),
-                        value: battery.state.temperature > 0 ? String(format: "%.1f°C", battery.state.temperature) : i18n.t("dash"),
+                        value: battery.state.temperature > 0 ? String(format: "%.1f°C • %@", battery.state.temperature, temperatureStatus(battery.state.temperature)) : i18n.t("dash"),
                         icon: "thermometer",
                         accentColor: battery.state.temperature > 40 ? .red : 
                                    battery.state.temperature > 35 ? .orange : Color.accentColor
                     )
                     .help(i18n.language == .ru ? "Длительно >40°C ускоряет износ" : "Prolonged >40°C accelerates wear")
                 }
-            }
-            
-            // Секция производительности
-            CardSection(title: i18n.t("overview.performance"), icon: "speedometer") {
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 6),
-                    GridItem(.flexible(), spacing: 6)
-                ], spacing: 6) {
-                    // Средняя мощность за 15 мин вместо "Разряд (1 час)"
-                    EnhancedStatCard(
-                        title: i18n.t("average.power.15min"),
-                        value: getAveragePower15Min(),
-                        icon: "bolt.fill",
-                        accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 15 ? .orange : Color.accentColor,
-                        isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
-                    )
-                    // Время работы при текущей нагрузке
-                    EnhancedStatCard(
-                        title: i18n.t("runtime.estimated"),
-                        value: estimatedRuntimeText(),
-                        icon: "clock",
-                        accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
-                        isCollectingData: isCollectingRuntime()
-                    )
-                    EnhancedStatCard(
-                        title: i18n.t("discharge.per.hour.24h"),
-                        value: discharge24hValueText(),
-                        icon: "chart.line.downtrend.xyaxis",
-                        accentColor: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 12 ? .orange : (analytics.hasEnoughData24h(history: history.items) ? Color.accentColor : .secondary),
-                        healthStatus: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour24h(history: history.items)) : nil,
-                        isCollectingData: isCollecting24h()
-                    )
-                    EnhancedStatCard(
-                        title: i18n.t("discharge.per.hour.7d"),
-                        value: discharge7dValueText(),
-                        icon: "chart.line.downtrend.xyaxis",
-                        accentColor: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 10 ? .orange : (analytics.hasEnoughData7d(history: history.items) ? Color.accentColor : .secondary),
-                        healthStatus: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour7d(history: history.items)) : nil,
-                        isCollectingData: isCollecting7d()
-                    )
-                }
-                
-                // Пресеты времени работы
+
+                // Компактный блок прогнозов времени для типовых нагрузок
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Image(systemName: "clock.arrow.circlepath")
@@ -640,106 +601,124 @@ struct MenuContent: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                     }
-                    
                     HStack(spacing: 8) {
-                        // Лёгкая нагрузка (~5W)
                         HStack(spacing: 4) {
-                            Text(i18n.t("preset.light"))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text(getRuntimeForPowerPreset(5.0))
-                                .font(.caption2)
-                                .fontWeight(.medium)
+                            Text(i18n.t("preset.light")).font(.caption2).foregroundStyle(.secondary)
+                            Text(getRuntimeForPowerPreset(5.0)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.blue.opacity(0.1), in: Capsule())
-                        
-                        // Средняя нагрузка (~10W)
                         HStack(spacing: 4) {
-                            Text(i18n.t("preset.medium"))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text(getRuntimeForPowerPreset(10.0))
-                                .font(.caption2)
-                                .fontWeight(.medium)
+                            Text(i18n.t("preset.medium")).font(.caption2).foregroundStyle(.secondary)
+                            Text(getRuntimeForPowerPreset(10.0)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.orange.opacity(0.1), in: Capsule())
-                        
-                        // Тяжёлая нагрузка (~15W)
                         HStack(spacing: 4) {
-                            Text(i18n.t("preset.heavy"))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text(getRuntimeForPowerPreset(15.0))
-                                .font(.caption2)
-                                .fontWeight(.medium)
+                            Text(i18n.t("preset.heavy")).font(.caption2).foregroundStyle(.secondary)
+                            Text(getRuntimeForPowerPreset(15.0)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.red.opacity(0.1), in: Capsule())
-                        
                         Spacer()
                     }
                 }
-                .padding(.top, 4)
+            }
+
+            // Кнопка «Показать детали»
+            HStack {
+                Button(action: { showDetails.toggle() }) {
+                    Label(showDetails ? i18n.t("hide.details") : i18n.t("show.details"), systemImage: showDetails ? "chevron.down.circle" : "chevron.right.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                Spacer()
             }
             
-            // Новая секция экспертных метрик (согласно рекомендациям профессора)
-            CardSection(title: i18n.t("expert.metrics"), icon: "chart.xyaxis.line") {
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 6),
-                    GridItem(.flexible(), spacing: 6)
-                ], spacing: 6) {
-                    // SOH по энергии
-                    EnhancedStatCard(
-                        title: i18n.t("soh.energy"),
-                        value: getSOHEnergy(),
-                        icon: "bolt.circle.fill",
-                        accentColor: .green,
-                        healthStatus: nil, // Пока без статуса, так как это новая метрика
-                        isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
-                    )
-                    .help(i18n.language == .ru ? "Реальная энергоотдача батареи (рекомендация эксперта)" : "Actual battery energy delivery (expert recommendation)")
-                    
-                    // DCIR (внутреннее сопротивление)
-                    EnhancedStatCard(
-                        title: i18n.t("dcir.resistance"),
-                        value: getDCIRValue(),
-                        icon: "waveform.path.ecg",
-                        accentColor: getDCIRHealthStatus()?.color == "green" ? .green : 
-                                   getDCIRHealthStatus()?.color == "orange" ? .orange : 
-                                   getDCIRHealthStatus()?.color == "red" ? .red : Color.accentColor,
-                        healthStatus: getDCIRHealthStatus(),
-                        isCollectingData: analytics.lastAnalysis?.dcirAt50Percent == nil
-                    )
-                    .help(i18n.language == .ru ? "Внутреннее сопротивление при 50% заряда" : "Internal resistance at 50% charge")
-                    
-                    // Микро-дропы
-                    EnhancedStatCard(
-                        title: i18n.t("micro.drops"),
-                        value: getMicroDrops(),
-                        icon: "arrow.down.circle",
-                        accentColor: getMicroDropHealthStatus()?.color == "green" ? .green : 
-                                   getMicroDropHealthStatus()?.color == "orange" ? .orange : 
-                                   getMicroDropHealthStatus()?.color == "red" ? .red : Color.accentColor,
-                        healthStatus: getMicroDropHealthStatus(),
-                        isCollectingData: false // Всегда показываем, даже если 0
-                    )
-                    .help(i18n.language == .ru ? "Резкие падения ≥2% за ≤120 сек" : "Sudden drops ≥2% within ≤120 sec")
-                    
-                    // Knee Index (если доступен)
-                    EnhancedStatCard(
-                        title: i18n.t("knee.index"),
-                        value: getKneeIndex(),
-                        icon: "chart.line.uptrend.xyaxis.circle",
-                        accentColor: .blue,
-                        healthStatus: nil, // Пока без статуса
-                        isCollectingData: analytics.lastAnalysis?.kneeIndex ?? 0 <= 0
-                    )
-                    .help(i18n.language == .ru ? "Индекс качества OCV кривой" : "OCV curve quality index")
+            if showDetails {
+                CardSection(title: i18n.t("overview.performance"), icon: "speedometer") {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 6),
+                        GridItem(.flexible(), spacing: 6)
+                    ], spacing: 6) {
+                        EnhancedStatCard(
+                            title: i18n.t("average.power.15min"),
+                            value: getAveragePower15Min(),
+                            icon: "bolt.fill",
+                            accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 15 ? .orange : Color.accentColor,
+                            isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
+                        )
+                        EnhancedStatCard(
+                            title: i18n.t("discharge.per.hour.24h"),
+                            value: discharge24hValueText(),
+                            icon: "chart.line.downtrend.xyaxis",
+                            accentColor: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 12 ? .orange : (analytics.hasEnoughData24h(history: history.items) ? Color.accentColor : .secondary),
+                            healthStatus: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour24h(history: history.items)) : nil,
+                            isCollectingData: isCollecting24h()
+                        )
+                        EnhancedStatCard(
+                            title: i18n.t("discharge.per.hour.7d"),
+                            value: discharge7dValueText(),
+                            icon: "chart.line.downtrend.xyaxis",
+                            accentColor: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 10 ? .orange : (analytics.hasEnoughData7d(history: history.items) ? Color.accentColor : .secondary),
+                            healthStatus: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour7d(history: history.items)) : nil,
+                            isCollectingData: isCollecting7d()
+                        )
+                    }
+                }
+            }
+            
+            if showDetails {
+                // Экспертные метрики
+                CardSection(title: i18n.t("expert.metrics"), icon: "chart.xyaxis.line") {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 6),
+                        GridItem(.flexible(), spacing: 6)
+                    ], spacing: 6) {
+                        EnhancedStatCard(
+                            title: i18n.t("soh.energy"),
+                            value: getSOHEnergy(),
+                            icon: "bolt.circle.fill",
+                            accentColor: .green,
+                            healthStatus: nil,
+                            isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
+                        )
+                        .help(i18n.language == .ru ? "Реальная энергоотдача батареи (рекомендация эксперта)" : "Actual battery energy delivery (expert recommendation)")
+                        EnhancedStatCard(
+                            title: i18n.t("dcir.resistance"),
+                            value: getDCIRValue(),
+                            icon: "waveform.path.ecg",
+                            accentColor: getDCIRHealthStatus()?.color == "green" ? .green : 
+                                       getDCIRHealthStatus()?.color == "orange" ? .orange : 
+                                       getDCIRHealthStatus()?.color == "red" ? .red : Color.accentColor,
+                            healthStatus: getDCIRHealthStatus(),
+                            isCollectingData: analytics.lastAnalysis?.dcirAt50Percent == nil
+                        )
+                        .help(i18n.language == .ru ? "Внутреннее сопротивление при 50% заряда" : "Internal resistance at 50% charge")
+                        EnhancedStatCard(
+                            title: i18n.t("micro.drops"),
+                            value: getMicroDrops(),
+                            icon: "arrow.down.circle",
+                            accentColor: getMicroDropHealthStatus()?.color == "green" ? .green : 
+                                       getMicroDropHealthStatus()?.color == "orange" ? .orange : 
+                                       getMicroDropHealthStatus()?.color == "red" ? .red : Color.accentColor,
+                            healthStatus: getMicroDropHealthStatus(),
+                            isCollectingData: false
+                        )
+                        .help(i18n.language == .ru ? "Резкие падения ≥2% за ≤120 сек" : "Sudden drops ≥2% within ≤120 sec")
+                        EnhancedStatCard(
+                            title: i18n.t("knee.index"),
+                            value: getKneeIndex(),
+                            icon: "chart.line.uptrend.xyaxis.circle",
+                            accentColor: .blue,
+                            healthStatus: nil,
+                            isCollectingData: analytics.lastAnalysis?.kneeIndex ?? 0 <= 0
+                        )
+                        .help(i18n.language == .ru ? "Индекс качества OCV кривой" : "OCV curve quality index")
+                    }
                 }
             }
         }

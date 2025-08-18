@@ -260,6 +260,14 @@ enum ReportGenerator {
                     <span class="label">\(lang == "ru" ? "Нормализованный SOH:" : "Normalized SOH:")</span>
                     <span class="value">\(String(format: "%.1f", qhr.normalizedSOH))%</span>
                   </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Микро‑дропы/час:" : "Micro-drops/h:")</span>
+                    <span class="value">\(String(format: "%.2f", qhr.microDropRatePerHour))</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Стабильность под нагрузкой:" : "Load stability:")</span>
+                    <span class="value">\(qhr.unstableUnderLoad ? (lang == "ru" ? "Нестабилен (≥20% SOC)" : "Unstable (≥20% SOC)") : (lang == "ru" ? "Стабилен" : "Stable"))</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1074,6 +1082,8 @@ enum ReportGenerator {
               
               \(generateChargeChart(history: recent, lang: lang))
               \(generateDischargeRateChart(history: recent, lang: lang))
+              \(generatePowerChart(history: recent, lang: lang))
+              \(generateTemperatureChart(history: recent, lang: lang))
               \(generateDCIRChart(quickHealthResult: quickHealthResult, lang: lang))
               \(generateOCVChart(history: history, quickHealthResult: quickHealthResult, lang: lang))
               \(generateEnergyMetricsChart(result: result, quickHealthResult: quickHealthResult, lang: lang))
@@ -1186,8 +1196,9 @@ enum ReportGenerator {
             <!-- Charging periods background -->
             \(chargingBands.joined(separator: "\n            "))
             
-            <!-- Charge line -->
+            <!-- Charge line and micro-drop markers -->
             <path d="\(pathData)" fill="none" stroke="var(--accent-primary)" stroke-width="2.5" opacity="0.9"/>
+            \(generateMicroDropMarkers(history: history, minTime: minTime, timeRange: timeRange, marginLeft: marginLeft, marginTop: marginTop, chartHeight: chartHeight))
             
             <!-- Axes -->
             <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
@@ -1277,6 +1288,7 @@ enum ReportGenerator {
             
             <!-- Discharge rate line -->
             <path d="\(pathData)" fill="none" stroke="var(--accent-secondary)" stroke-width="2.5" opacity="0.9"/>
+            \(generateMicroDropMarkers(history: history, minTime: minTime, timeRange: timeRange, marginLeft: marginLeft, marginTop: marginTop, chartHeight: chartHeight))
             
             <!-- Axes -->
             <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
@@ -1288,6 +1300,102 @@ enum ReportGenerator {
           </svg>
         </div>
         """
+    }
+
+    /// Generates Power vs Time chart
+    private static func generatePowerChart(history: [BatteryReading], width: Int = 800, height: Int = 300, lang: String) -> String {
+        guard !history.isEmpty else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == \"ru\" ? \"Нет данных мощности\" : \"No power data available\")</div>"
+        }
+        let chartWidth = width - 80
+        let chartHeight = height - 80
+        let marginLeft = 50
+        let marginTop = 20
+        let timestamps = history.map { $0.timestamp.timeIntervalSince1970 }
+        let minTime = timestamps.min() ?? 0
+        let maxTime = timestamps.max() ?? 1
+        let timeRange = max(maxTime - minTime, 1)
+        let powers = history.map { abs($0.power) }
+        let maxPower = max(1.0, powers.max() ?? 1.0)
+        var pathCommands: [String] = []
+        for (idx, r) in history.enumerated() {
+            let x = Double(chartWidth) * (r.timestamp.timeIntervalSince1970 - minTime) / timeRange
+            let y = Double(chartHeight) * (1.0 - abs(r.power) / maxPower)
+            let svgX = Int(x + Double(marginLeft))
+            let svgY = Int(y + Double(marginTop))
+            if idx == 0 { pathCommands.append("M\(svgX),\(svgY)") } else { pathCommands.append("L\(svgX),\(svgY)") }
+        }
+        let pathData = pathCommands.joined(separator: " ")
+        return """
+        <div class=\"svg-chart-container\" style=\"background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);\">
+          <div class=\"chart-header\" style=\"margin-bottom: 1rem; text-align: center;\">
+            <div class=\"chart-title\" style=\"font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;\">\(lang == \"ru\" ? \"Мощность во времени\" : \"Power over time\")</div>
+            <div class=\"chart-subtitle\" style=\"color: var(--text-muted); font-size: 0.9rem;\">\(lang == \"ru\" ? \"P = V × I\" : \"P = V × I\")</div>
+          </div>
+          <svg viewBox=\"0 0 \(width) \(height)\" style=\"width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;\">
+            <defs><pattern id=\"gridP\" width=\"40\" height=\"30\" patternUnits=\"userSpaceOnUse\"><path d=\"M 40 0 L 0 0 0 30\" fill=\"none\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\"/></pattern></defs>
+            <rect x=\"\(marginLeft)\" y=\"\(marginTop)\" width=\"\(chartWidth)\" height=\"\(chartHeight)\" fill=\"url(#gridP)\" opacity=\"0.3\"/>
+            <path d=\"\(pathData)\" fill=\"none\" stroke=\"var(--accent-primary)\" stroke-width=\"2.5\" opacity=\"0.9\"/>
+          </svg>
+        </div>
+        """
+    }
+
+    /// Generates Temperature vs Time chart
+    private static func generateTemperatureChart(history: [BatteryReading], width: Int = 800, height: Int = 300, lang: String) -> String {
+        guard !history.isEmpty else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == \"ru\" ? \"Нет данных температуры\" : \"No temperature data available\")</div>"
+        }
+        let chartWidth = width - 80
+        let chartHeight = height - 80
+        let marginLeft = 50
+        let marginTop = 20
+        let timestamps = history.map { $0.timestamp.timeIntervalSince1970 }
+        let minTime = timestamps.min() ?? 0
+        let maxTime = timestamps.max() ?? 1
+        let timeRange = max(maxTime - minTime, 1)
+        let temps = history.map { $0.temperature }
+        let minTemp = temps.min() ?? 20
+        let maxTemp = max(minTemp + 1, temps.max() ?? 40)
+        var pathCommands: [String] = []
+        for (idx, r) in history.enumerated() {
+            let x = Double(chartWidth) * (r.timestamp.timeIntervalSince1970 - minTime) / timeRange
+            let y = Double(chartHeight) * (1.0 - (r.temperature - minTemp) / (maxTemp - minTemp))
+            let svgX = Int(x + Double(marginLeft))
+            let svgY = Int(y + Double(marginTop))
+            if idx == 0 { pathCommands.append("M\(svgX),\(svgY)") } else { pathCommands.append("L\(svgX),\(svgY)") }
+        }
+        let pathData = pathCommands.joined(separator: " ")
+        return """
+        <div class=\"svg-chart-container\" style=\"background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);\">
+          <div class=\"chart-header\" style=\"margin-bottom: 1rem; text-align: center;\">
+            <div class=\"chart-title\" style=\"font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;\">\(lang == \"ru\" ? \"Температура во времени\" : \"Temperature over time\")</div>
+          </div>
+          <svg viewBox=\"0 0 \(width) \(height)\" style=\"width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;\">
+            <defs><pattern id=\"gridT\" width=\"40\" height=\"30\" patternUnits=\"userSpaceOnUse\"><path d=\"M 40 0 L 0 0 0 30\" fill=\"none\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\"/></pattern></defs>
+            <rect x=\"\(marginLeft)\" y=\"\(marginTop)\" width=\"\(chartWidth)\" height=\"\(chartHeight)\" fill=\"url(#gridT)\" opacity=\"0.3\"/>
+            <path d=\"\(pathData)\" fill=\"none\" stroke=\"var(--warning)\" stroke-width=\"2.5\" opacity=\"0.9\"/>
+          </svg>
+        </div>
+        """
+    }
+
+    /// Micro-drop markers for SOC chart
+    private static func generateMicroDropMarkers(history: [BatteryReading], minTime: Double, timeRange: Double, marginLeft: Int, marginTop: Int, chartHeight: Int) -> String {
+        guard history.count >= 2 else { return "" }
+        var markers: [String] = []
+        for i in 1..<history.count {
+            let prev = history[i-1]
+            let cur = history[i]
+            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+            let d = prev.percentage - cur.percentage
+            if !prev.isCharging && !cur.isCharging && dt <= 120 && d >= 2 {
+                let x = Int(Double(marginLeft) + (Double(marginLeft) + Double((cur.timestamp.timeIntervalSince1970 - minTime) / timeRange) * Double((chartHeight))))
+                let y = Int(Double(marginTop) + Double(chartHeight) * (1.0 - Double(cur.percentage) / 100.0))
+                markers.append("<circle cx=\"\(x)\" cy=\"\(y)\" r=\"4\" fill=\"var(--danger)\" stroke=\"white\" stroke-width=\"1.5\"/>")
+            }
+        }
+        return markers.joined(separator: "\n            ")
     }
     
     /// Generates time axis labels for charts
@@ -1514,12 +1622,28 @@ enum ReportGenerator {
               <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Энергия 80→50%" : "Energy 80→50%")</div>
               <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(lang == "ru" ? "Измеренное окно" : "Measured window")</div>
             </div>
+            
+            <div class="energy-metric" style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
+              <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary);">0.1C / 0.2C / 0.3C</div>
+              <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Прогноз автономности" : "Runtime forecast")</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">\(formatRuntimeForPreset(designMah: result.sohEnergy > 0 ? Int((result.sohEnergy/100.0) * Double(result.sohEnergy>0 ? result.sohEnergy : 100)) : 0, cRate: 0.1)) • \(formatRuntimeForPreset(designMah: result.sohEnergy > 0 ? Int((result.sohEnergy/100.0) * Double(result.sohEnergy>0 ? result.sohEnergy : 100)) : 0, cRate: 0.2)) • \(formatRuntimeForPreset(designMah: result.sohEnergy > 0 ? Int((result.sohEnergy/100.0) * Double(result.sohEnergy>0 ? result.sohEnergy : 100)) : 0, cRate: 0.3))</div>
+            </div>
           </div>
         </div>
         """
     }
     
     /// Helper functions for new chart generation
+    /// Formats runtime forecast for a given C-rate preset
+    private static func formatRuntimeForPreset(designMah: Int, cRate: Double) -> String {
+        guard designMah > 0 else { return "—" }
+        let designWh = Double(designMah) * 11.1 / 1000.0
+        let targetW = designWh * cRate
+        guard targetW > 0.1 else { return "—" }
+        let hours = designWh / targetW
+        if hours >= 1.0 { return String(format: "%.1f h", hours) }
+        return String(format: "%.0f m", hours * 60)
+    }
     private static func generateSOCLabels(minSOC: Double, maxSOC: Double, chartWidth: Int, marginLeft: Int, marginTop: Int, chartHeight: Int, lang: String) -> String {
         var labels: [String] = []
         let socRange = maxSOC - minSOC

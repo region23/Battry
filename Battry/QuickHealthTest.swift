@@ -67,6 +67,8 @@ final class QuickHealthTest: ObservableObject {
         
         // Стабильность
         let microDropCount: Int
+        let microDropRatePerHour: Double
+        let unstableUnderLoad: Bool
         let stabilityScore: Double // 0-100
         
         // Температурная нормализация
@@ -402,9 +404,12 @@ final class QuickHealthTest: ObservableObject {
             if let f = slice.first, let l = slice.last { cpDurationSec += l.timestamp.timeIntervalSince(f.timestamp) }
         }
         let avgPowerDuringCP = cpDurationSec > 0 ? energyWhTotal / (cpDurationSec / 3600.0) : 0
-        // Оценка SOH_energy: масштабируем 80→50% (30% SOC) к 100%
+        // Оценка SOH_energy: масштабируем 80→50% (30% SOC) к 100% и используем средний V_OC для E_design
         let designMah = samples.last?.designCapacity ?? batteryViewModel?.state.designCapacity ?? 0
-        let designWh = EnergyCalculator.designEnergyCapacity(fromCapacityMah: designMah)
+        // Среднее V_OC из OCV-кривой (если доступно), fallback 11.1 В
+        let ocvForAvg = OCVAnalyzer(dcirPoints: dcirMeasurements).analyzeOCV(from: samples).ocvCurve
+        let avgVOC: Double = ocvForAvg.isEmpty ? 11.1 : max(5.0, ocvForAvg.map { $0.ocvVoltage }.reduce(0, +) / Double(ocvForAvg.count))
+        let designWh = Double(designMah) * avgVOC / 1000.0
         let estimatedFullEnergyWh = energyWhTotal * (100.0 / 30.0)
         let sohEnergyPct = (designWh > 0) ? max(0, min(100, (estimatedFullEnergyWh / designWh) * 100.0)) : 100.0
         
@@ -418,6 +423,9 @@ final class QuickHealthTest: ObservableObject {
         // Подсчет микро-дропов
         let microDrops = countMicroDrops(in: samples)
         let stabilityScore = calculateStabilityScore(microDrops: microDrops, samples: samples)
+        let durationHoursAll = max(1e-6, samples.last!.timestamp.timeIntervalSince(samples.first!.timestamp) / 3600.0)
+        let microDropRate = Double(microDrops) / durationHoursAll
+        let unstable = hasMicroDropsAboveSOC(samples: samples, thresholdPct: 2, windowSec: 120, socMin: 20)
         
         // Температурный анализ
         let temperatures = samples.map(\.temperature)
@@ -464,6 +472,8 @@ final class QuickHealthTest: ObservableObject {
             kneeSOC: ocvAnalysis.kneeSOC,
             kneeIndex: ocvAnalysis.kneeIndex,
             microDropCount: microDrops,
+            microDropRatePerHour: microDropRate,
+            unstableUnderLoad: unstable,
             stabilityScore: stabilityScore,
             averageTemperature: avgTemperature,
             normalizedSOH: tempNormalization.normalizedSOH,
@@ -521,6 +531,19 @@ final class QuickHealthTest: ObservableObject {
         }
         
         return dropCount
+    }
+    private func hasMicroDropsAboveSOC(samples: [BatteryReading], thresholdPct: Int, windowSec: Double, socMin: Int) -> Bool {
+        guard samples.count >= 2 else { return false }
+        for i in 1..<samples.count {
+            let prev = samples[i-1]
+            let curr = samples[i]
+            let dt = curr.timestamp.timeIntervalSince(prev.timestamp)
+            let drop = prev.percentage - curr.percentage
+            if !prev.isCharging && !curr.isCharging && prev.percentage >= socMin && dt <= windowSec && drop >= thresholdPct {
+                return true
+            }
+        }
+        return false
     }
     
     private func calculateStabilityScore(microDrops: Int, samples: [BatteryReading]) -> Double {

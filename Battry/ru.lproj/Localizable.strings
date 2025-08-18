@@ -312,3 +312,7 @@
 "preset.light" = "Лёгкая ~5Вт";
 "preset.medium" = "Средняя ~10Вт";
 "preset.heavy" = "Тяжёлая ~15Вт";
+"show.details" = "Показать детали";
+"hide.details" = "Скрыть детали";
+"temperature.status.normal" = "Норма";
+"temperature.status.high" = "Высокая";

@@ -312,3 +312,7 @@
 "preset.light" = "Light ~5W";
 "preset.medium" = "Medium ~10W";
 "preset.heavy" = "Heavy ~15W";
+"show.details" = "Show Details";
+"hide.details" = "Hide Details";
+"temperature.status.normal" = "Normal";
+"temperature.status.high" = "High";
