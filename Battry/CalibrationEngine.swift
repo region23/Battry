@@ -514,7 +514,6 @@ final class CalibrationEngine: ObservableObject {
         currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata(
             wasUsed: true,
             profile: Localization.shared.t(loadGeneratorSettings.profile.localizationKey),
-            videoEnabled: loadGeneratorSettings.videoEnabled,
             autoStopReasons: []
         )
         
@@ -527,7 +526,7 @@ final class CalibrationEngine: ObservableObject {
         // Запускаем видео если включено
         // video load removed
         
-        print("CalibrationEngine: Started load generators - CPU: \(loadGeneratorSettings.profile), Video: \(loadGeneratorSettings.videoEnabled)")
+        print("CalibrationEngine: Started load generators - CPU: \(loadGeneratorSettings.profile)")
     }
     
     /// Останавливает все генераторы нагрузки

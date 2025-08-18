@@ -27,10 +27,7 @@ struct CalibrationPanel: View {
         nonmutating set { calibrator.loadGeneratorSettings.isEnabled = newValue }
     }
     
-    private var enableVideoLoad: Bool {
-        get { calibrator.loadGeneratorSettings.videoEnabled }
-        nonmutating set { calibrator.loadGeneratorSettings.videoEnabled = newValue }
-    }
+    // Video load removed
     
     private var autoStartGenerator: Bool {
         get { calibrator.loadGeneratorSettings.autoStart }
@@ -75,7 +72,12 @@ struct CalibrationPanel: View {
             // Основная карточка состояния
             switch calibrator.state {
             case .idle:
-                idleStateView
+                VStack(alignment: .leading, spacing: 10) {
+                    // Отдельный блок: Быстрый тест здоровья
+                    quickHealthTestSection
+                    // Отдельный блок: Тест автономности
+                    idleStateView
+                }
                 
             case .waitingFull:
                 waitingFullStateView
@@ -97,7 +99,7 @@ struct CalibrationPanel: View {
             Spacer()
         }
         .onChange(of: calibrator.state) { _, newState in
-            // Stop load generator and video when calibration stops or completes
+            // Stop load generator when calibration stops or completes
             if loadGenerator.isRunning {
                 switch newState {
                 case .idle, .completed:
@@ -244,9 +246,6 @@ extension CalibrationPanel {
                         }
                     }
                 }
-                
-                // Quick Health Test Section
-                quickHealthTestSection
                 
                 // Advanced Settings Section (Collapsible)
                 advancedSettingsSection

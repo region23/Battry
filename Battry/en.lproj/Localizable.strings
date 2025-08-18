@@ -24,7 +24,7 @@
 "discharge.per.hour.7d" = "Discharge (7d)";
 "collecting.stats" = "collecting data...";
 "analysis.intro" = "Battery life test (CP discharge 100%→5%): get reproducible runtime and a report.";
-"analysis.start" = "Start Analysis";
+"analysis.start" = "Start Battery Life Test";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";
 "analysis.unplug.to.start" = "Unplug power to start the test.";
 "analysis.charge.to.percent" = "Charge %d%%. Charge to 100% and unplug power.";
@@ -163,7 +163,7 @@
 
 // Strings for enhanced Calibration Panel
 "calibration.auto.reset.title" = "Session Reset";
-"calibration.start.test" = "Start Testing";
+"calibration.start.test" = "Battery Life Test";
 "calibration.waiting.title" = "Waiting for Full Charge";
 "calibration.battery.ready" = "Battery Ready";
 "calibration.running.title" = "Test Running";

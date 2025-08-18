@@ -24,7 +24,7 @@
 "discharge.per.hour.7d" = "Разряд (7 дней)";
 "collecting.stats" = "копим статистику...";
 "analysis.intro" = "Тест автономности (CP‑разряд 100%→5%): получим воспроизводимое время работы и отчёт.";
-"analysis.start" = "Начать анализ";
+"analysis.start" = "Начать тест автономности";
 "analysis.waiting.full" = "Зарядите до 100% и отключите питание. Анализ стартует автоматически.";
 "analysis.unplug.to.start" = "Отключите питание для начала теста.";
 "analysis.charge.to.percent" = "Заряд %d%%. Зарядите до 100% и отключите питание.";
@@ -163,7 +163,7 @@
 
 // Строки для улучшенного Calibration Panel
 "calibration.auto.reset.title" = "Сессия сброшена";
-"calibration.start.test" = "Начать тестирование";
+"calibration.start.test" = "Тест автономности";
 "calibration.waiting.title" = "Ожидание полного заряда";
 "calibration.battery.ready" = "Батарея заряжена";
 "calibration.running.title" = "Выполняется тест";
