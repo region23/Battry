@@ -20,8 +20,7 @@ struct BattryApp: App {
     @StateObject private var calibrator = CalibrationEngine()
     /// Генератор CPU нагрузки
     @StateObject private var loadGenerator = LoadGenerator()
-    /// Движок видео нагрузки
-    @StateObject private var videoLoadEngine = VideoLoadEngine()
+    // Video load removed
     /// Охранник безопасности генератора
     @StateObject private var safetyGuard = LoadSafetyGuard { _ in
         // Callback будет настроен позже в onAppear
@@ -43,7 +42,6 @@ struct BattryApp: App {
                 analytics: analytics, 
                 calibrator: calibrator,
                 loadGenerator: loadGenerator,
-                videoLoadEngine: videoLoadEngine,
                 safetyGuard: safetyGuard,
                 updateChecker: updateChecker
             )
@@ -73,13 +71,12 @@ struct BattryApp: App {
                 history.start()
                 calibrator.bind(to: battery.publisher, viewModel: battery)
                 calibrator.attachHistory(history)
-                calibrator.attachLoadGenerators(cpu: loadGenerator, video: videoLoadEngine)
+                calibrator.attachLoadGenerators(cpu: loadGenerator)
                 
                 // Настраиваем callback для safetyGuard
                 safetyGuard.setStopCallback { reason in
                     Task { @MainActor in
                         loadGenerator.stop(reason: reason)
-                        videoLoadEngine.stop()
                     }
                 }
                 

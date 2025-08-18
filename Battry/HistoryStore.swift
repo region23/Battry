@@ -25,8 +25,6 @@ struct HistoryEvent: Codable, Equatable {
     enum EventType: String, Codable {
         case generatorStarted = "generator_started"
         case generatorStopped = "generator_stopped"
-        case videoStarted = "video_started"
-        case videoStopped = "video_stopped"
     }
 }
 

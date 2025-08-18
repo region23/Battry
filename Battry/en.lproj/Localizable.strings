@@ -254,10 +254,7 @@
 "capacity.fact.design" = "Capacity";
 
 // Video Load Engine
-"video.load.enable" = "Simulate GPU load (1080p video)";
-"video.load.description" = "Plays HD video for GPU load. Not required for the quick health test.";
-"video.load.status" = "Video Status";
-"video.load.running" = "Playing 1080p video";
+/* video load removed */
 
 // Video Errors
 "video.error.file.not.found" = "Video file not found";

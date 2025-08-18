@@ -112,7 +112,6 @@ BatteryService ──▶ BatteryViewModel ──▶ HistoryStore
                    CalibrationEngine      AnalyticsEngine
                           │                    │
                           ├─▶ LoadGenerator (CPU)
-                          ├─▶ VideoLoadEngine (GPU)
                           └─▶ LoadSafetyGuard
                           │
                           ▼
@@ -126,7 +125,7 @@ BatteryService ──▶ BatteryViewModel ──▶ HistoryStore
 - **BatteryViewModel**: Combine‑паблишер, опрос каждые 30с (быстрый режим при ожидании начала теста)
 - **HistoryStore**: хранение/тримминг/даунсэмплинг, события для графиков
 - **CalibrationEngine**: автоматическое управление сессией, предотвращение сна, авто‑сброс при больших разрывах, история последних 5 результатов
-- **LoadGenerator/VideoLoadEngine**: профили нагрузки; безопасные ограничения
+- **LoadGenerator**: профили нагрузки; безопасные ограничения
 - **LoadSafetyGuard**: автостоп по порогам и сигналам системы
 - **ReportGenerator**: статический HTML с векторными графиками и суммарными карточками
 - **UI**: SwiftUI + Charts, локализация (RU/EN)

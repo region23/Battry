@@ -254,10 +254,7 @@
 "capacity.fact.design" = "Ёмкость";
 
 // Видео движок
-"video.load.enable" = "Имитация GPU‑нагрузки (1080p видео)";
-"video.load.description" = "Воспроизводит HD‑видео для нагрузки GPU. Не требуется для быстрого теста здоровья.";
-"video.load.status" = "Статус видео";
-"video.load.running" = "Воспроизводится 1080p видео";
+/* video load removed */
 
 // Ошибки видео
 "video.error.file.not.found" = "Видео файл не найден";

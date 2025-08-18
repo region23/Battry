@@ -9,7 +9,7 @@ struct CalibrationPanel: View {
     @ObservedObject var analytics: AnalyticsEngine
     let snapshot: BatterySnapshot
     @ObservedObject var loadGenerator: LoadGenerator
-    @ObservedObject var videoLoadEngine: VideoLoadEngine
+    // Video load removed
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
     
@@ -98,11 +98,10 @@ struct CalibrationPanel: View {
         }
         .onChange(of: calibrator.state) { _, newState in
             // Stop load generator and video when calibration stops or completes
-            if loadGenerator.isRunning || videoLoadEngine.isRunning {
+            if loadGenerator.isRunning {
                 switch newState {
                 case .idle, .completed:
                     loadGenerator.stop(reason: .userStopped)
-                    videoLoadEngine.stop()
                 default:
                     break
                 }
@@ -113,8 +112,7 @@ struct CalibrationPanel: View {
             if !quickHealthTest.state.isActive {
                 quickHealthTest.bind(
                     batteryViewModel: battery,
-                    loadGenerator: loadGenerator,
-                    videoLoadEngine: videoLoadEngine
+                    loadGenerator: loadGenerator
                 )
             }
         }
@@ -260,9 +258,7 @@ extension CalibrationPanel {
                         loadGenerator.start(profile: selectedProfile)
                     }
                     // Auto-start video load if enabled
-                    if autoStartGenerator && enableVideoLoad {
-                        videoLoadEngine.start()
-                    }
+                    // video load removed
                 } label: {
                     HStack {
                         Image(systemName: "target")
@@ -371,7 +367,7 @@ extension CalibrationPanel {
                 }
                 
                 // Load Generator Status during running test
-                if enableLoadGenerator || loadGenerator.isRunning || enableVideoLoad || videoLoadEngine.isRunning {
+                if enableLoadGenerator || loadGenerator.isRunning {
                     SpacedDivider(padding: 4)
                     loadGeneratorStatusView
                 }
@@ -402,9 +398,7 @@ extension CalibrationPanel {
                                     if loadGenerator.isRunning {
                                         loadGenerator.stop(reason: .userStopped)
                                     }
-                                    if videoLoadEngine.isRunning {
-                                        videoLoadEngine.stop()
-                                    }
+                                    // video load removed
                                     showStopTestConfirm = false
                                 }
                                 .buttonStyle(.borderedProminent)
@@ -817,24 +811,7 @@ extension CalibrationPanel {
                     }
                 }
                 
-                // Video Load Section
-                VStack(alignment: .leading, spacing: 6) {
-                    Divider()
-                        .padding(.vertical, 4)
-                    
-                    Toggle(i18n.t("video.load.enable"), isOn: Binding(
-                        get: { enableVideoLoad },
-                        set: { enableVideoLoad = $0 }
-                    ))
-                        .toggleStyle(.checkbox)
-                    
-                    if enableVideoLoad {
-                        Text(i18n.t("video.load.description"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 20)
-                    }
-                }
+                // Video load section removed
             }
         }
         .padding(8)
@@ -896,42 +873,7 @@ extension CalibrationPanel {
                 }
             }
             
-            // Video Load Status
-            if enableVideoLoad || videoLoadEngine.isRunning {
-                Divider()
-                    .padding(.vertical, 2)
-                
-                HStack {
-                    Image(systemName: "play.rectangle")
-                        .foregroundStyle(videoLoadEngine.isRunning ? .green : .secondary)
-                    Text(i18n.t("video.load.status"))
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    Spacer()
-                    
-                    if videoLoadEngine.isRunning {
-                        Circle()
-                            .fill(.green)
-                            .frame(width: 6, height: 6)
-                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: videoLoadEngine.isRunning)
-                    }
-                }
-                
-                if videoLoadEngine.isRunning {
-                    Text(i18n.t("video.load.running"))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else if let error = videoLoadEngine.lastError {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                            .font(.caption2)
-                        Text(error.localizedDescription)
-                            .font(.caption2)
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
+            // Video load status removed
         }
         .padding(8)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))

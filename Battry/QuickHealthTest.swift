@@ -102,7 +102,7 @@ final class QuickHealthTest: ObservableObject {
     
     private weak var batteryViewModel: BatteryViewModel?
     private weak var loadGenerator: LoadGenerator?
-    private weak var videoLoadEngine: VideoLoadEngine?
+    // Video load removed
     
     // Constant Power контроль
     private lazy var constantPowerController = ConstantPowerController()
@@ -123,12 +123,10 @@ final class QuickHealthTest: ObservableObject {
     /// Привязывает необходимые зависимости
     func bind(
         batteryViewModel: BatteryViewModel,
-        loadGenerator: LoadGenerator,
-        videoLoadEngine: VideoLoadEngine? = nil
+        loadGenerator: LoadGenerator
     ) {
         self.batteryViewModel = batteryViewModel
         self.loadGenerator = loadGenerator
-        self.videoLoadEngine = videoLoadEngine
         
         // Настраиваем ConstantPowerController
         setupConstantPowerController()
@@ -204,7 +202,6 @@ final class QuickHealthTest: ObservableObject {
         
         // Останавливаем генераторы нагрузки
         loadGenerator?.stop(reason: .userStopped)
-        videoLoadEngine?.stop()
         
         // Возвращаем обычный режим опроса
         batteryViewModel?.disableTestMode()
@@ -519,7 +516,6 @@ final class QuickHealthTest: ObservableObject {
         switch level {
         case .off:
             loadGenerator?.stop(reason: .userStopped)
-            videoLoadEngine?.stop()
         case .light:
             loadGenerator?.start(profile: .light)
         case .medium:

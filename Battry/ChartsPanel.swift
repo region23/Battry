@@ -176,7 +176,7 @@ struct ChartsPanel: View {
                         RuleMark(
                             x: .value("Event", event.timestamp)
                         )
-                        .foregroundStyle(event.type == .generatorStarted || event.type == .videoStarted ? Color.orange.opacity(0.6) : Color.gray.opacity(0.4))
+                        .foregroundStyle(event.type == .generatorStarted ? Color.orange.opacity(0.6) : Color.gray.opacity(0.4))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
                     }
                     // Ряды данных

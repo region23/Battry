@@ -35,13 +35,11 @@ enum ReportGenerator {
     struct LoadGeneratorMetadata {
         let wasUsed: Bool
         let profile: String?
-        let videoEnabled: Bool
         let autoStopReasons: [String]
         
-        init(wasUsed: Bool = false, profile: String? = nil, videoEnabled: Bool = false, autoStopReasons: [String] = []) {
+        init(wasUsed: Bool = false, profile: String? = nil, autoStopReasons: [String] = []) {
             self.wasUsed = wasUsed
             self.profile = profile
-            self.videoEnabled = videoEnabled
             self.autoStopReasons = autoStopReasons
         }
     }
@@ -151,9 +149,6 @@ enum ReportGenerator {
             guard let metadata = loadGeneratorMetadata, metadata.wasUsed else { return "" }
             let title = lang == "ru" ? "Генератор нагрузки" : "Load Generator"
             let profileText = metadata.profile ?? (lang == "ru" ? "Неизвестно" : "Unknown")
-            let videoStatus = metadata.videoEnabled ? 
-                (lang == "ru" ? "Включено" : "Enabled") : 
-                (lang == "ru" ? "Отключено" : "Disabled")
             
             var autoStopsHTML = ""
             if !metadata.autoStopReasons.isEmpty {
@@ -174,10 +169,6 @@ enum ReportGenerator {
                 <div>
                   <span class="label">\(lang == "ru" ? "Профиль:" : "Profile:")</span>
                   <span class="value">\(profileText)</span>
-                </div>
-                <div>
-                  <span class="label">\(lang == "ru" ? "Видео 1080p:" : "1080p Video:")</span>
-                  <span class="value">\(videoStatus)</span>
                 </div>
               </div>
               \(autoStopsHTML)

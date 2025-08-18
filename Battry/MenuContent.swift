@@ -27,7 +27,7 @@ struct MenuContent: View {
     @ObservedObject var analytics: AnalyticsEngine
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var loadGenerator: LoadGenerator
-    @ObservedObject var videoLoadEngine: VideoLoadEngine
+    // Video load removed
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var i18n: Localization = .shared
@@ -142,7 +142,6 @@ struct MenuContent: View {
                     analytics: analytics, 
                     snapshot: battery.state,
                     loadGenerator: loadGenerator,
-                    videoLoadEngine: videoLoadEngine,
                     safetyGuard: safetyGuard
                 )
                 case .settings: SettingsPanel(history: history, calibrator: calibrator)
@@ -269,22 +268,6 @@ struct MenuContent: View {
             
             // Generator active badges
             HStack(spacing: 6) {
-                if videoLoadEngine.isRunning {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(.blue)
-                            .frame(width: 6, height: 6)
-                            .animation(isWindowVisible ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: videoLoadEngine.isRunning)
-                        Text("GPU")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.blue)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.blue.opacity(0.1), in: Capsule())
-                }
-                
                 if loadGenerator.isRunning {
                     HStack(spacing: 4) {
                         Circle()

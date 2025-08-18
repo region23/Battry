@@ -37,7 +37,7 @@ IOKit/IORegistry → BatteryService → BatteryViewModel → UI Components
                                          ↓
                                    HistoryStore → AnalyticsEngine
                                          ↓
-                                 CalibrationEngine → LoadGenerator/VideoLoadEngine
+                                 CalibrationEngine → LoadGenerator
                                          ↓
                                    LoadSafetyGuard
 ```
@@ -50,7 +50,6 @@ IOKit/IORegistry → BatteryService → BatteryViewModel → UI Components
 - **CalibrationEngine**: Manages battery discharge tests with automatic start/stop logic
 - **AnalyticsEngine**: Health scoring algorithm (0-100) with wear analysis and recommendations
 - **LoadGenerator**: CPU stress testing with configurable profiles (light/medium/heavy)
-- **VideoLoadEngine**: GPU stress via 1080p video playback with fallback handling
 - **LoadSafetyGuard**: Safety system that stops load generation based on battery/temperature thresholds
 - **ReportGenerator**: Creates HTML reports with embedded uPlot charts
 
@@ -88,7 +87,6 @@ IOKit/IORegistry → BatteryService → BatteryViewModel → UI Components
 ### Safety Considerations
 - LoadSafetyGuard monitors: battery level (≤7%), temperature (>35°C), power source changes
 - Automatic sleep prevention during calibration tests
-- Graceful degradation when video files missing
 
 ## Technical Requirements
 
@@ -106,7 +104,6 @@ This project uses only Apple frameworks:
 - Combine (Reactive programming)
 - IOKit (Battery data access)
 - Charts (Data visualization)
-- AVFoundation (Video playback for GPU load)
 - AppKit (Menu bar integration)
 
 No external package managers or third-party libraries.

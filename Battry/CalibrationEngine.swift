@@ -5,7 +5,6 @@ import Combine
 struct LoadGeneratorSessionSettings {
     var isEnabled: Bool = false
     var profile: LoadProfile = .medium
-    var videoEnabled: Bool = false
     var autoStart: Bool = false
 }
 
@@ -53,7 +52,7 @@ final class CalibrationEngine: ObservableObject {
     
     /// Ссылки на генераторы нагрузки
     private weak var loadGenerator: LoadGenerator?
-    private weak var videoLoadEngine: VideoLoadEngine?
+    // Video load removed
     
     /// Настройки генератора для текущей сессии
     @Published var loadGeneratorSettings = LoadGeneratorSessionSettings()
@@ -116,9 +115,8 @@ final class CalibrationEngine: ObservableObject {
      }
      
      /// Привязывает генераторы нагрузки для автоматического управления
-     func attachLoadGenerators(cpu: LoadGenerator, video: VideoLoadEngine) {
+     func attachLoadGenerators(cpu: LoadGenerator) {
          self.loadGenerator = cpu
-         self.videoLoadEngine = video
      }
 
     /// Отвязывает подписку и сохраняет прогресс
@@ -527,11 +525,7 @@ final class CalibrationEngine: ObservableObject {
         historyStore?.addEvent(.generatorStarted, details: loadGeneratorSettings.profile.localizationKey)
         
         // Запускаем видео если включено
-        if loadGeneratorSettings.videoEnabled {
-            videoLoadEngine?.start()
-            // Трекируем событие запуска видео
-            historyStore?.addEvent(.videoStarted)
-        }
+        // video load removed
         
         print("CalibrationEngine: Started load generators - CPU: \(loadGeneratorSettings.profile), Video: \(loadGeneratorSettings.videoEnabled)")
     }
@@ -544,11 +538,7 @@ final class CalibrationEngine: ObservableObject {
             historyStore?.addEvent(.generatorStopped)
         }
         
-        if videoLoadEngine?.isRunning == true {
-            videoLoadEngine?.stop()
-            // Трекируем событие остановки видео
-            historyStore?.addEvent(.videoStopped)
-        }
+        // video load removed
         
         print("CalibrationEngine: Stopped all load generators")
     }
@@ -566,11 +556,10 @@ final class CalibrationEngine: ObservableObject {
         // Результаты калибровки
         testData["calibration_result"] = encode(result)
         
-        // Метаданные генератора нагрузки
+        // Метаданные генератора нагрузки (видео удалено)
         var loadMetadata: [String: Any] = [:]
         loadMetadata["isEnabled"] = loadGeneratorSettings.isEnabled
         loadMetadata["profile"] = loadGeneratorSettings.profile.localizationKey
-        loadMetadata["videoEnabled"] = loadGeneratorSettings.videoEnabled
         loadMetadata["autoStart"] = loadGeneratorSettings.autoStart
         testData["load_generator_metadata"] = loadMetadata
         
@@ -672,11 +661,9 @@ final class CalibrationEngine: ObservableObject {
         if let metadataDict = testData["load_generator_metadata"] as? [String: Any] {
             let wasUsed = metadataDict["isEnabled"] as? Bool ?? false
             let profile = metadataDict["profile"] as? String
-            let videoEnabled = metadataDict["videoEnabled"] as? Bool ?? false
             loadMetadata = ReportGenerator.LoadGeneratorMetadata(
                 wasUsed: wasUsed,
-                profile: profile,
-                videoEnabled: videoEnabled
+                profile: profile
             )
         }
         
