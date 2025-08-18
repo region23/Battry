@@ -198,6 +198,19 @@
 // Load Stop Reasons
 "load.stop.battery.text" = "Auto-stopped: low battery (%d%%)";
 "load.stop.temperature.text" = "Auto-stopped: high temperature (%.1f°C)";
+
+// Update check
+"update.available" = "New version available";
+"update.download" = "Download";
+"update.check" = "Check for updates";
+"update.checking" = "Checking...";
+"update.latest" = "You have the latest version";
+"update.error" = "Check failed";
+"update.error.network" = "Network error";
+"update.error.no.internet" = "No internet connection";
+"update.error.cannot.reach.github" = "Cannot reach GitHub";
+"update.error.timeout" = "Request timeout";
+"update.available.short" = "available";
 "load.stop.thermal.text" = "Auto-stopped: thermal pressure (%@)";
 "load.stop.power.text" = "Auto-stopped: power connected";
 "load.stop.charging.text" = "Auto-stopped: charging started";

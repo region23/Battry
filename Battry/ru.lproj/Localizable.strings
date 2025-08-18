@@ -198,6 +198,19 @@
 // Причины остановки генератора
 "load.stop.battery.text" = "Автостоп: низкий заряд (%d%%)";
 "load.stop.temperature.text" = "Автостоп: высокая температура (%.1f°C)";
+
+// Проверка обновлений
+"update.available" = "Доступна новая версия";
+"update.download" = "Скачать";
+"update.check" = "Проверить обновления";
+"update.checking" = "Проверяю...";
+"update.latest" = "У вас последняя версия";
+"update.error" = "Ошибка проверки";
+"update.error.network" = "Ошибка сети";
+"update.error.no.internet" = "Нет подключения к интернету";
+"update.error.cannot.reach.github" = "Нет доступа к GitHub";
+"update.error.timeout" = "Таймаут запроса";
+"update.available.short" = "доступна";
 "load.stop.thermal.text" = "Автостоп: тепловое давление (%@)";
 "load.stop.power.text" = "Автостоп: подключено питание";
 "load.stop.charging.text" = "Автостоп: начата зарядка";

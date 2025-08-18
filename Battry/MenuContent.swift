@@ -29,6 +29,7 @@ struct MenuContent: View {
     @ObservedObject var loadGenerator: LoadGenerator
     @ObservedObject var videoLoadEngine: VideoLoadEngine
     @ObservedObject var safetyGuard: LoadSafetyGuard
+    @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var i18n: Localization = .shared
     @Environment(\.colorScheme) var colorScheme
     @State private var isAnalyzing = false
@@ -47,6 +48,9 @@ struct MenuContent: View {
         VStack(spacing: 8) {
             // Заголовок с большой иконкой и краткой сводкой
             header
+            
+            // Уведомление о доступном обновлении
+            updateNotificationView
             HStack(spacing: 8) {
                 // Переключение вкладок
                 HStack(spacing: 0) {
@@ -141,7 +145,7 @@ struct MenuContent: View {
                     safetyGuard: safetyGuard
                 )
                 case .settings: SettingsPanel(history: history, calibrator: calibrator)
-                case .about: AboutPanel()
+                case .about: AboutPanel(updateChecker: updateChecker)
                 }
             }
 
@@ -526,6 +530,70 @@ struct MenuContent: View {
                 Label(i18n.t("quit"), systemImage: "power")
             }
             .buttonStyle(.bordered)
+        }
+    }
+    
+    @ViewBuilder
+    private var updateNotificationView: some View {
+        if case .updateAvailable(let version, let url) = updateChecker.status, !updateChecker.isDismissed {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(i18n.t("update.available"))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("v\(version)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Button {
+                    if let downloadURL = URL(string: url) {
+                        NSWorkspace.shared.open(downloadURL)
+                    }
+                } label: {
+                    Text(i18n.t("update.download"))
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.blue, in: Capsule())
+                
+                Button {
+                    updateChecker.dismissUpdate()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(10)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(red: 0.20, green: 0.60, blue: 0.86),  // Синий
+                        Color(red: 0.14, green: 0.50, blue: 0.78)   // Более темный синий
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .opacity(0.15)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.blue.opacity(0.3), lineWidth: 0.5)
+            )
+            .cornerRadius(8)
+            .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
         }
     }
 

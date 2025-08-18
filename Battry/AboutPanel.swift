@@ -3,10 +3,11 @@ import AppKit
 
 /// Панель "О программе" с информацией о разработчике и ссылками
 struct AboutPanel: View {
+    @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject private var i18n = Localization.shared
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             // Информация о разработчике
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -44,7 +45,7 @@ struct AboutPanel: View {
             }
             
             // Telegram канал - приглушенный блок
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "tv.fill")
                         .foregroundColor(.primary)
@@ -92,7 +93,7 @@ struct AboutPanel: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(16)
+            .padding(12)
             .background(
                 LinearGradient(
                     gradient: Gradient(colors: [
@@ -110,13 +111,54 @@ struct AboutPanel: View {
             
            
             
-            Spacer(minLength: 3)
+            Spacer(minLength: 2)
             
-            // Версия приложения и копирайт
-            VStack(spacing: 4) {
-                Text(appVersion)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+            // Версия приложения и проверка обновлений
+            VStack(spacing: 8) {
+                HStack {
+                    Spacer()
+                    Text(appVersion)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                
+                HStack {
+                    Spacer()
+                    updateStatusView
+                    Spacer()
+                }
+                
+                HStack {
+                    Spacer()
+                    Button {
+                        Task {
+                            await updateChecker.checkForUpdates()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if case .checking = updateChecker.status {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .frame(width: 12, height: 12)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.caption)
+                            }
+                            Text(i18n.t("update.check"))
+                                .font(.caption)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled({
+                        if case .checking = updateChecker.status {
+                            return true
+                        }
+                        return false
+                    }())
+                    Spacer()
+                }
+                
                 Text(i18n.t("about.copyright"))
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -126,7 +168,7 @@ struct AboutPanel: View {
             }
         }
         .padding(12)
-        .frame(minHeight: 390)
+        .frame(minHeight: 420)
     }
     
     private var appVersion: String {
@@ -137,6 +179,50 @@ struct AboutPanel: View {
             return "Battry v\(version) (\(build))"
         } else {
             return "Battry v\(version)"
+        }
+    }
+    
+    @ViewBuilder
+    private var updateStatusView: some View {
+        switch updateChecker.status {
+        case .idle:
+            EmptyView()
+        case .checking:
+            HStack(spacing: 4) {
+                ProgressView()
+                    .scaleEffect(0.5)
+                    .frame(width: 10, height: 10)
+                Text(i18n.t("update.checking"))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        case .upToDate:
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                    .font(.caption)
+                Text(i18n.t("update.latest"))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        case .updateAvailable(let version, _):
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .foregroundColor(.blue)
+                    .font(.caption)
+                Text("v\(version) " + i18n.t("update.available.short"))
+                    .font(.caption2)
+                    .foregroundColor(.blue)
+            }
+        case .error(_):
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                    .font(.caption)
+                Text(i18n.t("update.error"))
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+            }
         }
     }
 }
@@ -198,6 +284,6 @@ struct AboutLinkView: View {
 }
 
 #Preview {
-    AboutPanel()
+    AboutPanel(updateChecker: UpdateChecker())
         .frame(width: 380)
 }

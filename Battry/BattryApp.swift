@@ -26,6 +26,8 @@ struct BattryApp: App {
     @StateObject private var safetyGuard = LoadSafetyGuard { _ in
         // Callback будет настроен позже в onAppear
     }
+    /// Проверка обновлений
+    @StateObject private var updateChecker = UpdateChecker()
     /// Локализация (переключение языка в UI)
     @StateObject private var i18n = Localization.shared
     
@@ -42,7 +44,8 @@ struct BattryApp: App {
                 calibrator: calibrator,
                 loadGenerator: loadGenerator,
                 videoLoadEngine: videoLoadEngine,
-                safetyGuard: safetyGuard
+                safetyGuard: safetyGuard,
+                updateChecker: updateChecker
             )
                 .frame(width: 460)
         } label: {
