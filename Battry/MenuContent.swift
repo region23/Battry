@@ -473,6 +473,87 @@ struct MenuContent: View {
             return String(format: "%.0fм", runtimeHours * 60)
         }
     }
+    
+    // MARK: - Новые функции для метрик согласно рекомендациям профессора
+    
+    private func getSOHEnergy() -> String {
+        // Пробуем получить SOH по энергии из AnalyticsEngine
+        let sohEnergy = analytics.getSOHEnergy(history: history.items, snapshot: battery.state)
+        
+        if sohEnergy > 0 {
+            return String(format: "%.1f%%", sohEnergy)
+        } else {
+            return i18n.t("collecting.stats")
+        }
+    }
+    
+    private func getDCIRValue() -> String {
+        // Пробуем получить DCIR из AnalyticsEngine (если доступно)
+        let dcirData = analytics.getDCIRData(history: history.items, snapshot: battery.state)
+        
+        if let dcir50 = dcirData.dcirAt50Percent, dcir50 > 0 {
+            return String(format: "%.0f мОм", dcir50)
+        } else {
+            return i18n.t("collecting.stats")
+        }
+    }
+    
+    private func getDCIRHealthStatus() -> HealthStatus? {
+        let dcirData = analytics.getDCIRData(history: history.items, snapshot: battery.state)
+        
+        guard let dcir50 = dcirData.dcirAt50Percent, dcir50 > 0 else { return nil }
+        
+        // Оценка DCIR согласно рекомендациям профессора
+        if dcir50 <= 120 {
+            return HealthStatus.excellent
+        } else if dcir50 <= 200 {
+            return HealthStatus.normal
+        } else if dcir50 <= 300 {
+            return HealthStatus.acceptable
+        } else {
+            return HealthStatus.poor
+        }
+    }
+    
+    private func getMicroDrops() -> String {
+        let microDrops = analytics.countMicroDrops(history: history.items)
+        
+        if microDrops > 0 {
+            return "\(microDrops)"
+        } else {
+            return "0"
+        }
+    }
+    
+    private func getMicroDropHealthStatus() -> HealthStatus? {
+        let microDrops = analytics.countMicroDrops(history: history.items)
+        let timeHours = analytics.getAnalysisPeriodHours(history: history.items)
+        
+        guard timeHours > 0 else { return nil }
+        
+        let dropsPerHour = Double(microDrops) / timeHours
+        
+        // Оценка согласно рекомендациям профессора
+        if dropsPerHour <= 1.0 {
+            return HealthStatus.excellent
+        } else if dropsPerHour <= 2.0 {
+            return HealthStatus.normal
+        } else if dropsPerHour <= 3.0 {
+            return HealthStatus.acceptable
+        } else {
+            return HealthStatus.poor
+        }
+    }
+    
+    private func getKneeIndex() -> String {
+        let kneeData = analytics.getOCVKneeData(history: history.items, snapshot: battery.state)
+        
+        if kneeData.kneeIndex > 0 {
+            return String(format: "%.0f", kneeData.kneeIndex)
+        } else {
+            return i18n.t("collecting.stats")
+        }
+    }
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -627,6 +708,62 @@ struct MenuContent: View {
                     }
                 }
                 .padding(.top, 4)
+            }
+            
+            // Новая секция экспертных метрик (согласно рекомендациям профессора)
+            CardSection(title: i18n.t("expert.metrics"), icon: "chart.xyaxis.line") {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 6),
+                    GridItem(.flexible(), spacing: 6)
+                ], spacing: 6) {
+                    // SOH по энергии
+                    EnhancedStatCard(
+                        title: i18n.t("soh.energy"),
+                        value: getSOHEnergy(),
+                        icon: "bolt.circle.fill",
+                        accentColor: .green,
+                        healthStatus: nil, // Пока без статуса, так как это новая метрика
+                        isCollectingData: analytics.getSOHEnergy(history: history.items, snapshot: battery.state) <= 0
+                    )
+                    .help(i18n.language == .ru ? "Реальная энергоотдача батареи (рекомендация эксперта)" : "Actual battery energy delivery (expert recommendation)")
+                    
+                    // DCIR (внутреннее сопротивление)
+                    EnhancedStatCard(
+                        title: i18n.t("dcir.resistance"),
+                        value: getDCIRValue(),
+                        icon: "waveform.path.ecg",
+                        accentColor: getDCIRHealthStatus()?.color == "green" ? .green : 
+                                   getDCIRHealthStatus()?.color == "orange" ? .orange : 
+                                   getDCIRHealthStatus()?.color == "red" ? .red : Color.accentColor,
+                        healthStatus: getDCIRHealthStatus(),
+                        isCollectingData: analytics.getDCIRData(history: history.items, snapshot: battery.state).dcirAt50Percent == nil
+                    )
+                    .help(i18n.language == .ru ? "Внутреннее сопротивление при 50% заряда" : "Internal resistance at 50% charge")
+                    
+                    // Микро-дропы
+                    EnhancedStatCard(
+                        title: i18n.t("micro.drops"),
+                        value: getMicroDrops(),
+                        icon: "arrow.down.circle",
+                        accentColor: getMicroDropHealthStatus()?.color == "green" ? .green : 
+                                   getMicroDropHealthStatus()?.color == "orange" ? .orange : 
+                                   getMicroDropHealthStatus()?.color == "red" ? .red : Color.accentColor,
+                        healthStatus: getMicroDropHealthStatus(),
+                        isCollectingData: false // Всегда показываем, даже если 0
+                    )
+                    .help(i18n.language == .ru ? "Резкие падения ≥2% за ≤120 сек" : "Sudden drops ≥2% within ≤120 sec")
+                    
+                    // Knee Index (если доступен)
+                    EnhancedStatCard(
+                        title: i18n.t("knee.index"),
+                        value: getKneeIndex(),
+                        icon: "chart.line.uptrend.xyaxis.circle",
+                        accentColor: .blue,
+                        healthStatus: nil, // Пока без статуса
+                        isCollectingData: analytics.getOCVKneeData(history: history.items, snapshot: battery.state).kneeIndex <= 0
+                    )
+                    .help(i18n.language == .ru ? "Индекс качества OCV кривой" : "OCV curve quality index")
+                }
             }
         }
     }

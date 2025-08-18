@@ -303,3 +303,15 @@
 "power.control.quality" = "Control Quality";
 "temperature.normalization" = "Temperature Normalized";
 "cp.discharge" = "CP Discharge";
+
+// Expert metrics (according to professor recommendations)
+"expert.metrics" = "Expert Metrics";
+"soh.energy" = "SOH Energy";
+"dcir.resistance" = "DCIR @50%";
+"micro.drops" = "Micro-drops";
+"knee.index" = "Knee Index";
+"average.power.15min" = "Power (15 min)";
+"power.presets" = "Runtime estimates";
+"preset.light" = "Light ~5W";
+"preset.medium" = "Medium ~10W";
+"preset.heavy" = "Heavy ~15W";

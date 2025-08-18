@@ -285,4 +285,100 @@ extension ConstantPowerController {
             return "Error: \(message)"
         }
     }
+    
+    /// Получает рекомендуемую интенсивность для LoadGenerator
+    func getRecommendedLoadIntensity() -> LoadIntensityRecommendation? {
+        guard isActive, targetPowerW > 0 else { return nil }
+        
+        // Анализируем текущую ошибку и duty cycle для рекомендации
+        let powerGap = targetPowerW - currentPowerW
+        let relativeGap = powerGap / targetPowerW
+        
+        // Определяем рекомендуемый профиль и интенсивность
+        let (profile, intensity) = calculateOptimalProfileAndIntensity(
+            dutyCycle: dutyCycle,
+            powerGap: powerGap,
+            targetPower: targetPowerW
+        )
+        
+        return LoadIntensityRecommendation(
+            profile: profile,
+            intensity: intensity,
+            dutyCycle: dutyCycle,
+            powerGap: powerGap,
+            confidence: min(100, controlQuality)
+        )
+    }
+    
+    /// Вычисляет оптимальный профиль и интенсивность
+    private func calculateOptimalProfileAndIntensity(
+        dutyCycle: Double,
+        powerGap: Double,
+        targetPower: Double
+    ) -> (LoadProfile, Double) {
+        
+        // Маппинг мощности на профили (типичные значения для MacBook)
+        let lightPowerRange = 2.0...8.0    // Вт
+        let mediumPowerRange = 6.0...15.0  // Вт
+        let heavyPowerRange = 12.0...25.0  // Вт
+        
+        var recommendedProfile: LoadProfile
+        var baseIntensity: Double
+        
+        // Выбираем профиль на основе целевой мощности
+        if lightPowerRange.contains(targetPower) {
+            recommendedProfile = .light
+            baseIntensity = (targetPower - lightPowerRange.lowerBound) / 
+                          (lightPowerRange.upperBound - lightPowerRange.lowerBound)
+        } else if mediumPowerRange.contains(targetPower) {
+            recommendedProfile = .medium
+            baseIntensity = (targetPower - mediumPowerRange.lowerBound) / 
+                          (mediumPowerRange.upperBound - mediumPowerRange.lowerBound)
+        } else if heavyPowerRange.contains(targetPower) {
+            recommendedProfile = .heavy
+            baseIntensity = (targetPower - heavyPowerRange.lowerBound) / 
+                          (heavyPowerRange.upperBound - heavyPowerRange.lowerBound)
+        } else if targetPower < lightPowerRange.lowerBound {
+            recommendedProfile = .light
+            baseIntensity = 0.2 // минимальная интенсивность
+        } else {
+            recommendedProfile = .heavy
+            baseIntensity = 1.0 // максимальная интенсивность
+        }
+        
+        // Корректируем интенсивность на основе duty cycle и ошибки
+        let correctedIntensity = min(1.0, max(0.1, baseIntensity * dutyCycle))
+        
+        return (recommendedProfile, correctedIntensity)
+    }
+}
+
+/// Рекомендация по нагрузке для LoadGenerator
+struct LoadIntensityRecommendation {
+    let profile: LoadProfile
+    let intensity: Double      // 0.0 - 1.0
+    let dutyCycle: Double     // текущий duty cycle PI-регулятора
+    let powerGap: Double      // разница между целевой и текущей мощностью
+    let confidence: Double    // уверенность в рекомендации (0-100)
+    
+    /// Должен ли LoadGenerator изменить настройки
+    var shouldUpdate: Bool {
+        return abs(powerGap) > 0.5 && confidence > 50
+    }
+    
+    /// Описание рекомендации для отладки
+    var description: String {
+        return "Profile: \(profile), Intensity: \(String(format: "%.2f", intensity)), DutyCycle: \(String(format: "%.2f", dutyCycle)), Gap: \(String(format: "%.1f", powerGap))W"
+    }
+}
+
+/// Протокол для LoadProfile (нужно добавить в LoadGenerator)
+enum LoadProfile: String, CaseIterable {
+    case light = "light"
+    case medium = "medium"
+    case heavy = "heavy"
+    
+    var localizationKey: String {
+        return "load.profile.\(rawValue)"
+    }
 }

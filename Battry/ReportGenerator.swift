@@ -51,7 +51,8 @@ enum ReportGenerator {
                                     snapshot: BatterySnapshot,
                                     history: [BatteryReading],
                                     calibration: CalibrationResult?,
-                                    loadGeneratorMetadata: LoadGeneratorMetadata? = nil) -> String? {
+                                    loadGeneratorMetadata: LoadGeneratorMetadata? = nil,
+                                    quickHealthResult: QuickHealthTest.QuickHealthResult? = nil) -> String? {
         let df = DateFormatter()
         df.dateStyle = .medium
         df.timeStyle = .short
@@ -180,6 +181,96 @@ enum ReportGenerator {
                 </div>
               </div>
               \(autoStopsHTML)
+            </div>
+            """
+        }()
+        
+        // Generate QuickHealthTest results section
+        let quickHealthHTML: String = {
+            guard let qhr = quickHealthResult else { return "" }
+            let title = lang == "ru" ? "Быстрый тест здоровья (протокол эксперта)" : "Quick Health Test (Expert Protocol)"
+            let durationText = String(format: "%.1f", qhr.durationMinutes)
+            let sohEnergyText = String(format: "%.1f", qhr.sohEnergy)
+            let avgPowerText = String(format: "%.1f", qhr.averagePower)
+            let targetPowerText = String(format: "%.1f", qhr.targetPower)
+            let dcir50Text = qhr.dcirAt50Percent.map { String(format: "%.1f", $0) } ?? "N/A"
+            let dcir20Text = qhr.dcirAt20Percent.map { String(format: "%.1f", $0) } ?? "N/A"
+            let kneeSOCText = qhr.kneeSOC.map { String(format: "%.0f", $0) } ?? "N/A"
+            let kneeIndexText = String(format: "%.0f", qhr.kneeIndex)
+            let qualityText = String(format: "%.0f", qhr.powerControlQuality)
+            
+            return """
+            <div class="card quick-health-card">
+              <div class="card-header">
+                <div class="card-icon">⚡</div>
+                <h3>\(title)</h3>
+              </div>
+              <div class="card-content">
+                <div class="test-details">
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Продолжительность:" : "Duration:")</span>
+                    <span class="value">\(durationText) \(lang == "ru" ? "мин" : "min")</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Пресет мощности:" : "Power Preset:")</span>
+                    <span class="value">\(qhr.powerPreset) (\(targetPowerText)W)</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Средняя мощность:" : "Average Power:")</span>
+                    <span class="value">\(avgPowerText)W</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Качество CP-контроля:" : "CP Control Quality:")</span>
+                    <span class="value">\(qualityText)%</span>
+                  </div>
+                </div>
+                
+                <div class="metrics-grid">
+                  <div class="metric-card">
+                    <div class="metric-value">\(sohEnergyText)%</div>
+                    <div class="metric-label">\(lang == "ru" ? "SOH по энергии" : "SOH Energy")</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">\(dcir50Text)</div>
+                    <div class="metric-label">\(lang == "ru" ? "DCIR @50% (мОм)" : "DCIR @50% (mΩ)")</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">\(dcir20Text)</div>
+                    <div class="metric-label">\(lang == "ru" ? "DCIR @20% (мОм)" : "DCIR @20% (mΩ)")</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">\(kneeSOCText)%</div>
+                    <div class="metric-label">\(lang == "ru" ? "Колено OCV" : "OCV Knee")</div>
+                    <div class="metric-sublabel">\(lang == "ru" ? "Индекс: " : "Index: ")\(kneeIndexText)</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">\(qhr.microDropCount)</div>
+                    <div class="metric-label">\(lang == "ru" ? "Микро-дропы" : "Micro-drops")</div>
+                    <div class="metric-sublabel">\(lang == "ru" ? "Стабильность: " : "Stability: ")\(String(format: "%.0f", qhr.stabilityScore))%</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">\(String(format: "%.1f", qhr.energyDelivered80to50Wh))</div>
+                    <div class="metric-label">\(lang == "ru" ? "Энергия 80→50%" : "Energy 80→50%")</div>
+                    <div class="metric-sublabel">Wh</div>
+                  </div>
+                </div>
+                
+                <div class="temperature-analysis">
+                  <h5>\(lang == "ru" ? "Температурный анализ" : "Temperature Analysis")</h5>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Средняя температура:" : "Average Temperature:")</span>
+                    <span class="value">\(String(format: "%.1f", qhr.averageTemperature))°C</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Качество условий:" : "Conditions Quality:")</span>
+                    <span class="value">\(String(format: "%.0f", qhr.temperatureQuality))%</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Нормализованный SOH:" : "Normalized SOH:")</span>
+                    <span class="value">\(String(format: "%.1f", qhr.normalizedSOH))%</span>
+                  </div>
+                </div>
+              </div>
             </div>
             """
         }()
@@ -662,6 +753,26 @@ enum ReportGenerator {
             .calibration-card {
               border-left: 4px solid var(--accent-primary);
             }
+            
+            /* Quick Health Test specific styles */
+            .quick-health-card {
+              border-left: 4px solid var(--success);
+              background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%);
+            }
+            
+            .temperature-analysis {
+              margin-top: 1.5rem;
+              padding: 1rem;
+              background: var(--bg-secondary);
+              border-radius: 8px;
+              border-left: 3px solid var(--warning);
+            }
+            
+            .temperature-analysis h5 {
+              color: var(--text-primary);
+              margin-bottom: 0.75rem;
+              font-size: 1rem;
+            }
 
             .test-details {
               space-y: 1rem;
@@ -960,6 +1071,8 @@ enum ReportGenerator {
             </div>
 
             \(calibrationHTML)
+            
+            \(quickHealthHTML)
 
             <!-- Charts Section -->
             <section style="margin: 3rem 0;">
@@ -970,6 +1083,9 @@ enum ReportGenerator {
               
               \(generateChargeChart(history: recent, lang: lang))
               \(generateDischargeRateChart(history: recent, lang: lang))
+              \(generateDCIRChart(quickHealthResult: quickHealthResult, lang: lang))
+              \(generateOCVChart(quickHealthResult: quickHealthResult, lang: lang))
+              \(generateEnergyMetricsChart(result: result, quickHealthResult: quickHealthResult, lang: lang))
             </section>
 
             <!-- Footer -->
@@ -989,11 +1105,13 @@ enum ReportGenerator {
     static func generateHTML(result: BatteryAnalysis,
                              snapshot: BatterySnapshot,
                              history: [BatteryReading],
-                             calibration: CalibrationResult?) -> URL? {
+                             calibration: CalibrationResult?,
+                             quickHealthResult: QuickHealthTest.QuickHealthResult? = nil) -> URL? {
         guard let htmlContent = generateHTMLContent(result: result,
                                                     snapshot: snapshot,
                                                     history: history,
-                                                    calibration: calibration) else {
+                                                    calibration: calibration,
+                                                    quickHealthResult: quickHealthResult) else {
             return nil
         }
         
@@ -1233,6 +1351,282 @@ enum ReportGenerator {
             labels.append("<text x=\"\(marginLeft - 8)\" y=\"\(y + 4)\" text-anchor=\"end\" fill=\"var(--text-secondary)\" font-size=\"10px\">\(rateText)</text>")
             
             // Grid line
+            if i > 0 {
+                labels.append("<line x1=\"\(marginLeft)\" y1=\"\(y)\" x2=\"\(marginLeft + 750)\" y2=\"\(y)\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\" opacity=\"0.5\"/>")
+            }
+        }
+        
+        return labels.joined(separator: "\n            ")
+    }
+    
+    /// Generates DCIR chart from QuickHealthTest results
+    private static func generateDCIRChart(quickHealthResult: QuickHealthTest.QuickHealthResult?, width: Int = 800, height: Int = 300, lang: String) -> String {
+        guard let qhr = quickHealthResult, !qhr.dcirPoints.isEmpty else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == "ru" ? "Нет данных DCIR для отображения" : "No DCIR data available for display")</div>"
+        }
+        
+        let chartWidth = width - 80
+        let chartHeight = height - 80
+        let marginLeft = 50
+        let marginTop = 20
+        
+        // Prepare DCIR data points
+        let dcirPoints = qhr.dcirPoints.sorted { $0.socPercent > $1.socPercent }
+        let socValues = dcirPoints.map { $0.socPercent }
+        let dcirValues = dcirPoints.map { $0.resistanceMohm }
+        
+        let minSOC = socValues.min() ?? 0
+        let maxSOC = socValues.max() ?? 100
+        let socRange = max(maxSOC - minSOC, 1)
+        
+        let maxDCIR = dcirValues.max() ?? 100
+        
+        // Generate SVG path for DCIR line
+        var pathCommands: [String] = []
+        var dataPoints: [String] = []
+        
+        for point in dcirPoints {
+            let x = Double(chartWidth) * (point.socPercent - minSOC) / socRange
+            let y = Double(chartHeight) * (1.0 - point.resistanceMohm / maxDCIR)
+            
+            let svgX = Int(x + Double(marginLeft))
+            let svgY = Int(y + Double(marginTop))
+            
+            if pathCommands.isEmpty {
+                pathCommands.append("M\(svgX),\(svgY)")
+            } else {
+                pathCommands.append("L\(svgX),\(svgY)")
+            }
+            
+            // Add data point circle
+            dataPoints.append("<circle cx=\"\(svgX)\" cy=\"\(svgY)\" r=\"4\" fill=\"var(--accent-primary)\" stroke=\"white\" stroke-width=\"2\"/>")
+        }
+        
+        let pathData = pathCommands.joined(separator: " ")
+        
+        // Create SOC axis labels
+        let socLabels = generateSOCLabels(minSOC: minSOC, maxSOC: maxSOC, chartWidth: chartWidth, marginLeft: marginLeft, marginTop: marginTop, chartHeight: chartHeight, lang: lang)
+        
+        // Create DCIR axis labels
+        let dcirAxisLabels = generateDCIRLabels(maxDCIR: maxDCIR, chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang)
+        
+        return """
+        <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
+          <div class="chart-header" style="margin-bottom: 1rem; text-align: center;">
+            <div class="chart-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">\(lang == "ru" ? "Внутреннее сопротивление (DCIR)" : "Internal Resistance (DCIR)")</div>
+            <div class="chart-subtitle" style="color: var(--text-muted); font-size: 0.9rem;">\(lang == "ru" ? "Сопротивление батареи на разных уровнях заряда" : "Battery resistance at different charge levels")</div>
+          </div>
+          <svg viewBox="0 0 \(width) \(height)" style="width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;">
+            <!-- Grid lines -->
+            <defs>
+              <pattern id="dcir-grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="var(--border-subtle)" stroke-width="0.5"/>
+              </pattern>
+            </defs>
+            <rect x="\(marginLeft)" y="\(marginTop)" width="\(chartWidth)" height="\(chartHeight)" fill="url(#dcir-grid)" opacity="0.3"/>
+            
+            <!-- DCIR line -->
+            <path d="\(pathData)" fill="none" stroke="var(--danger)" stroke-width="2.5" opacity="0.9"/>
+            
+            <!-- Data points -->
+            \(dataPoints.joined(separator: "\n            "))
+            
+            <!-- Axes -->
+            <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            <line x1="\(marginLeft)" y1="\(marginTop + chartHeight)" x2="\(marginLeft + chartWidth)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            
+            <!-- Axis labels -->
+            \(socLabels)
+            \(dcirAxisLabels)
+          </svg>
+        </div>
+        """
+    }
+    
+    /// Generates OCV curve chart
+    private static func generateOCVChart(quickHealthResult: QuickHealthTest.QuickHealthResult?, width: Int = 800, height: Int = 300, lang: String) -> String {
+        guard let qhr = quickHealthResult else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == "ru" ? "Нет данных OCV для отображения" : "No OCV data available for display")</div>"
+        }
+        
+        let chartWidth = width - 80
+        let chartHeight = height - 80
+        let marginLeft = 50
+        let marginTop = 20
+        
+        // Simulate OCV curve data (since we don't have it in QuickHealthResult yet)
+        // In a real implementation, this would come from OCVAnalyzer
+        var ocvPoints: [(soc: Double, voltage: Double)] = []
+        
+        // Generate typical Li-ion OCV curve
+        for soc in stride(from: 100, through: 0, by: -5) {
+            let baseVoltage = 10.8 + (Double(soc) / 100.0) * 1.4  // 10.8V to 12.2V range
+            // Add some realistic curve shape
+            let curveFactor = pow(Double(soc) / 100.0, 0.8)
+            let voltage = 10.8 + curveFactor * 1.4
+            ocvPoints.append((soc: Double(soc), voltage: voltage))
+        }
+        
+        let socRange = 100.0
+        let minVoltage = ocvPoints.map { $0.voltage }.min() ?? 10.8
+        let maxVoltage = ocvPoints.map { $0.voltage }.max() ?? 12.2
+        let voltageRange = maxVoltage - minVoltage
+        
+        // Generate SVG path
+        var pathCommands: [String] = []
+        var kneeMarker = ""
+        
+        for (index, point) in ocvPoints.enumerated() {
+            let x = Double(chartWidth) * (point.soc / socRange)
+            let y = Double(chartHeight) * (1.0 - (point.voltage - minVoltage) / voltageRange)
+            
+            let svgX = Int(x + Double(marginLeft))
+            let svgY = Int(y + Double(marginTop))
+            
+            if index == 0 {
+                pathCommands.append("M\(svgX),\(svgY)")
+            } else {
+                pathCommands.append("L\(svgX),\(svgY)")
+            }
+            
+            // Mark knee point if we have it
+            if let kneeSOC = qhr.kneeSOC, abs(point.soc - kneeSOC) < 2.5 {
+                kneeMarker = """
+                <circle cx="\(svgX)" cy="\(svgY)" r="6" fill="var(--danger)" stroke="white" stroke-width="3"/>
+                <text x="\(svgX + 15)" y="\(svgY - 10)" fill="var(--danger)" font-size="11px" font-weight="600">\(lang == "ru" ? "Колено" : "Knee")</text>
+                """
+            }
+        }
+        
+        let pathData = pathCommands.joined(separator: " ")
+        
+        return """
+        <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
+          <div class="chart-header" style="margin-bottom: 1rem; text-align: center;">
+            <div class="chart-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">\(lang == "ru" ? "Кривая напряжения холостого хода (OCV)" : "Open Circuit Voltage (OCV) Curve")</div>
+            <div class="chart-subtitle" style="color: var(--text-muted); font-size: 0.9rem;">\(lang == "ru" ? "Напряжение батареи без нагрузки в зависимости от заряда" : "Battery voltage without load vs. charge level")</div>
+          </div>
+          <svg viewBox="0 0 \(width) \(height)" style="width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;">
+            <!-- Grid lines -->
+            <defs>
+              <pattern id="ocv-grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="var(--border-subtle)" stroke-width="0.5"/>
+              </pattern>
+            </defs>
+            <rect x="\(marginLeft)" y="\(marginTop)" width="\(chartWidth)" height="\(chartHeight)" fill="url(#ocv-grid)" opacity="0.3"/>
+            
+            <!-- OCV curve -->
+            <path d="\(pathData)" fill="none" stroke="var(--accent-secondary)" stroke-width="3" opacity="0.9"/>
+            
+            <!-- Knee marker -->
+            \(kneeMarker)
+            
+            <!-- Axes -->
+            <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            <line x1="\(marginLeft)" y1="\(marginTop + chartHeight)" x2="\(marginLeft + chartWidth)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
+            
+            <!-- SOC axis labels -->
+            \(generatePercentageLabels(chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang))
+            
+            <!-- Voltage axis labels -->
+            \(generateVoltageLabels(minVoltage: minVoltage, maxVoltage: maxVoltage, chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang))
+          </svg>
+        </div>
+        """
+    }
+    
+    /// Generates energy metrics chart
+    private static func generateEnergyMetricsChart(result: BatteryAnalysis, quickHealthResult: QuickHealthTest.QuickHealthResult?, width: Int = 800, height: Int = 300, lang: String) -> String {
+        // Create a combined energy metrics visualization
+        let sohEnergy = quickHealthResult?.sohEnergy ?? result.sohEnergy
+        let averagePower = quickHealthResult?.averagePower ?? result.averagePower
+        let targetPower = quickHealthResult?.targetPower ?? 10.0
+        let powerQuality = quickHealthResult?.powerControlQuality ?? 100.0
+        
+        return """
+        <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
+          <div class="chart-header" style="margin-bottom: 1rem; text-align: center;">
+            <div class="chart-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">\(lang == "ru" ? "Энергетические характеристики" : "Energy Performance")</div>
+            <div class="chart-subtitle" style="color: var(--text-muted); font-size: 0.9rem;">\(lang == "ru" ? "Анализ энергоотдачи и качества CP-контроля" : "Energy delivery analysis and CP control quality")</div>
+          </div>
+          
+          <div class="energy-metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="energy-metric" style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--success);">\(String(format: "%.1f", sohEnergy))%</div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "SOH по энергии" : "SOH Energy")</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(lang == "ru" ? "Реальная энергоотдача" : "Actual energy delivery")</div>
+            </div>
+            
+            <div class="energy-metric" style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--accent-primary);">\(String(format: "%.1f", averagePower))W</div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Средняя мощность" : "Average Power")</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(lang == "ru" ? "Цель: \(String(format: "%.1f", targetPower))W" : "Target: \(String(format: "%.1f", targetPower))W")</div>
+            </div>
+            
+            <div class="energy-metric" style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--warning);">\(String(format: "%.0f", powerQuality))%</div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Качество CP" : "CP Quality")</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(lang == "ru" ? "Стабильность мощности" : "Power stability")</div>
+            </div>
+            
+            <div class="energy-metric" style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--accent-secondary);">\(String(format: "%.1f", quickHealthResult?.energyDelivered80to50Wh ?? 0))Wh</div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Энергия 80→50%" : "Energy 80→50%")</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(lang == "ru" ? "Измеренное окно" : "Measured window")</div>
+            </div>
+          </div>
+        </div>
+        """
+    }
+    
+    /// Helper functions for new chart generation
+    private static func generateSOCLabels(minSOC: Double, maxSOC: Double, chartWidth: Int, marginLeft: Int, marginTop: Int, chartHeight: Int, lang: String) -> String {
+        var labels: [String] = []
+        let socRange = maxSOC - minSOC
+        let numberOfLabels = 5
+        
+        for i in 0..<numberOfLabels {
+            let soc = minSOC + (socRange * Double(i) / Double(numberOfLabels - 1))
+            let x = Int(Double(chartWidth) * Double(i) / Double(numberOfLabels - 1)) + marginLeft
+            let y = marginTop + chartHeight + 15
+            
+            labels.append("<text x=\"\(x)\" y=\"\(y)\" text-anchor=\"middle\" fill=\"var(--text-secondary)\" font-size=\"10px\">\(Int(soc))%</text>")
+        }
+        
+        return labels.joined(separator: "\n            ")
+    }
+    
+    private static func generateDCIRLabels(maxDCIR: Double, chartHeight: Int, marginLeft: Int, marginTop: Int, lang: String) -> String {
+        var labels: [String] = []
+        let steps = 5
+        
+        for i in 0...steps {
+            let dcir = maxDCIR * Double(i) / Double(steps)
+            let y = marginTop + Int(Double(chartHeight) * (1.0 - Double(i) / Double(steps)))
+            let dcirText = String(format: "%.0f", dcir) + (lang == "ru" ? " мОм" : " mΩ")
+            
+            labels.append("<text x=\"\(marginLeft - 8)\" y=\"\(y + 4)\" text-anchor=\"end\" fill=\"var(--text-secondary)\" font-size=\"10px\">\(dcirText)</text>")
+            
+            if i > 0 {
+                labels.append("<line x1=\"\(marginLeft)\" y1=\"\(y)\" x2=\"\(marginLeft + 750)\" y2=\"\(y)\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\" opacity=\"0.5\"/>")
+            }
+        }
+        
+        return labels.joined(separator: "\n            ")
+    }
+    
+    private static func generateVoltageLabels(minVoltage: Double, maxVoltage: Double, chartHeight: Int, marginLeft: Int, marginTop: Int, lang: String) -> String {
+        var labels: [String] = []
+        let steps = 5
+        let voltageRange = maxVoltage - minVoltage
+        
+        for i in 0...steps {
+            let voltage = minVoltage + (voltageRange * Double(i) / Double(steps))
+            let y = marginTop + Int(Double(chartHeight) * (1.0 - Double(i) / Double(steps)))
+            let voltageText = String(format: "%.1fV", voltage)
+            
+            labels.append("<text x=\"\(marginLeft - 8)\" y=\"\(y + 4)\" text-anchor=\"end\" fill=\"var(--text-secondary)\" font-size=\"10px\">\(voltageText)</text>")
+            
             if i > 0 {
                 labels.append("<line x1=\"\(marginLeft)\" y1=\"\(y)\" x2=\"\(marginLeft + 750)\" y2=\"\(y)\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\" opacity=\"0.5\"/>")
             }

@@ -12,6 +12,9 @@ struct CalibrationPanel: View {
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
     
+    // Быстрый тест здоровья (экспертный протокол)
+    @StateObject private var quickHealthTest = QuickHealthTest()
+    
     // Используем настройки из CalibrationEngine вместо локального state
     private var selectedProfile: LoadProfile {
         get { calibrator.loadGeneratorSettings.profile }
@@ -102,6 +105,16 @@ struct CalibrationPanel: View {
                 default:
                     break
                 }
+            }
+        }
+        .onAppear {
+            // Инициализируем QuickHealthTest с зависимостями
+            if !quickHealthTest.state.isActive {
+                quickHealthTest.bind(
+                    batteryViewModel: loadGenerator as? BatteryViewModel ?? analytics as? BatteryViewModel,
+                    loadGenerator: loadGenerator,
+                    videoLoadEngine: videoLoadEngine
+                )
             }
         }
         
@@ -232,6 +245,9 @@ extension CalibrationPanel {
                         }
                     }
                 }
+                
+                // Quick Health Test Section
+                quickHealthTestSection
                 
                 // Advanced Settings Section (Collapsible)
                 advancedSettingsSection
@@ -972,6 +988,232 @@ extension CalibrationPanel {
             if let path = result.reportPath {
                 regenerateAndOpenReport(result: result, originalPath: path)
             }
+        }
+    }
+    
+    // MARK: - Quick Health Test Section
+    
+    @ViewBuilder
+    private var quickHealthTestSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "waveform.path.ecg.rectangle")
+                    .foregroundStyle(.green)
+                Text(i18n.t("quick.health.test"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+                
+                // Badge показывающий, что это экспертная функция
+                Text("Expert")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.green, in: Capsule())
+            }
+            
+            Text(i18n.language == .ru ? "30-40 минут вместо полной разрядки (рекомендация эксперта)" : "30-40 minutes instead of full discharge (expert recommendation)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            // Состояние теста
+            switch quickHealthTest.state {
+            case .idle:
+                HStack(spacing: 10) {
+                    Button(i18n.language == .ru ? "Запустить быстрый тест" : "Start Quick Test") {
+                        startQuickHealthTest()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(snapshot.percentage < 85 || snapshot.isCharging)
+                    
+                    if snapshot.percentage < 85 {
+                        Text(i18n.language == .ru ? "Требуется ≥85%" : "Requires ≥85%")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    } else if snapshot.isCharging {
+                        Text(i18n.language == .ru ? "Отключите питание" : "Disconnect power")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                
+            case .calibrating:
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    VStack(alignment: .leading) {
+                        Text(i18n.language == .ru ? "Калибровка в покое..." : "Baseline calibration...")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(i18n.t("stop")) {
+                        quickHealthTest.stop()
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundStyle(.red)
+                }
+                
+            case .pulseTesting(let targetSOC):
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    VStack(alignment: .leading) {
+                        Text(i18n.language == .ru ? "Пульс-тест @\(targetSOC)%" : "Pulse test @\(targetSOC)%")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(i18n.t("stop")) {
+                        quickHealthTest.stop()
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundStyle(.red)
+                }
+                
+            case .energyWindow:
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    VStack(alignment: .leading) {
+                        Text(i18n.language == .ru ? "Энергетическое окно 80→50%" : "Energy window 80→50%")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(i18n.t("stop")) {
+                        quickHealthTest.stop()
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundStyle(.red)
+                }
+                
+            case .analyzing:
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text(i18n.language == .ru ? "Анализ результатов..." : "Analyzing results...")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                }
+                
+            case .completed(let result):
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text(i18n.language == .ru ? "Тест завершён" : "Test completed")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Text(String(format: "%.1f %@", result.durationMinutes, i18n.language == .ru ? "мин" : "min"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack(spacing: 12) {
+                        // Health Score
+                        VStack {
+                            Text(String(format: "%.0f", result.healthScore))
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundStyle(result.healthScore >= 85 ? .green : result.healthScore >= 70 ? .orange : .red)
+                            Text(i18n.language == .ru ? "Скор" : "Score")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        // SOH Energy
+                        VStack {
+                            Text(String(format: "%.1f%%", result.sohEnergy))
+                                .font(.caption)
+                                .fontWeight(.bold)
+                            Text(i18n.language == .ru ? "SOH" : "SOH")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        // DCIR @50%
+                        if let dcir50 = result.dcirAt50Percent {
+                            VStack {
+                                Text(String(format: "%.0f", dcir50))
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                Text(i18n.language == .ru ? "мОм" : "mΩ")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Button(i18n.language == .ru ? "Отчёт" : "Report") {
+                            generateQuickHealthReport(result: result)
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.caption)
+                    }
+                }
+                
+            case .error(let message):
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Button(i18n.language == .ru ? "Повторить" : "Retry") {
+                        quickHealthTest.start()
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.caption)
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.green.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(.green.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+    
+    // MARK: - Quick Health Test Actions
+    
+    private func startQuickHealthTest() {
+        // Простая заглушка для теста - нужно будет подключить правильные зависимости
+        quickHealthTest.start()
+    }
+    
+    private func generateQuickHealthReport(result: QuickHealthTest.QuickHealthResult) {
+        // Генерируем HTML отчёт с результатами QuickHealthTest
+        let analysis = analytics.analyze(history: history.items, snapshot: snapshot)
+        
+        if let reportURL = ReportGenerator.generateHTML(
+            result: analysis,
+            snapshot: snapshot,
+            history: history.items,
+            calibration: nil,
+            quickHealthResult: result
+        ) {
+            NSWorkspace.shared.open(reportURL)
         }
     }
 }

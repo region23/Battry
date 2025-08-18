@@ -62,6 +62,16 @@ struct BatteryAnalysis: Equatable {
     var kneeIndex: Double = 100.0
     /// Позиция колена OCV кривой (% SOC)
     var kneeSOC: Double? = nil
+    
+    // Температурная нормализация (согласно рекомендациям профессора)
+    /// Средняя температура во время анализа (°C)
+    var averageTemperature: Double = 25.0
+    /// Температурно-нормализованный SOH (%)
+    var temperatureNormalizedSOH: Double = 100.0
+    /// Температурно-нормализованный DCIR (мОм) 
+    var temperatureNormalizedDCIR: Double? = nil
+    /// Качество температурной нормализации (0-100)
+    var temperatureNormalizationQuality: Double = 100.0
 }
 
 @MainActor
@@ -289,6 +299,21 @@ final class AnalyticsEngine: ObservableObject {
             result.recommendation = "Состояние приемлемое. Мониторьте регулярно."
         } else {
             result.recommendation = "Батарея в отличном состоянии."
+        }
+        
+        // Температурная нормализация (согласно рекомендациям профессора)
+        result.averageTemperature = result.averagePower > 0 ? avgTemperature : 25.0
+        
+        if result.sohEnergy > 0 {
+            let tempNormalization = TemperatureNormalizer.normalize(
+                sohEnergy: result.sohEnergy,
+                dcirAt50: result.dcirAt50Percent,
+                averageTemperature: result.averageTemperature
+            )
+            
+            result.temperatureNormalizedSOH = tempNormalization.normalizedSOH
+            result.temperatureNormalizedDCIR = tempNormalization.normalizedDCIR
+            result.temperatureNormalizationQuality = tempNormalization.normalizationQuality
         }
 
         lastAnalysis = result

@@ -303,3 +303,15 @@
 "power.control.quality" = "Качество контроля";
 "temperature.normalization" = "Температурно нормализовано";
 "cp.discharge" = "CP разряд";
+
+// Expert metrics (according to professor recommendations)
+"expert.metrics" = "Экспертные метрики";
+"soh.energy" = "SOH по энергии";
+"dcir.resistance" = "DCIR @50%";
+"micro.drops" = "Микро-просадки";
+"knee.index" = "Индекс колена";
+"average.power.15min" = "Мощность (15 мин)";
+"power.presets" = "Прогнозы времени";
+"preset.light" = "Лёгкая ~5Вт";
+"preset.medium" = "Средняя ~10Вт";
+"preset.heavy" = "Тяжёлая ~15Вт";

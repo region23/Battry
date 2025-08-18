@@ -550,9 +550,40 @@ final class QuickHealthTest: ObservableObject {
     private func applyLoadWithDutyCycle(_ dutyCycle: Double) {
         guard let loadGen = loadGenerator else { return }
         
-        // Преобразуем duty cycle в профиль нагрузки
+        // Получаем рекомендацию от ConstantPowerController
+        if let recommendation = constantPowerController.getRecommendedLoadIntensity() {
+            if recommendation.shouldUpdate {
+                applyLoadRecommendation(recommendation: recommendation, loadGenerator: loadGen)
+            }
+        } else {
+            // Fallback: простое управление по duty cycle
+            applySimpleLoad(dutyCycle: dutyCycle, loadGenerator: loadGen)
+        }
+    }
+    
+    /// Применяет рекомендацию от ConstantPowerController
+    private func applyLoadRecommendation(recommendation: LoadIntensityRecommendation, loadGenerator: LoadGenerator) {
+        if recommendation.intensity < 0.05 {
+            loadGenerator.stop(reason: .userStopped)
+        } else {
+            // Проверяем поддерживает ли LoadGenerator точное управление интенсивностью
+            if loadGenerator.supportsIntensityControl {
+                loadGenerator.startWithIntensity(profile: recommendation.profile, intensity: recommendation.intensity)
+            } else {
+                // Используем временное управление для имитации точной интенсивности
+                applyTemporalControl(
+                    profile: recommendation.profile, 
+                    dutyCycle: recommendation.dutyCycle,
+                    loadGenerator: loadGenerator
+                )
+            }
+        }
+    }
+    
+    /// Простое управление по duty cycle (fallback)
+    private func applySimpleLoad(dutyCycle: Double, loadGenerator: LoadGenerator) {
         if dutyCycle < 0.1 {
-            loadGen.stop(reason: .userStopped)
+            loadGenerator.stop(reason: .userStopped)
         } else {
             // Выбираем профиль на основе duty cycle
             let profile: LoadProfile
@@ -564,9 +595,37 @@ final class QuickHealthTest: ObservableObject {
                 profile = .heavy
             }
             
-            // Модифицируем интенсивность профиля на основе точного duty cycle
-            loadGen.start(profile: profile)
-            // TODO: В будущем можно добавить более точное управление интенсивностью
+            loadGenerator.start(profile: profile)
+        }
+    }
+    
+    /// Временное управление для имитации точной интенсивности
+    private func applyTemporalControl(profile: LoadProfile, dutyCycle: Double, loadGenerator: LoadGenerator) {
+        // Используем цикл 10 секунд для точного duty cycle
+        let cycleLength: TimeInterval = 10.0
+        let onTime = cycleLength * dutyCycle
+        let offTime = cycleLength * (1.0 - dutyCycle)
+        
+        // Включаем нагрузку
+        loadGenerator.start(profile: profile)
+        
+        // Планируем временное выключение только если duty cycle < 0.9
+        if dutyCycle < 0.9 && offTime > 0.5 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + onTime) { [weak self] in
+                guard let self = self, 
+                      case .energyWindow = self.state else { return }
+                
+                loadGenerator.stop(reason: .userStopped)
+                
+                // Планируем повторное включение
+                DispatchQueue.main.asyncAfter(deadline: .now() + offTime) { [weak self] in
+                    guard let self = self,
+                          case .energyWindow = self.state else { return }
+                    
+                    // Повторяем цикл
+                    self.applyTemporalControl(profile: profile, dutyCycle: dutyCycle, loadGenerator: loadGenerator)
+                }
+            }
         }
     }
 }
