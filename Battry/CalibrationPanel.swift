@@ -1034,6 +1034,16 @@ extension CalibrationPanel {
                     .buttonStyle(.bordered)
                     .disabled(snapshot.percentage < 85 || snapshot.isCharging || snapshot.powerSource == .ac)
                     
+                    Spacer(minLength: 8)
+                    PowerPresetSelector(
+                        selectedPreset: Binding(
+                            get: { quickHealthTestSelectedPreset },
+                            set: { newPreset in setQuickHealthPreset(newPreset) }
+                        ),
+                        designCapacityMah: snapshot.designCapacity
+                    )
+                    .frame(maxWidth: 260)
+
                     if snapshot.percentage < 85 {
                         Text(i18n.language == .ru ? "Требуется ≥85%" : "Requires ≥85%")
                             .font(.caption2)
@@ -1098,6 +1108,7 @@ extension CalibrationPanel {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
+                    PowerControlQualityIndicator(quality: Double(quickHealthCPQuality), isActive: true)
                     Button(i18n.t("stop")) {
                         quickHealthTest.stop()
                     }
@@ -1220,5 +1231,23 @@ extension CalibrationPanel {
         ) {
             NSWorkspace.shared.open(reportURL)
         }
+    }
+}
+
+// MARK: - Quick Health Test Actions
+
+extension CalibrationPanel {
+    // Bridge helpers to control QuickHealthTest preset from UI
+    private var quickHealthTestSelectedPreset: PowerPreset {
+        // QuickHealthTest does not expose preset publicly; mirror via local state if needed.
+        // For now, default to .medium; UI writes back through setQuickHealthPreset.
+        .medium
+    }
+    private func setQuickHealthPreset(_ preset: PowerPreset) {
+        quickHealthTest.setPowerPreset(preset)
+    }
+    private var quickHealthCPQuality: Int {
+        // No direct binding to controller here; show placeholder 0..100 based on last analysis if available
+        return Int(quickHealthTest.lastResult?.powerControlQuality ?? 0)
     }
 }

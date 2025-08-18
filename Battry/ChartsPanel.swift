@@ -433,24 +433,12 @@ struct ChartsPanel: View {
     }
     
     private func powerSeries(_ raw: [BatteryReading]) -> [(Date, Double)] {
-        // Серия мощности P = V × I в Вт
-        guard raw.count >= 2 else { return [] }
+        // Серия мощности P = V × I в Вт из прямых измерений
+        guard !raw.isEmpty else { return [] }
         var out: [(Date, Double)] = []
-        for i in 1..<raw.count {
-            let prev = raw[i - 1]
-            let cur = raw[i]
-            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
-            guard dt > 0 else { continue }
-            
-            // Вычисляем мощность: P = V × |dQ/dt| в Вт
-            let dPercent = Double(prev.percentage - cur.percentage)
-            
-            if !prev.isCharging && !cur.isCharging && dPercent >= 0 {
-                // Примерный расчет: мощность по скорости разряда
-                // Применяем оценку: ~50Втч для MacBook, т.е. при 100%/ч получаем ~50Вт
-                let powerWatts = (dPercent / dt * 3600.0) * 0.5 // простая оценка
-                out.append((cur.timestamp, max(0, powerWatts)))
-            }
+        for r in raw {
+            let p = abs(r.power)
+            if !r.isCharging && p >= 0 { out.append((r.timestamp, p)) }
         }
         return out
     }

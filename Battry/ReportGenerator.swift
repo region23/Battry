@@ -1075,7 +1075,7 @@ enum ReportGenerator {
               \(generateChargeChart(history: recent, lang: lang))
               \(generateDischargeRateChart(history: recent, lang: lang))
               \(generateDCIRChart(quickHealthResult: quickHealthResult, lang: lang))
-              \(generateOCVChart(quickHealthResult: quickHealthResult, lang: lang))
+              \(generateOCVChart(history: history, quickHealthResult: quickHealthResult, lang: lang))
               \(generateEnergyMetricsChart(result: result, quickHealthResult: quickHealthResult, lang: lang))
             </section>
 
@@ -1435,95 +1435,44 @@ enum ReportGenerator {
     }
     
     /// Generates OCV curve chart
-    private static func generateOCVChart(quickHealthResult: QuickHealthTest.QuickHealthResult?, width: Int = 800, height: Int = 300, lang: String) -> String {
-        guard let qhr = quickHealthResult else {
-            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == "ru" ? "Нет данных OCV для отображения" : "No OCV data available for display")</div>"
+    private static func generateOCVChart(history: [BatteryReading], quickHealthResult: QuickHealthTest.QuickHealthResult?, width: Int = 800, height: Int = 300, lang: String) -> String {
+        let dcirPoints = quickHealthResult?.dcirPoints ?? []
+        let ocvAnalyzer = OCVAnalyzer(dcirPoints: dcirPoints)
+        let ocvCurve = ocvAnalyzer.buildOCVCurve(from: history, binSize: 2.0)
+        let kneeSOC = quickHealthResult?.kneeSOC ?? OCVAnalyzer.findKneeSOC(in: ocvCurve)
+
+        guard !ocvCurve.isEmpty else {
+            return "<div style=\"padding: 2rem; text-align: center; color: #666;\">\(lang == \"ru\" ? \"Нет данных OCV для отображения\" : \"No OCV data available for display\")</div>"
         }
-        
+
         let chartWidth = width - 80
         let chartHeight = height - 80
         let marginLeft = 50
         let marginTop = 20
-        
-        // Simulate OCV curve data (since we don't have it in QuickHealthResult yet)
-        // In a real implementation, this would come from OCVAnalyzer
-        var ocvPoints: [(soc: Double, voltage: Double)] = []
-        
-        // Generate typical Li-ion OCV curve
-        for soc in stride(from: 100, through: 0, by: -5) {
-            let _ = 10.8 + (Double(soc) / 100.0) * 1.4  // baseVoltage - linear approach (unused)
-            // Add some realistic curve shape
-            let curveFactor = pow(Double(soc) / 100.0, 0.8)
-            let voltage = 10.8 + curveFactor * 1.4
-            ocvPoints.append((soc: Double(soc), voltage: voltage))
-        }
-        
-        let socRange = 100.0
-        let minVoltage = ocvPoints.map { $0.voltage }.min() ?? 10.8
-        let maxVoltage = ocvPoints.map { $0.voltage }.max() ?? 12.2
-        let voltageRange = maxVoltage - minVoltage
-        
-        // Generate SVG path
+
+        let minVoltage = ocvCurve.map { $0.ocvVoltage }.min() ?? 10.0
+        let maxVoltage = ocvCurve.map { $0.ocvVoltage }.max() ?? 13.0
+        let voltageRange = max(0.1, maxVoltage - minVoltage)
+
         var pathCommands: [String] = []
         var kneeMarker = ""
-        
-        for (index, point) in ocvPoints.enumerated() {
-            let x = Double(chartWidth) * (point.soc / socRange)
-            let y = Double(chartHeight) * (1.0 - (point.voltage - minVoltage) / voltageRange)
-            
+        for (index, point) in ocvCurve.enumerated() {
+            let x = Double(chartWidth) * (point.socPercent / 100.0)
+            let y = Double(chartHeight) * (1.0 - (point.ocvVoltage - minVoltage) / voltageRange)
             let svgX = Int(x + Double(marginLeft))
             let svgY = Int(y + Double(marginTop))
-            
-            if index == 0 {
-                pathCommands.append("M\(svgX),\(svgY)")
-            } else {
-                pathCommands.append("L\(svgX),\(svgY)")
-            }
-            
-            // Mark knee point if we have it
-            if let kneeSOC = qhr.kneeSOC, abs(point.soc - kneeSOC) < 2.5 {
+            if index == 0 { pathCommands.append("M\(svgX),\(svgY)") } else { pathCommands.append("L\(svgX),\(svgY)") }
+            if let k = kneeSOC, abs(point.socPercent - k) < 1.0 {
                 kneeMarker = """
-                <circle cx="\(svgX)" cy="\(svgY)" r="6" fill="var(--danger)" stroke="white" stroke-width="3"/>
-                <text x="\(svgX + 15)" y="\(svgY - 10)" fill="var(--danger)" font-size="11px" font-weight="600">\(lang == "ru" ? "Колено" : "Knee")</text>
+                <circle cx=\"\(svgX)\" cy=\"\(svgY)\" r=\"6\" fill=\"var(--danger)\" stroke=\"white\" stroke-width=\"3\"/>
+                <text x=\"\(svgX + 15)\" y=\"\(svgY - 10)\" fill=\"var(--danger)\" font-size=\"11px\" font-weight=\"600\">\(lang == \"ru\" ? \"Колено\" : \"Knee\")</text>
                 """
             }
         }
-        
         let pathData = pathCommands.joined(separator: " ")
-        
+
         return """
-        <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
-          <div class="chart-header" style="margin-bottom: 1rem; text-align: center;">
-            <div class="chart-title" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">\(lang == "ru" ? "Кривая напряжения холостого хода (OCV)" : "Open Circuit Voltage (OCV) Curve")</div>
-            <div class="chart-subtitle" style="color: var(--text-muted); font-size: 0.9rem;">\(lang == "ru" ? "Напряжение батареи без нагрузки в зависимости от заряда" : "Battery voltage without load vs. charge level")</div>
-          </div>
-          <svg viewBox="0 0 \(width) \(height)" style="width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;">
-            <!-- Grid lines -->
-            <defs>
-              <pattern id="ocv-grid" width="40" height="30" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 30" fill="none" stroke="var(--border-subtle)" stroke-width="0.5"/>
-              </pattern>
-            </defs>
-            <rect x="\(marginLeft)" y="\(marginTop)" width="\(chartWidth)" height="\(chartHeight)" fill="url(#ocv-grid)" opacity="0.3"/>
-            
-            <!-- OCV curve -->
-            <path d="\(pathData)" fill="none" stroke="var(--accent-secondary)" stroke-width="3" opacity="0.9"/>
-            
-            <!-- Knee marker -->
-            \(kneeMarker)
-            
-            <!-- Axes -->
-            <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
-            <line x1="\(marginLeft)" y1="\(marginTop + chartHeight)" x2="\(marginLeft + chartWidth)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
-            
-            <!-- SOC axis labels -->
-            \(generatePercentageLabels(chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang))
-            
-            <!-- Voltage axis labels -->
-            \(generateVoltageLabels(minVoltage: minVoltage, maxVoltage: maxVoltage, chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang))
-          </svg>
-        </div>
-        """
+        <div class=\"svg-chart-container\" style=\"background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);\">\n          <div class=\"chart-header\" style=\"margin-bottom: 1rem; text-align: center;\">\n            <div class=\"chart-title\" style=\"font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;\">\(lang == \"ru\" ? \"Кривая напряжения холостого хода (OCV)\" : \"Open Circuit Voltage (OCV) Curve\")</div>\n            <div class=\"chart-subtitle\" style=\"color: var(--text-muted); font-size: 0.9rem;\">\(lang == \"ru\" ? \"Компенсированная кривая V_OC(SOC) из данных теста\" : \"Compensated V_OC(SOC) curve from test data\")</div>\n          </div>\n          <svg viewBox=\"0 0 \(width) \(height)\" style=\"width: 100%; height: auto; font-family: system-ui, sans-serif; font-size: 12px;\">\n            <defs>\n              <pattern id=\"ocv-grid\" width=\"40\" height=\"30\" patternUnits=\"userSpaceOnUse\">\n                <path d=\"M 40 0 L 0 0 0 30\" fill=\"none\" stroke=\"var(--border-subtle)\" stroke-width=\"0.5\"/>\n              </pattern>\n            </defs>\n            <rect x=\"\(marginLeft)\" y=\"\(marginTop)\" width=\"\(chartWidth)\" height=\"\(chartHeight)\" fill=\"url(#ocv-grid)\" opacity=\"0.3\"/>\n            <path d=\"\(pathData)\" fill=\"none\" stroke=\"var(--accent-secondary)\" stroke-width=\"3\" opacity=\"0.9\"/>\n            \(kneeMarker)\n            <line x1=\"\(marginLeft)\" y1=\"\(marginTop)\" x2=\"\(marginLeft)\" y2=\"\(marginTop + chartHeight)\" stroke=\"var(--border-default)\" stroke-width=\"1\"/>\n            <line x1=\"\(marginLeft)\" y1=\"\(marginTop + chartHeight)\" x2=\"\(marginLeft + chartWidth)\" y2=\"\(marginTop + chartHeight)\" stroke=\"var(--border-default)\" stroke-width=\"1\"/>\n            \(generatePercentageLabels(chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang))\n            \(generateVoltageLabels(minVoltage: minVoltage, maxVoltage: maxVoltage, chartHeight: chartHeight, marginLeft: marginLeft, marginTop: marginTop, lang: lang))\n          </svg>\n        </div>\n        """
     }
     
     /// Generates energy metrics chart

@@ -97,8 +97,10 @@ final class QuickHealthTest: ObservableObject {
     
     private var samples: [BatteryReading] = []
     private var dcirMeasurements: [DCIRCalculator.DCIRPoint] = []
-    private var energyWindowStart: Date?
-    private var energyWindowStartIndex: Int = 0
+    // Энергетическое окно: суммируем только интервалы CP
+    private var cpIntervals: [(startIdx: Int, endIdx: Int?)] = []
+    private var energyWindowTargetSOC: Int? = nil
+    private var cpPhase: Int = 0 // 0: not started, 1: 80→60, 2: 60→50
     
     private weak var batteryViewModel: BatteryViewModel?
     private weak var loadGenerator: LoadGenerator?
@@ -187,6 +189,9 @@ final class QuickHealthTest: ObservableObject {
         dcirMeasurements.removeAll()
         currentTargetIndex = 0
         progress = 0.0
+        cpIntervals.removeAll()
+        energyWindowTargetSOC = nil
+        cpPhase = 0
         
         state = .calibrating
         currentStep = "Calibrating baseline (2-3 minutes)..."
@@ -256,17 +261,26 @@ final class QuickHealthTest: ObservableObject {
         
         // Выполняем серию пульс-тестов на этом уровне SOC
         performPulseTests(at: targetSOC) {
-            // После завершения пульс-тестов на этом уровне
+            // Ветка CP-окна
+            if targetSOC == 80 {
+                // После пульсов на 80% запускаем CP до 60%
+                self.startEnergyWindow(to: 60)
+                return
+            } else if targetSOC == 60 {
+                // После пульсов на 60% продолжаем CP до 50%
+                self.startEnergyWindow(to: 50)
+                return
+            }
+
+            // Обычное продвижение по целям SOC
             self.currentTargetIndex += 1
-            
             if self.currentTargetIndex < self.testTargetSOCs.count {
-                // Переходим к следующему уровню SOC
                 let nextTargetSOC = self.testTargetSOCs[self.currentTargetIndex]
                 self.state = .pulseTesting(targetSOC: nextTargetSOC)
-                self.progress = 0.3 + Double(self.currentTargetIndex) * 0.15 // 30-75% прогресса
+                self.progress = 0.3 + Double(self.currentTargetIndex) * 0.15
             } else {
-                // Все пульс-тесты завершены, переходим к измерению энергетического окна
-                self.startEnergyWindowTest()
+                // Пульсы завершены — переходим к анализу
+                self.analyzeResults()
             }
         }
     }
@@ -314,30 +328,43 @@ final class QuickHealthTest: ObservableObject {
         runNextPulse()
     }
     
-    private func startEnergyWindowTest() {
+    private func startEnergyWindow(to targetSOC: Int) {
+        energyWindowTargetSOC = targetSOC
         state = .energyWindow
-        currentStep = "Measuring energy delivery (80→50% SOC) at \(String(format: "%.1f", targetPowerW))W"
-        progress = 0.8
-        
-        energyWindowStart = Date()
-        energyWindowStartIndex = samples.count
-        
-        // Запускаем Constant Power контроллер для стабильного потребления
+        cpPhase = (targetSOC == 60) ? 1 : 2
+        currentStep = "Energy window CP to \(targetSOC)% @ \(String(format: "%.1f", targetPowerW))W"
+        progress = max(progress, targetSOC == 60 ? 0.6 : 0.8)
+        // Фиксируем начало CP-интервала
+        cpIntervals.append((startIdx: samples.count, endIdx: nil))
+        // Запускаем Constant Power контроллер
         constantPowerController.start(targetPower: targetPowerW)
     }
     
     private func handleEnergyWindowState(snapshot: BatterySnapshot) {
         let currentSOC = snapshot.percentage
-        
-        if currentSOC <= 50 {
-            // Достигли 50% SOC, завершаем измерение энергетического окна
+        guard let targetSOC = energyWindowTargetSOC else { return }
+
+        if currentSOC <= targetSOC {
+            // Завершаем текущий CP-сегмент
             constantPowerController.stop()
-            progress = 0.9
-            
-            // Переходим к анализу
-            analyzeResults()
+            // Закрываем последний CP-интервал
+            if let idx = cpIntervals.indices.last, cpIntervals[idx].endIdx == nil {
+                cpIntervals[idx].endIdx = samples.count
+            }
+            progress = max(progress, targetSOC == 60 ? 0.75 : 0.9)
+
+            // Переходы
+            if targetSOC == 60 {
+                // После 80→60 продолжаем плановый цикл: пульсы на 60%
+                state = .pulseTesting(targetSOC: 60)
+            } else {
+                // После 60→50 возвращаемся к пульсам на 40%
+                currentTargetIndex = 2 // индекс для 40% в массиве целей
+                state = .pulseTesting(targetSOC: 40)
+            }
+            energyWindowTargetSOC = nil
         } else {
-            currentStep = "Energy window test: \(currentSOC)% → 50% | \(String(format: "%.1f", constantPowerController.currentPowerW))W"
+            currentStep = "Energy window CP: \(currentSOC)% → \(targetSOC)% | \(String(format: "%.1f", constantPowerController.currentPowerW))W"
         }
     }
     
@@ -365,12 +392,21 @@ final class QuickHealthTest: ObservableObject {
         let endTime = Date()
         let durationMinutes = endTime.timeIntervalSince(startTime) / 60.0
         
-        // Анализ энергии 80→50%
-        let energyWindowSamples = Array(samples[energyWindowStartIndex...])
-        let energyAnalysis = EnergyCalculator.analyzeEnergyPerformance(
-            samples: energyWindowSamples,
-            designCapacityWh: nil
-        )
+        // Анализ энергии 80→50% только по CP-интервалам
+        var energyWhTotal: Double = 0
+        var cpDurationSec: Double = 0
+        for interval in cpIntervals {
+            guard let endIdx = interval.endIdx, interval.startIdx < endIdx, endIdx <= samples.count else { continue }
+            let slice = Array(samples[interval.startIdx..<endIdx])
+            energyWhTotal += EnergyCalculator.integrateEnergy(samples: slice)
+            if let f = slice.first, let l = slice.last { cpDurationSec += l.timestamp.timeIntervalSince(f.timestamp) }
+        }
+        let avgPowerDuringCP = cpDurationSec > 0 ? energyWhTotal / (cpDurationSec / 3600.0) : 0
+        // Оценка SOH_energy: масштабируем 80→50% (30% SOC) к 100%
+        let designMah = samples.last?.designCapacity ?? batteryViewModel?.state.designCapacity ?? 0
+        let designWh = EnergyCalculator.designEnergyCapacity(fromCapacityMah: designMah)
+        let estimatedFullEnergyWh = energyWhTotal * (100.0 / 30.0)
+        let sohEnergyPct = (designWh > 0) ? max(0, min(100, (estimatedFullEnergyWh / designWh) * 100.0)) : 100.0
         
         // Анализ DCIR
         let dcirAnalysis = DCIRCalculator.analyzeDCIR(dcirPoints: dcirMeasurements)
@@ -390,7 +426,7 @@ final class QuickHealthTest: ObservableObject {
         
         // Температурная нормализация
         let tempNormalization = TemperatureNormalizer.normalize(
-            sohEnergy: energyAnalysis?.sohEnergy ?? 85.0,
+            sohEnergy: sohEnergyPct,
             dcirAt50: dcirAnalysis.dcirAt50Percent,
             averageTemperature: avgTemperature
         )
@@ -411,9 +447,9 @@ final class QuickHealthTest: ObservableObject {
             startedAt: startTime,
             completedAt: endTime,
             durationMinutes: durationMinutes,
-            energyDelivered80to50Wh: energyAnalysis?.energyDelivered ?? 0,
-            sohEnergy: energyAnalysis?.sohEnergy ?? 85.0,
-            averagePower: energyAnalysis?.averagePower ?? 0,
+            energyDelivered80to50Wh: energyWhTotal,
+            sohEnergy: sohEnergyPct,
+            averagePower: avgPowerDuringCP,
             targetPower: targetPowerW,
             powerPreset: selectedPowerPreset.rawValue,
             dcirPoints: dcirMeasurements,
