@@ -12,8 +12,11 @@ final class BatteryViewModel: ObservableObject {
     var refreshInterval: TimeInterval = 30
     /// Ускоренный интервал опроса для состояния ожидания
     var fastRefreshInterval: TimeInterval = 5
+    /// Высокочастотный режим для тестов (1 Гц согласно рекомендации профессора)
+    var testModeRefreshInterval: TimeInterval = 1.0
     private var timer: AnyCancellable?
     private var isFastMode: Bool = false
+    private var isTestMode: Bool = false
 
     /// Паблишер, на который подписываются другие компоненты (например, калибровка)
     let publisher = PassthroughSubject<BatterySnapshot, Never>()
@@ -60,6 +63,7 @@ final class BatteryViewModel: ObservableObject {
     func enableFastMode() {
         guard !isFastMode else { return }
         isFastMode = true
+        isTestMode = false
         restartTimer()
     }
     
@@ -70,8 +74,30 @@ final class BatteryViewModel: ObservableObject {
         restartTimer()
     }
     
+    /// Переключает в режим высокочастотного тестирования (1 Гц)
+    func enableTestMode() {
+        guard !isTestMode else { return }
+        isTestMode = true
+        isFastMode = false
+        restartTimer()
+    }
+    
+    /// Отключает режим высокочастотного тестирования
+    func disableTestMode() {
+        guard isTestMode else { return }
+        isTestMode = false
+        restartTimer()
+    }
+    
     private func startTimer() {
-        let interval = isFastMode ? fastRefreshInterval : refreshInterval
+        let interval: TimeInterval
+        if isTestMode {
+            interval = testModeRefreshInterval
+        } else if isFastMode {
+            interval = fastRefreshInterval
+        } else {
+            interval = refreshInterval
+        }
         timer = Timer.publish(every: interval, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in

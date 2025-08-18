@@ -27,6 +27,8 @@ struct ChartsPanel: View {
     @State private var showTemp: Bool = false
     @State private var showVolt: Bool = false
     @State private var showDrain: Bool = false
+    @State private var showPower: Bool = false
+    @State private var showHealthScore: Bool = false
 
     private func data() -> [BatteryReading] {
         switch timeframe {
@@ -107,10 +109,16 @@ struct ChartsPanel: View {
                     ) { showVolt.toggle() }
 
                     MetricToggleButton(
-                        title: i18n.t("trends.series.drain"),
+                        title: i18n.t("trends.series.power"),
                         color: .orange,
-                        isSelected: showDrain
-                    ) { showDrain.toggle() }
+                        isSelected: showPower
+                    ) { showPower.toggle() }
+
+                    MetricToggleButton(
+                        title: i18n.t("trends.series.health.score"),
+                        color: .purple,
+                        isSelected: showHealthScore
+                    ) { showHealthScore.toggle() }
 
                     Spacer()
                 }
@@ -139,6 +147,11 @@ struct ChartsPanel: View {
 
             // Уменьшаем число точек для плавной отрисовки
             let readings = history.downsample(data(), maxPoints: 800)
+
+            // Информационная панель здоровья
+            if !readings.isEmpty {
+                BatteryHealthInfoPanel(readings: readings, snapshot: snapshot)
+            }
 
             // График
             EnhancedChartCard(title: titleForChart(readings: readings)) {
@@ -197,6 +210,24 @@ struct ChartsPanel: View {
                             .interpolationMethod(.monotone)
                         }
                     }
+                    if showPower {
+                        let powers = powerSeries(raw)
+                        ForEach(powers.indices, id: \.self) { i in
+                            let p = powers[i]
+                            LineMark(x: .value("t", p.0), y: .value("W", p.1))
+                                .foregroundStyle(by: .value("series", "power"))
+                                .interpolationMethod(.linear)
+                        }
+                    }
+                    if showHealthScore {
+                        let healthPoints = healthScoreSeries(raw)
+                        ForEach(healthPoints.indices, id: \.self) { i in
+                            let h = healthPoints[i]
+                            LineMark(x: .value("t", h.0), y: .value("Score", h.1))
+                                .foregroundStyle(by: .value("series", "health"))
+                                .interpolationMethod(.monotone)
+                        }
+                    }
                     if showDrain {
                         let drains = drainSeries(raw)
                         ForEach(drains.indices, id: \.self) { i in
@@ -206,13 +237,27 @@ struct ChartsPanel: View {
                                 .interpolationMethod(.linear)
                         }
                     }
+                    
+                    // Маркеры микро-дропов
+                    let microDropEvents = microDrops(raw)
+                    ForEach(microDropEvents.indices, id: \.self) { i in
+                        let drop = microDropEvents[i]
+                        PointMark(
+                            x: .value("t", drop.0),
+                            y: .value("%", Double(drop.1))
+                        )
+                        .foregroundStyle(.red)
+                        .symbolSize(30)
+                    }
 
                 }
                 .chartForegroundStyleScale([
                     "percent": .blue,
                     "temp": .red,
                     "volt": .green,
-                    "drain": .orange,
+                    "power": .orange,
+                    "health": .purple,
+                    "drain": .yellow,
                 ])
                 .chartLegend(.hidden)
                 .frame(height: 200)
@@ -226,10 +271,21 @@ struct ChartsPanel: View {
         if showPercent { parts.append("%") }
         if showTemp { parts.append("°C") }
         if showVolt { parts.append("V") }
+        if showPower { parts.append("W") }
+        if showHealthScore { parts.append("Health") }
         if showDrain { parts.append("%/h") }
         var s = parts.joined(separator: ", ")
         var extras: [String] = []
         let raw = data()
+        if showPower {
+            let avgPower = avgPower(raw)
+            extras.append(
+                String(
+                    format: i18n.t("avg.power.watts"),
+                    String(format: "%.1f", avgPower)
+                )
+            )
+        }
         if showDrain {
             let avg = avgDrain(raw)
             extras.append(
@@ -376,6 +432,43 @@ struct ChartsPanel: View {
         return max(0, -slope)
     }
     
+    private func powerSeries(_ raw: [BatteryReading]) -> [(Date, Double)] {
+        // Серия мощности P = V × I в Вт
+        guard raw.count >= 2 else { return [] }
+        var out: [(Date, Double)] = []
+        for i in 1..<raw.count {
+            let prev = raw[i - 1]
+            let cur = raw[i]
+            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+            guard dt > 0 else { continue }
+            
+            // Вычисляем мощность: P = V × |dQ/dt| в Вт
+            let dPercent = Double(prev.percentage - cur.percentage)
+            
+            if !prev.isCharging && !cur.isCharging && dPercent >= 0 {
+                // Примерный расчет: мощность по скорости разряда
+                // Применяем оценку: ~50Втч для MacBook, т.е. при 100%/ч получаем ~50Вт
+                let powerWatts = (dPercent / dt * 3600.0) * 0.5 // простая оценка
+                out.append((cur.timestamp, max(0, powerWatts)))
+            }
+        }
+        return out
+    }
+    
+    private func avgPower(_ raw: [BatteryReading]) -> Double {
+        // Средняя мощность в Вт по серии
+        let s = powerSeries(raw)
+        guard !s.isEmpty else { return 0 }
+        let avg = s.map { $0.1 }.reduce(0, +) / Double(s.count)
+        return max(0, avg)
+    }
+    
+    private func healthScoreSeries(_ raw: [BatteryReading]) -> [(Date, Double)] {
+        // Пока просто возвращаем пустой массив - Health Score рассчитывается в AnalyticsEngine
+        // В будущем можно добавить интеграцию с AnalyticsEngine
+        return []
+    }
+    
     /// Получает события генератора для текущего временного диапазона
     private func getGeneratorEvents() -> [HistoryEvent] {
         let readings = data()
@@ -468,5 +561,135 @@ struct SelectablePillButtonStyle: ButtonStyle {
             )
             .foregroundStyle(isOn ? color : .primary)
             .animation(.easeInOut(duration: 0.15), value: isOn)
+    }
+}
+
+struct BatteryHealthInfoPanel: View {
+    let readings: [BatteryReading]
+    let snapshot: BatterySnapshot
+    @ObservedObject private var i18n = Localization.shared
+    
+    private var analytics: AnalyticsEngine {
+        AnalyticsEngine()
+    }
+    
+    private var analysis: BatteryAnalysis {
+        analytics.analyze(history: readings, snapshot: snapshot)
+    }
+    
+    private var healthColor: Color {
+        let score = analysis.healthScore
+        if score >= 85 { return .green }
+        else if score >= 70 { return .orange }
+        else { return .red }
+    }
+    
+    private var healthZoneText: String {
+        let score = analysis.healthScore
+        if score >= 85 { return i18n.t("health.zone.excellent") }
+        else if score >= 70 { return i18n.t("health.zone.acceptable") }
+        else { return i18n.t("health.zone.poor") }
+    }
+    
+    private var recommendationText: String {
+        let score = analysis.healthScore
+        if score >= 85 { return i18n.t("health.recommendation.excellent") }
+        else if score >= 70 { return i18n.t("health.recommendation.acceptable") }
+        else if score >= 50 { return i18n.t("health.recommendation.poor") }
+        else { return i18n.t("health.recommendation.critical") }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(healthColor)
+                Text(i18n.t("health.score.composite"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+            
+            HStack(spacing: 16) {
+                // Health Score (крупно)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(analysis.healthScore)")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundColor(healthColor)
+                    Text(healthZoneText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Divider()
+                    .frame(height: 40)
+                
+                // Ключевые метрики в две колонки
+                HStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HealthMetricRow(
+                            title: "SOH:",
+                            value: String(format: "%.0f%%", analysis.sohEnergy),
+                            color: analysis.sohEnergy >= 85 ? .green : analysis.sohEnergy >= 70 ? .orange : .red
+                        )
+                        HealthMetricRow(
+                            title: i18n.t("avg.power.watts").replacingOccurrences(of: "%s", with: ""),
+                            value: String(format: "%.1fW", analysis.averagePower),
+                            color: analysis.averagePower <= 10 ? .green : analysis.averagePower <= 20 ? .orange : .red
+                        )
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        HealthMetricRow(
+                            title: i18n.t("micro.drops.count").replacingOccurrences(of: "%d", with: ""),
+                            value: "\(analysis.microDropEvents)",
+                            color: analysis.microDropEvents == 0 ? .green : analysis.microDropEvents <= 2 ? .orange : .red
+                        )
+                        HealthMetricRow(
+                            title: "\(i18n.t("temperature")):",
+                            value: String(format: "%.1f°C", snapshot.temperature),
+                            color: snapshot.temperature <= 30 ? .green : snapshot.temperature <= 35 ? .orange : .red
+                        )
+                    }
+                }
+                
+                Spacer()
+            }
+            
+            // Рекомендация
+            Text(recommendationText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(12)
+        .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(healthColor.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+struct HealthMetricRow: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(color)
+        }
     }
 }

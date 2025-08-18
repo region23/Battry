@@ -95,8 +95,31 @@
 "trends.series.temperature" = "Temperature";
 "trends.series.voltage" = "Voltage V";
 "trends.series.drain" = "Discharge %/h";
+"trends.series.power" = "Power";
+"trends.series.soh.energy" = "SOH Energy";
+"trends.series.health.score" = "Health Score";
+"health.score" = "Health Score";
+"battery.condition" = "Battery Condition";
+"average.power.15min" = "Average Power (15 min)";
+"preset.light" = "Light (~5W)";
+"preset.medium" = "Medium (~10W)";
+"preset.heavy" = "Heavy (~15W)";
+"power.presets" = "Workload Presets";
 "avg.discharge.per.hour.short" = "Avg: %@ %%/h";
+"avg.power.watts" = "Avg %sW";
+"power.level.light" = "Light (<5W)";
+"power.level.medium" = "Medium (5-10W)";
+"power.level.heavy" = "Heavy (>10W)";
 "trend.discharge.per.hour.short" = "Trend: %@ %%/h";
+"health.zone.excellent" = "Excellent (≥85)";
+"health.zone.acceptable" = "Acceptable (70-85)";
+"health.zone.poor" = "Poor (<70)";
+"micro.drops.count" = "Micro-drops: %d";
+"soh.energy.percent" = "SOH Energy: %s%%";
+"health.recommendation.excellent" = "Battery in excellent condition.";
+"health.recommendation.acceptable" = "Acceptable condition. Monitor regularly.";
+"health.recommendation.poor" = "Plan battery replacement. Avoid high loads.";
+"health.recommendation.critical" = "Battery replacement required soon.";
 "charging.shade" = "Charging";
 "microdrop" = "Micro-drop";
 
@@ -268,3 +291,15 @@
 "knee.index" = "Voltage Curve Quality";
 "quick.health.test" = "Quick Health Test";
 "health.score.composite" = "Composite Health Score";
+
+// Power presets
+"preset.light" = "Light Load (0.1C)";
+"preset.medium" = "Medium Load (0.2C)";
+"preset.heavy" = "Heavy Load (0.3C)";
+"power.preset.selection" = "Power Preset";
+"constant.power.mode" = "Constant Power Mode";
+"target.power" = "Target Power";
+"current.power" = "Current Power";
+"power.control.quality" = "Control Quality";
+"temperature.normalization" = "Temperature Normalized";
+"cp.discharge" = "CP Discharge";

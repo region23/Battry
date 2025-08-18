@@ -44,7 +44,7 @@ final class QuickHealthTest: ObservableObject {
     }
     
     /// Результат быстрого теста здоровья
-    struct QuickHealthResult: Codable {
+    struct QuickHealthResult: Codable, Equatable {
         let startedAt: Date
         let completedAt: Date
         let durationMinutes: Double
@@ -53,6 +53,8 @@ final class QuickHealthTest: ObservableObject {
         let energyDelivered80to50Wh: Double
         let sohEnergy: Double // %
         let averagePower: Double // W
+        let targetPower: Double // W (целевая мощность для CP-теста)
+        let powerPreset: String // используемый пресет (0.1C/0.2C/0.3C)
         
         // DCIR метрики
         let dcirPoints: [DCIRCalculator.DCIRPoint]
@@ -66,6 +68,14 @@ final class QuickHealthTest: ObservableObject {
         // Стабильность
         let microDropCount: Int
         let stabilityScore: Double // 0-100
+        
+        // Температурная нормализация
+        let averageTemperature: Double
+        let normalizedSOH: Double // температурно-нормализованный SOH
+        let temperatureQuality: Double // качество температурных условий
+        
+        // CP контроль качества
+        let powerControlQuality: Double // качество поддержания постоянной мощности
         
         // Композитный скор здоровья
         let healthScore: Double // 0-100
@@ -94,6 +104,11 @@ final class QuickHealthTest: ObservableObject {
     private weak var loadGenerator: LoadGenerator?
     private weak var videoLoadEngine: VideoLoadEngine?
     
+    // Constant Power контроль
+    private lazy var constantPowerController = ConstantPowerController()
+    private var selectedPowerPreset: PowerPreset = .medium
+    private var targetPowerW: Double = 10.0
+    
     private var cancellables = Set<AnyCancellable>()
     private let testTargetSOCs = [80, 60, 40, 20] // Уровни SOC для пульс-тестов
     private var currentTargetIndex = 0
@@ -115,6 +130,9 @@ final class QuickHealthTest: ObservableObject {
         self.loadGenerator = loadGenerator
         self.videoLoadEngine = videoLoadEngine
         
+        // Настраиваем ConstantPowerController
+        setupConstantPowerController()
+        
         // Подписываемся на обновления батареи
         batteryViewModel.publisher
             .receive(on: DispatchQueue.main)
@@ -122,6 +140,12 @@ final class QuickHealthTest: ObservableObject {
                 self?.handleBatteryUpdate(snapshot)
             }
             .store(in: &cancellables)
+    }
+    
+    /// Устанавливает пресет мощности для теста
+    func setPowerPreset(_ preset: PowerPreset) {
+        guard state == .idle else { return }
+        selectedPowerPreset = preset
     }
     
     /// Запускает быстрый тест здоровья
@@ -145,6 +169,15 @@ final class QuickHealthTest: ObservableObject {
             return
         }
         
+        // Вычисляем целевую мощность для выбранного пресета
+        targetPowerW = PowerCalculator.targetPower(
+            for: selectedPowerPreset,
+            designCapacityMah: vm.state.designCapacity
+        )
+        
+        // Включаем высокочастотный режим опроса (1 Гц)
+        vm.enableTestMode()
+        
         // Инициализируем тест
         samples.removeAll()
         dcirMeasurements.removeAll()
@@ -160,9 +193,15 @@ final class QuickHealthTest: ObservableObject {
     
     /// Останавливает тест
     func stop() {
+        // Останавливаем Constant Power контроллер
+        constantPowerController.stop()
+        
         // Останавливаем генераторы нагрузки
         loadGenerator?.stop(reason: .userStopped)
         videoLoadEngine?.stop()
+        
+        // Возвращаем обычный режим опроса
+        batteryViewModel?.disableTestMode()
         
         state = .idle
         currentStep = ""
@@ -274,14 +313,14 @@ final class QuickHealthTest: ObservableObject {
     
     private func startEnergyWindowTest() {
         state = .energyWindow
-        currentStep = "Measuring energy delivery (80→50% SOC)"
+        currentStep = "Measuring energy delivery (80→50% SOC) at \(String(format: "%.1f", targetPowerW))W"
         progress = 0.8
         
         energyWindowStart = Date()
         energyWindowStartIndex = samples.count
         
-        // Включаем среднюю нагрузку для стабильного потребления
-        applyLoad(.medium)
+        // Запускаем Constant Power контроллер для стабильного потребления
+        constantPowerController.start(targetPower: targetPowerW)
     }
     
     private func handleEnergyWindowState(snapshot: BatterySnapshot) {
@@ -289,13 +328,13 @@ final class QuickHealthTest: ObservableObject {
         
         if currentSOC <= 50 {
             // Достигли 50% SOC, завершаем измерение энергетического окна
-            applyLoad(.off)
+            constantPowerController.stop()
             progress = 0.9
             
             // Переходим к анализу
             analyzeResults()
         } else {
-            currentStep = "Energy window test: \(currentSOC)% → 50%"
+            currentStep = "Energy window test: \(currentSOC)% → 50% | \(String(format: "%.1f", constantPowerController.currentPowerW))W"
         }
     }
     
@@ -304,10 +343,12 @@ final class QuickHealthTest: ObservableObject {
         currentStep = "Analyzing test results..."
         progress = 0.95
         
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = self.performAnalysis()
+        Task {
+            let result = await Task { @MainActor in
+                self.performAnalysis()
+            }.value
             
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.lastResult = result
                 self.state = .completed(result: result)
                 self.currentStep = "Test completed"
@@ -339,10 +380,22 @@ final class QuickHealthTest: ObservableObject {
         let microDrops = countMicroDrops(in: samples)
         let stabilityScore = calculateStabilityScore(microDrops: microDrops, samples: samples)
         
-        // Композитный скор здоровья (по формуле эксперта)
-        let healthScore = calculateCompositeHealthScore(
+        // Температурный анализ
+        let temperatures = samples.map(\.temperature)
+        let avgTemperature = temperatures.reduce(0, +) / Double(max(1, temperatures.count))
+        let tempQuality = TemperatureNormalizer.temperatureQuality(avgTemperature)
+        
+        // Температурная нормализация
+        let tempNormalization = TemperatureNormalizer.normalize(
             sohEnergy: energyAnalysis?.sohEnergy ?? 85.0,
             dcirAt50: dcirAnalysis.dcirAt50Percent,
+            averageTemperature: avgTemperature
+        )
+        
+        // Композитный скор здоровья (по формуле эксперта)
+        let healthScore = calculateCompositeHealthScore(
+            sohEnergy: tempNormalization.normalizedSOH,
+            dcirAt50: tempNormalization.normalizedDCIR,
             dcirAt20: dcirAnalysis.dcirAt20Percent,
             kneeIndex: ocvAnalysis.kneeIndex,
             stabilityScore: stabilityScore
@@ -358,6 +411,8 @@ final class QuickHealthTest: ObservableObject {
             energyDelivered80to50Wh: energyAnalysis?.energyDelivered ?? 0,
             sohEnergy: energyAnalysis?.sohEnergy ?? 85.0,
             averagePower: energyAnalysis?.averagePower ?? 0,
+            targetPower: targetPowerW,
+            powerPreset: selectedPowerPreset.rawValue,
             dcirPoints: dcirMeasurements,
             dcirAt50Percent: dcirAnalysis.dcirAt50Percent,
             dcirAt20Percent: dcirAnalysis.dcirAt20Percent,
@@ -365,6 +420,10 @@ final class QuickHealthTest: ObservableObject {
             kneeIndex: ocvAnalysis.kneeIndex,
             microDropCount: microDrops,
             stabilityScore: stabilityScore,
+            averageTemperature: avgTemperature,
+            normalizedSOH: tempNormalization.normalizedSOH,
+            temperatureQuality: tempQuality,
+            powerControlQuality: constantPowerController.controlQuality,
             healthScore: healthScore,
             recommendation: recommendation
         )
@@ -467,6 +526,47 @@ final class QuickHealthTest: ObservableObject {
     private func scheduleStateChange(to newState: TestState, after delay: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             self.state = newState
+        }
+    }
+    
+    /// Настраивает Constant Power контроллер
+    private func setupConstantPowerController() {
+        constantPowerController.setCallbacks(
+            powerReading: { [weak self] in
+                // Читаем текущую мощность из BatteryViewModel
+                guard let self = self,
+                      let vm = self.batteryViewModel else { return 0 }
+                return abs(vm.state.power)
+            },
+            loadControl: { [weak self] dutyCycle in
+                // Управляем нагрузкой через LoadGenerator
+                guard let self = self else { return }
+                self.applyLoadWithDutyCycle(dutyCycle)
+            }
+        )
+    }
+    
+    /// Применяет нагрузку с заданным duty cycle
+    private func applyLoadWithDutyCycle(_ dutyCycle: Double) {
+        guard let loadGen = loadGenerator else { return }
+        
+        // Преобразуем duty cycle в профиль нагрузки
+        if dutyCycle < 0.1 {
+            loadGen.stop(reason: .userStopped)
+        } else {
+            // Выбираем профиль на основе duty cycle
+            let profile: LoadProfile
+            if dutyCycle < 0.4 {
+                profile = .light
+            } else if dutyCycle < 0.7 {
+                profile = .medium
+            } else {
+                profile = .heavy
+            }
+            
+            // Модифицируем интенсивность профиля на основе точного duty cycle
+            loadGen.start(profile: profile)
+            // TODO: В будущем можно добавить более точное управление интенсивностью
         }
     }
 }

@@ -95,8 +95,31 @@
 "trends.series.temperature" = "Температура";
 "trends.series.voltage" = "Напряжение V";
 "trends.series.drain" = "Разряд %/ч";
+"trends.series.power" = "Мощность";
+"trends.series.soh.energy" = "SOH Энергии";
+"trends.series.health.score" = "Индекс здоровья";
+"health.score" = "Индекс здоровья";
+"battery.condition" = "Состояние батареи";
+"average.power.15min" = "Средняя мощность (15 мин)";
+"preset.light" = "Лёгкая (~5 Вт)";
+"preset.medium" = "Средняя (~10 Вт)";
+"preset.heavy" = "Тяжёлая (~15 Вт)";
+"power.presets" = "Пресеты нагрузки";
 "avg.discharge.per.hour.short" = "Средний: %@ %/ч";
+"avg.power.watts" = "Ср %sВт";
+"power.level.light" = "Лёгкая (<5Вт)";
+"power.level.medium" = "Средняя (5-10Вт)";
+"power.level.heavy" = "Тяжёлая (>10Вт)";
 "trend.discharge.per.hour.short" = "Тренд: %@ %/ч";
+"health.zone.excellent" = "Отлично (≥85)";
+"health.zone.acceptable" = "Приемлемо (70-85)";
+"health.zone.poor" = "Плохо (<70)";
+"micro.drops.count" = "Микро-дропы: %d";
+"soh.energy.percent" = "SOH Энергии: %s%%";
+"health.recommendation.excellent" = "Аккумулятор в отличном состоянии.";
+"health.recommendation.acceptable" = "Приемлемое состояние. Контролируйте регулярно.";
+"health.recommendation.poor" = "Планируйте замену аккумулятора. Избегайте высоких нагрузок.";
+"health.recommendation.critical" = "Требуется замена аккумулятора в ближайшее время.";
 "charging.shade" = "Зарядка";
 "microdrop" = "Микро‑просадка";
 
@@ -268,3 +291,15 @@
 "knee.index" = "Качество вольт-кривой";
 "quick.health.test" = "Быстрый тест здоровья";
 "health.score.composite" = "Композитный индекс здоровья";
+
+// Пресеты мощности  
+"preset.light" = "Лёгкая нагрузка (0.1C)";
+"preset.medium" = "Средняя нагрузка (0.2C)";
+"preset.heavy" = "Тяжёлая нагрузка (0.3C)";
+"power.preset.selection" = "Пресет мощности";
+"constant.power.mode" = "Режим постоянной мощности";
+"target.power" = "Целевая мощность";
+"current.power" = "Текущая мощность";
+"power.control.quality" = "Качество контроля";
+"temperature.normalization" = "Температурно нормализовано";
+"cp.discharge" = "CP разряд";

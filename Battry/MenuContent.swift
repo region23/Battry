@@ -351,21 +351,6 @@ struct MenuContent: View {
 
 
 
-    private func discharge1hValueText() -> String {
-        guard analytics.hasEnoughData1h(history: history.items) else { 
-            return i18n.t("collecting.stats") 
-        }
-        let v = analytics.estimateDischargePerHour1h(history: history.items)
-        // Если разряд близок к 0, показываем "копим статистику"
-        if v < 0.1 {
-            return i18n.t("collecting.stats")
-        }
-        if i18n.language == .ru {
-            return String(format: "%.1f%% в час", v)
-        } else {
-            return String(format: "%.1f %%/h", v)
-        }
-    }
     
     private func discharge24hValueText() -> String {
         guard analytics.hasEnoughData24h(history: history.items) else { 
@@ -399,38 +384,6 @@ struct MenuContent: View {
         }
     }
     
-    /// Определяет цвет акцента для карточки "Разряд (1 час)" с учетом времени после теста
-    private func get1hAccentColor() -> Color {
-        guard analytics.hasEnoughData1h(history: history.items) else { 
-            return .secondary 
-        }
-        
-        let discharge = analytics.estimateDischargePerHour1h(history: history.items)
-        
-        // Если недавно был тест (менее часа назад), используем нейтральный цвет
-        if !history.isMoreThanHourSinceLastTest() {
-            return .secondary
-        }
-        
-        // Обычная логика цветов для нормального использования
-        return discharge >= 15 ? .orange : Color.accentColor
-    }
-    
-    /// Определяет статус здоровья для карточки "Разряд (1 час)" с учетом времени после теста
-    private func get1hHealthStatus() -> HealthStatus? {
-        guard analytics.hasEnoughData1h(history: history.items) && 
-              analytics.estimateDischargePerHour1h(history: history.items) >= 0.1 else { 
-            return nil 
-        }
-        
-        // Если недавно был тест (менее часа назад), показываем специальный статус
-        if !history.isMoreThanHourSinceLastTest() {
-            return .afterTest
-        }
-        
-        // Обычная оценка статуса
-        return analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour1h(history: history.items))
-    }
     
     private func estimatedRuntimeText() -> String {
         let runtime = getEstimatedRuntime()
@@ -448,10 +401,6 @@ struct MenuContent: View {
                analytics.hasEnoughData7d(history: history.items)
     }
     
-    private func isCollecting1h() -> Bool {
-        return !analytics.hasEnoughData1h(history: history.items) || 
-               analytics.estimateDischargePerHour1h(history: history.items) < 0.1
-    }
     
     private func isCollecting24h() -> Bool {
         return !analytics.hasEnoughData24h(history: history.items) || 
@@ -481,46 +430,104 @@ struct MenuContent: View {
         }
         return 0
     }
+    
+    // MARK: - Health Score функции
+    
+    private func getHealthScore() -> Int {
+        return analytics.getHealthScore(history: history.items, snapshot: battery.state)
+    }
+    
+    private func getHealthStatus() -> HealthStatus {
+        return analytics.getHealthStatusFromScore(getHealthScore())
+    }
+    
+    private func getHealthConditionText() -> String {
+        let status = getHealthStatus()
+        switch status {
+        case .excellent: return i18n.language == .ru ? "Отличное" : "Excellent"
+        case .normal: return i18n.language == .ru ? "Хорошее" : "Good"
+        case .acceptable: return i18n.language == .ru ? "Приемлемое" : "Fair"
+        case .poor: return i18n.language == .ru ? "Требует внимания" : "Needs Attention"
+        case .afterTest: return i18n.language == .ru ? "После теста" : "After Test"
+        }
+    }
+    
+    private func getAveragePower15Min() -> String {
+        let power = analytics.getAveragePowerLast15Min(history: history.items)
+        guard power > 0.1 else { return i18n.t("collecting.stats") }
+        return String(format: "%.1f W", power)
+    }
+    
+    private func getRuntimeForPowerPreset(_ power: Double) -> String {
+        let designCapacity = Double(battery.state.designCapacity)
+        let maxCapacity = Double(battery.state.maxCapacity)
+        guard designCapacity > 0, maxCapacity > 0, power > 0 else { return "—" }
+        
+        // Приблизительная энергия батареи в Вт·ч (используем номинальное напряжение ~11.4В)
+        let batteryEnergyWh = maxCapacity * 11.4 / 1000.0
+        let runtimeHours = batteryEnergyWh / power
+        
+        if runtimeHours >= 1.0 {
+            return String(format: "%.1fч", runtimeHours)
+        } else {
+            return String(format: "%.0fм", runtimeHours * 60)
+        }
+    }
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Секция основных характеристик батареи
+            // Секция Health Score и основных характеристик батареи
             CardSection(title: i18n.t("overview.battery.info"), icon: "battery.100") {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 6),
                     GridItem(.flexible(), spacing: 6)
                 ], spacing: 6) {
+                    // Health Score - крупно, как главная метрика
+                    EnhancedStatCard(
+                        title: i18n.t("health.score"),
+                        value: "\(getHealthScore())/100",
+                        icon: "heart.fill",
+                        accentColor: getHealthStatus().color == "green" ? .green : 
+                                   getHealthStatus().color == "orange" ? .orange : 
+                                   getHealthStatus().color == "red" ? .red : .blue,
+                        healthStatus: getHealthStatus()
+                    )
+                    // Состояние батареи
+                    EnhancedStatCard(
+                        title: i18n.t("battery.condition"),
+                        value: getHealthConditionText(),
+                        icon: "checkmark.shield.fill",
+                        accentColor: getHealthStatus().color == "green" ? .green : 
+                                   getHealthStatus().color == "orange" ? .orange : 
+                                   getHealthStatus().color == "red" ? .red : .blue
+                    )
+                    // Циклы без оценочных ярлыков
                     EnhancedStatCard(
                         title: i18n.t("cycles"),
                         value: battery.state.cycleCount == 0 ? i18n.t("dash") : "\(battery.state.cycleCount)",
-                        icon: "repeat.circle",
-                        healthStatus: battery.state.cycleCount > 0 ? analytics.evaluateCyclesStatus(cycles: battery.state.cycleCount) : nil
+                        icon: "repeat.circle"
+                        // Убираем healthStatus согласно рекомендациям
                     )
+                    // Износ - только процент, синхронизирован с Health Score
                     EnhancedStatCard(
                         title: i18n.t("wear"),
                         value: (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0)
                                ? String(format: "%.0f%%", battery.state.wearPercent)
                                : i18n.t("dash"),
                         icon: "chart.line.downtrend.xyaxis",
-                        accentColor: battery.state.wearPercent > 20 ? .orange : Color.accentColor,
-                        healthStatus: (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0) ? analytics.evaluateWearStatus(wearPercent: battery.state.wearPercent) : nil
+                        accentColor: getHealthStatus().color == "green" ? .green : 
+                                   getHealthStatus().color == "orange" ? .orange : 
+                                   getHealthStatus().color == "red" ? .red : .blue
                     )
+                    // Температура с пояснением, без health status 
                     EnhancedStatCard(
                         title: i18n.t("temperature"),
                         value: battery.state.temperature > 0 ? String(format: "%.1f°C", battery.state.temperature) : i18n.t("dash"),
                         icon: "thermometer",
-                        accentColor: battery.state.temperature > 40 ? .red : Color.accentColor,
-                        healthStatus: battery.state.temperature > 0 ? analytics.evaluateTemperatureStatus(temperature: battery.state.temperature) : nil
+                        accentColor: battery.state.temperature > 40 ? .red : 
+                                   battery.state.temperature > 35 ? .orange : Color.accentColor
                     )
-                    .help(i18n.t("temperature.tooltip"))
-                    EnhancedStatCard(
-                        title: i18n.t("capacity.fact.design"),
-                        value: battery.state.designCapacity > 0 && battery.state.maxCapacity > 0
-                               ? "\(battery.state.maxCapacity)/\(battery.state.designCapacity) mAh"
-                               : i18n.t("dash"),
-                        icon: "bolt",
-                        healthStatus: (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0) ? analytics.evaluateCapacityStatus(maxCapacity: battery.state.maxCapacity, designCapacity: battery.state.designCapacity) : nil
-                    )
+                    .help(i18n.language == .ru ? "Длительно >40°C ускоряет износ" : "Prolonged >40°C accelerates wear")
                 }
             }
             
@@ -530,13 +537,21 @@ struct MenuContent: View {
                     GridItem(.flexible(), spacing: 6),
                     GridItem(.flexible(), spacing: 6)
                 ], spacing: 6) {
+                    // Средняя мощность за 15 мин вместо "Разряд (1 час)"
                     EnhancedStatCard(
-                        title: i18n.t("discharge.per.hour.1h"),
-                        value: discharge1hValueText(),
-                        icon: "chart.line.downtrend.xyaxis",
-                        accentColor: get1hAccentColor(),
-                        healthStatus: get1hHealthStatus(),
-                        isCollectingData: isCollecting1h()
+                        title: i18n.t("average.power.15min"),
+                        value: getAveragePower15Min(),
+                        icon: "bolt.fill",
+                        accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 15 ? .orange : Color.accentColor,
+                        isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
+                    )
+                    // Время работы при текущей нагрузке
+                    EnhancedStatCard(
+                        title: i18n.t("runtime.estimated"),
+                        value: estimatedRuntimeText(),
+                        icon: "clock",
+                        accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
+                        isCollectingData: isCollectingRuntime()
                     )
                     EnhancedStatCard(
                         title: i18n.t("discharge.per.hour.24h"),
@@ -554,14 +569,64 @@ struct MenuContent: View {
                         healthStatus: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour7d(history: history.items)) : nil,
                         isCollectingData: isCollecting7d()
                     )
-                    EnhancedStatCard(
-                        title: i18n.t("runtime.estimated"),
-                        value: estimatedRuntimeText(),
-                        icon: "clock",
-                        accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
-                        isCollectingData: isCollectingRuntime()
-                    )
                 }
+                
+                // Пресеты времени работы
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                        Text(i18n.t("power.presets"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 8) {
+                        // Лёгкая нагрузка (~5W)
+                        HStack(spacing: 4) {
+                            Text(i18n.t("preset.light"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(getRuntimeForPowerPreset(5.0))
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.blue.opacity(0.1), in: Capsule())
+                        
+                        // Средняя нагрузка (~10W)
+                        HStack(spacing: 4) {
+                            Text(i18n.t("preset.medium"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(getRuntimeForPowerPreset(10.0))
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.orange.opacity(0.1), in: Capsule())
+                        
+                        // Тяжёлая нагрузка (~15W)
+                        HStack(spacing: 4) {
+                            Text(i18n.t("preset.heavy"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(getRuntimeForPowerPreset(15.0))
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.red.opacity(0.1), in: Capsule())
+                        
+                        Spacer()
+                    }
+                }
+                .padding(.top, 4)
             }
         }
     }

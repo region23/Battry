@@ -437,4 +437,50 @@ final class AnalyticsEngine: ObservableObject {
         // В будущем можно добавить логику поиска резких изменений тока в истории
         return []
     }
+    
+    // MARK: - Public Health Score API
+    
+    /// Получает актуальный Health Score для UI (0-100)
+    func getHealthScore(history: [BatteryReading], snapshot: BatterySnapshot) -> Int {
+        // Если есть кешированный анализ, используем его
+        if let cached = lastAnalysis {
+            return cached.healthScore
+        }
+        
+        // Иначе быстрый расчет только Health Score без полного анализа
+        let sohCapacity = Double(100 - Int(snapshot.wearPercent))
+        let simpleScore = calculateCompositeHealthScore(
+            sohEnergy: snapshot.designCapacity > 0 ? Double(snapshot.maxCapacity) / Double(snapshot.designCapacity) * 100 : 100,
+            sohCapacity: sohCapacity,
+            dcirAt50: nil,
+            dcirAt20: nil,
+            kneeIndex: 100.0,
+            microDrops: 0,
+            avgTemperature: snapshot.temperature,
+            cycleCount: snapshot.cycleCount
+        )
+        
+        return Int(simpleScore)
+    }
+    
+    /// Получает статус здоровья на основе Health Score
+    func getHealthStatusFromScore(_ score: Int) -> HealthStatus {
+        switch score {
+        case 85...100: return .excellent
+        case 70..<85: return .normal
+        case 55..<70: return .acceptable
+        default: return .poor
+        }
+    }
+    
+    /// Получает среднюю мощность за последние 15 минут
+    func getAveragePowerLast15Min(history: [BatteryReading]) -> Double {
+        let now = Date()
+        let cutoff = now.addingTimeInterval(-15 * 60) // 15 минут назад
+        let recent = history.filter { $0.timestamp >= cutoff && abs($0.power) > 0.1 }
+        
+        guard !recent.isEmpty else { return 0 }
+        
+        return recent.map { abs($0.power) }.reduce(0, +) / Double(recent.count)
+    }
 }
