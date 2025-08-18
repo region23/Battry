@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import WebKit
 
 
 /// Генерация HTML‑отчёта с графиками на основе истории и снимка
@@ -1139,6 +1140,40 @@ enum ReportGenerator {
             print("Failed to save report: \(error)")
             return nil
         }
+    }
+    
+    /// Экспорт HTML отчёта в PDF с использованием WKWebView / NSPrintOperation
+    static func exportHTMLToPDF(htmlURL: URL, destinationURL: URL, completion: @escaping (Bool) -> Void) {
+        let webView = WKWebView(frame: .init(x: 0, y: 0, width: 1200, height: 1600))
+        let request = URLRequest(url: htmlURL)
+        final class NavDelegate: NSObject, WKNavigationDelegate {
+            let dest: URL
+            let completion: (Bool) -> Void
+            init(dest: URL, completion: @escaping (Bool) -> Void) { self.dest = dest; self.completion = completion }
+            func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+                if #available(macOS 11.0, *) {
+                    let config = WKPDFConfiguration()
+                    webView.createPDF(configuration: config) { data, error in
+                        guard let data = data, error == nil else { self.completion(false); return }
+                        do { try data.write(to: self.dest, options: .atomic); self.completion(true) } catch { self.completion(false) }
+                    }
+                } else {
+                    let printInfo = NSPrintInfo.shared
+                    printInfo.jobDisposition = NSPrintInfo.JobDisposition.save
+                    printInfo.dictionary()[NSPrintInfo.AttributeKey.jobSavingURL] = dest
+                    let op = NSPrintOperation(view: webView, printInfo: printInfo)
+                    op.showsPrintPanel = false
+                    op.showsProgressPanel = false
+                    let ok = op.run()
+                    completion(ok)
+                }
+            }
+        }
+        let delegate = NavDelegate(dest: destinationURL, completion: completion)
+        webView.navigationDelegate = delegate
+        webView.load(request)
+        // Retain delegate until completion
+        objc_setAssociatedObject(webView, UnsafeRawPointer(bitPattern: 0xBEEFBEEF)!, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
     
     // MARK: - SVG Chart Generation

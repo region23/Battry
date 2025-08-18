@@ -520,6 +520,27 @@ extension CalibrationPanel {
                             .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
+                        
+                        Button {
+                            // Save as PDF
+                            let panel = NSSavePanel()
+                            panel.allowedFileTypes = ["pdf"]
+                            panel.nameFieldStringValue = "Battry_Report.pdf"
+                            panel.begin { resp in
+                                if resp == .OK, let dest = panel.url {
+                                    ReportGenerator.exportHTMLToPDF(htmlURL: URL(fileURLWithPath: path), destinationURL: dest) { ok in
+                                        if ok { NSWorkspace.shared.open(dest) }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: "square.and.arrow.down")
+                                Text(i18n.language == .ru ? "Экспорт в PDF" : "Export to PDF")
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
                     }
                     
                     
