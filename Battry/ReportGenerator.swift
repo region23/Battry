@@ -1460,7 +1460,7 @@ enum ReportGenerator {
         
         // Generate typical Li-ion OCV curve
         for soc in stride(from: 100, through: 0, by: -5) {
-            let baseVoltage = 10.8 + (Double(soc) / 100.0) * 1.4  // 10.8V to 12.2V range
+            let _ = 10.8 + (Double(soc) / 100.0) * 1.4  // baseVoltage - linear approach (unused)
             // Add some realistic curve shape
             let curveFactor = pow(Double(soc) / 100.0, 0.8)
             let voltage = 10.8 + curveFactor * 1.4

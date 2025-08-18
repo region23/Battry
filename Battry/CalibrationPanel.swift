@@ -3,6 +3,7 @@ import AppKit
 
 /// Панель проведения теста/калибровки автономности
 struct CalibrationPanel: View {
+    @ObservedObject var battery: BatteryViewModel
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var history: HistoryStore
     @ObservedObject var analytics: AnalyticsEngine
@@ -111,7 +112,7 @@ struct CalibrationPanel: View {
             // Инициализируем QuickHealthTest с зависимостями
             if !quickHealthTest.state.isActive {
                 quickHealthTest.bind(
-                    batteryViewModel: loadGenerator as? BatteryViewModel ?? analytics as? BatteryViewModel,
+                    batteryViewModel: battery,
                     loadGenerator: loadGenerator,
                     videoLoadEngine: videoLoadEngine
                 )

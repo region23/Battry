@@ -136,6 +136,7 @@ struct MenuContent: View {
                 case .overview: overview
                 case .trends: ChartsPanel(history: history, calibrator: calibrator, snapshot: battery.state)
                 case .test: CalibrationPanel(
+                    battery: battery,
                     calibrator: calibrator, 
                     history: history,
                     analytics: analytics, 
@@ -477,31 +478,27 @@ struct MenuContent: View {
     // MARK: - Новые функции для метрик согласно рекомендациям профессора
     
     private func getSOHEnergy() -> String {
-        // Пробуем получить SOH по энергии из AnalyticsEngine
-        let sohEnergy = analytics.getSOHEnergy(history: history.items, snapshot: battery.state)
-        
-        if sohEnergy > 0 {
-            return String(format: "%.1f%%", sohEnergy)
-        } else {
-            return i18n.t("collecting.stats")
+        // Получаем SOH по энергии из последнего анализа
+        if let analysis = analytics.lastAnalysis {
+            if analysis.sohEnergy > 0 {
+                return String(format: "%.1f%%", analysis.sohEnergy)
+            }
         }
+        return i18n.t("collecting.stats")
     }
     
     private func getDCIRValue() -> String {
-        // Пробуем получить DCIR из AnalyticsEngine (если доступно)
-        let dcirData = analytics.getDCIRData(history: history.items, snapshot: battery.state)
-        
-        if let dcir50 = dcirData.dcirAt50Percent, dcir50 > 0 {
+        // Получаем DCIR из последнего анализа
+        if let analysis = analytics.lastAnalysis,
+           let dcir50 = analysis.dcirAt50Percent, dcir50 > 0 {
             return String(format: "%.0f мОм", dcir50)
-        } else {
-            return i18n.t("collecting.stats")
         }
+        return i18n.t("collecting.stats")
     }
     
     private func getDCIRHealthStatus() -> HealthStatus? {
-        let dcirData = analytics.getDCIRData(history: history.items, snapshot: battery.state)
-        
-        guard let dcir50 = dcirData.dcirAt50Percent, dcir50 > 0 else { return nil }
+        guard let analysis = analytics.lastAnalysis,
+              let dcir50 = analysis.dcirAt50Percent, dcir50 > 0 else { return nil }
         
         // Оценка DCIR согласно рекомендациям профессора
         if dcir50 <= 120 {
@@ -516,29 +513,28 @@ struct MenuContent: View {
     }
     
     private func getMicroDrops() -> String {
-        let microDrops = analytics.countMicroDrops(history: history.items)
-        
-        if microDrops > 0 {
-            return "\(microDrops)"
-        } else {
-            return "0"
+        if let analysis = analytics.lastAnalysis {
+            let microDrops = analysis.microDropEvents
+            if microDrops > 0 {
+                return "\(microDrops)"
+            } else {
+                return "0"
+            }
         }
+        return i18n.t("collecting.stats")
     }
     
     private func getMicroDropHealthStatus() -> HealthStatus? {
-        let microDrops = analytics.countMicroDrops(history: history.items)
-        let timeHours = analytics.getAnalysisPeriodHours(history: history.items)
+        guard let analysis = analytics.lastAnalysis else { return nil }
         
-        guard timeHours > 0 else { return nil }
+        let microDrops = analysis.microDropEvents
         
-        let dropsPerHour = Double(microDrops) / timeHours
-        
-        // Оценка согласно рекомендациям профессора
-        if dropsPerHour <= 1.0 {
+        // Простая оценка по абсолютному количеству микро-дропов
+        if microDrops == 0 {
             return HealthStatus.excellent
-        } else if dropsPerHour <= 2.0 {
+        } else if microDrops <= 2 {
             return HealthStatus.normal
-        } else if dropsPerHour <= 3.0 {
+        } else if microDrops <= 5 {
             return HealthStatus.acceptable
         } else {
             return HealthStatus.poor
@@ -546,10 +542,8 @@ struct MenuContent: View {
     }
     
     private func getKneeIndex() -> String {
-        let kneeData = analytics.getOCVKneeData(history: history.items, snapshot: battery.state)
-        
-        if kneeData.kneeIndex > 0 {
-            return String(format: "%.0f", kneeData.kneeIndex)
+        if let analysis = analytics.lastAnalysis, analysis.kneeIndex > 0 {
+            return String(format: "%.0f", analysis.kneeIndex)
         } else {
             return i18n.t("collecting.stats")
         }
@@ -723,7 +717,7 @@ struct MenuContent: View {
                         icon: "bolt.circle.fill",
                         accentColor: .green,
                         healthStatus: nil, // Пока без статуса, так как это новая метрика
-                        isCollectingData: analytics.getSOHEnergy(history: history.items, snapshot: battery.state) <= 0
+                        isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
                     )
                     .help(i18n.language == .ru ? "Реальная энергоотдача батареи (рекомендация эксперта)" : "Actual battery energy delivery (expert recommendation)")
                     
@@ -736,7 +730,7 @@ struct MenuContent: View {
                                    getDCIRHealthStatus()?.color == "orange" ? .orange : 
                                    getDCIRHealthStatus()?.color == "red" ? .red : Color.accentColor,
                         healthStatus: getDCIRHealthStatus(),
-                        isCollectingData: analytics.getDCIRData(history: history.items, snapshot: battery.state).dcirAt50Percent == nil
+                        isCollectingData: analytics.lastAnalysis?.dcirAt50Percent == nil
                     )
                     .help(i18n.language == .ru ? "Внутреннее сопротивление при 50% заряда" : "Internal resistance at 50% charge")
                     
@@ -760,7 +754,7 @@ struct MenuContent: View {
                         icon: "chart.line.uptrend.xyaxis.circle",
                         accentColor: .blue,
                         healthStatus: nil, // Пока без статуса
-                        isCollectingData: analytics.getOCVKneeData(history: history.items, snapshot: battery.state).kneeIndex <= 0
+                        isCollectingData: analytics.lastAnalysis?.kneeIndex ?? 0 <= 0
                     )
                     .help(i18n.language == .ru ? "Индекс качества OCV кривой" : "OCV curve quality index")
                 }

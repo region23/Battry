@@ -566,17 +566,13 @@ final class QuickHealthTest: ObservableObject {
         if recommendation.intensity < 0.05 {
             loadGenerator.stop(reason: .userStopped)
         } else {
-            // Проверяем поддерживает ли LoadGenerator точное управление интенсивностью
-            if loadGenerator.supportsIntensityControl {
-                loadGenerator.startWithIntensity(profile: recommendation.profile, intensity: recommendation.intensity)
-            } else {
-                // Используем временное управление для имитации точной интенсивности
-                applyTemporalControl(
-                    profile: recommendation.profile, 
-                    dutyCycle: recommendation.dutyCycle,
-                    loadGenerator: loadGenerator
-                )
-            }
+            // LoadGenerator пока не поддерживает точное управление интенсивностью
+            // Используем временное управление для имитации точной интенсивности
+            applyTemporalControl(
+                profile: recommendation.profile, 
+                dutyCycle: recommendation.dutyCycle,
+                loadGenerator: loadGenerator
+            )
         }
     }
     

@@ -292,7 +292,7 @@ extension ConstantPowerController {
         
         // Анализируем текущую ошибку и duty cycle для рекомендации
         let powerGap = targetPowerW - currentPowerW
-        let relativeGap = powerGap / targetPowerW
+        let _ = powerGap / targetPowerW // relativeGap - может быть использован в будущем
         
         // Определяем рекомендуемый профиль и интенсивность
         let (profile, intensity) = calculateOptimalProfileAndIntensity(
@@ -369,16 +369,5 @@ struct LoadIntensityRecommendation {
     /// Описание рекомендации для отладки
     var description: String {
         return "Profile: \(profile), Intensity: \(String(format: "%.2f", intensity)), DutyCycle: \(String(format: "%.2f", dutyCycle)), Gap: \(String(format: "%.1f", powerGap))W"
-    }
-}
-
-/// Протокол для LoadProfile (нужно добавить в LoadGenerator)
-enum LoadProfile: String, CaseIterable {
-    case light = "light"
-    case medium = "medium"
-    case heavy = "heavy"
-    
-    var localizationKey: String {
-        return "load.profile.\(rawValue)"
     }
 }

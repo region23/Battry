@@ -268,6 +268,10 @@ final class AnalyticsEngine: ObservableObject {
             result.kneeSOC = ocvAnalysis.kneeSOC
         }
         
+        // Температурная нормализация (согласно рекомендациям профессора)
+        let temperatures = history.compactMap { $0.temperature }.filter { $0 > 0 }
+        let avgTemperature = temperatures.isEmpty ? 25.0 : temperatures.reduce(0, +) / Double(temperatures.count)
+        
         // Композитный health score по формуле эксперта
         result.healthScore = Int(calculateCompositeHealthScore(
             sohEnergy: result.sohEnergy,
@@ -276,7 +280,7 @@ final class AnalyticsEngine: ObservableObject {
             dcirAt20: result.dcirAt20Percent,
             kneeIndex: result.kneeIndex,
             microDrops: micro,
-            avgTemperature: history.filter { $0.timestamp >= Date().addingTimeInterval(-3600) }.map(\.temperature).reduce(0, +) / Double(max(1, history.count)),
+            avgTemperature: avgTemperature,
             cycleCount: snapshot.cycleCount
         ))
 
@@ -300,9 +304,7 @@ final class AnalyticsEngine: ObservableObject {
         } else {
             result.recommendation = "Батарея в отличном состоянии."
         }
-        
-        // Температурная нормализация (согласно рекомендациям профессора)
-        result.averageTemperature = result.averagePower > 0 ? avgTemperature : 25.0
+        result.averageTemperature = avgTemperature
         
         if result.sohEnergy > 0 {
             let tempNormalization = TemperatureNormalizer.normalize(
