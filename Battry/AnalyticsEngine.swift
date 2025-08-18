@@ -3,14 +3,16 @@ import Combine
 
 /// Статус здоровья параметра батареи
 enum HealthStatus: CaseIterable {
-    case normal     // норма
+    case excellent  // отлично
+    case normal     // нормально
     case acceptable // приемлемо
     case poor       // плохо
     
     /// Цвет для визуального отображения статуса
     var color: String {
         switch self {
-        case .normal: return "green"
+        case .excellent: return "green"
+        case .normal: return "blue"
         case .acceptable: return "orange" 
         case .poor: return "red"
         }
@@ -19,6 +21,7 @@ enum HealthStatus: CaseIterable {
     /// Локализационный ключ для текста
     var localizationKey: String {
         switch self {
+        case .excellent: return "health.status.excellent"
         case .normal: return "health.status.normal"
         case .acceptable: return "health.status.acceptable"
         case .poor: return "health.status.poor"
@@ -201,8 +204,9 @@ final class AnalyticsEngine: ObservableObject {
     /// Оценивает состояние износа батареи
     func evaluateWearStatus(wearPercent: Double) -> HealthStatus {
         switch wearPercent {
-        case ..<10: return .normal
-        case 10..<20: return .acceptable
+        case ..<5: return .excellent
+        case 5..<15: return .normal
+        case 15..<25: return .acceptable
         default: return .poor
         }
     }
@@ -210,8 +214,9 @@ final class AnalyticsEngine: ObservableObject {
     /// Оценивает состояние циклов зарядки
     func evaluateCyclesStatus(cycles: Int) -> HealthStatus {
         switch cycles {
-        case ..<300: return .normal
-        case 300..<500: return .acceptable
+        case ..<200: return .excellent
+        case 200..<400: return .normal
+        case 400..<600: return .acceptable
         default: return .poor
         }
     }
@@ -219,7 +224,8 @@ final class AnalyticsEngine: ObservableObject {
     /// Оценивает состояние температуры
     func evaluateTemperatureStatus(temperature: Double) -> HealthStatus {
         switch temperature {
-        case ..<35: return .normal
+        case ..<30: return .excellent
+        case 30..<35: return .normal
         case 35..<40: return .acceptable
         default: return .poor
         }
@@ -228,19 +234,21 @@ final class AnalyticsEngine: ObservableObject {
     /// Оценивает состояние скорости разряда
     func evaluateDischargeStatus(ratePerHour: Double) -> HealthStatus {
         switch ratePerHour {
-        case ..<8: return .normal
-        case 8..<15: return .acceptable
+        case ..<5: return .excellent
+        case 5..<10: return .normal
+        case 10..<20: return .acceptable
         default: return .poor
         }
     }
     
     /// Оценивает состояние емкости относительно паспортной
     func evaluateCapacityStatus(maxCapacity: Int, designCapacity: Int) -> HealthStatus {
-        guard designCapacity > 0 else { return .normal }
+        guard designCapacity > 0 else { return .excellent }
         let ratio = Double(maxCapacity) / Double(designCapacity) * 100
         switch ratio {
-        case 90...: return .normal
-        case 80..<90: return .acceptable
+        case 95...: return .excellent
+        case 85..<95: return .normal
+        case 75..<85: return .acceptable
         default: return .poor
         }
     }

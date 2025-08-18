@@ -36,6 +36,7 @@ struct MenuContent: View {
     @State private var overviewAnalysis: BatteryAnalysis? = nil
     @State private var hasNotch = false
     @State private var pulseScale: CGFloat = 1.0
+    @State private var isWindowVisible = true
     
     /// Вычисляет отступ сверху для корректного позиционирования под челкой
     private var topPadding: CGFloat {
@@ -64,17 +65,29 @@ struct MenuContent: View {
                                         .frame(width: 6, height: 6)
                                         .scaleEffect(pulseScale)
                                         .onAppear {
-                                            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                                                pulseScale = 1.3
+                                            if isWindowVisible {
+                                                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                                                    pulseScale = 1.3
+                                                }
                                             }
                                         }
                                         .onChange(of: calibrator.state.isActive) { _, isActive in
-                                            if isActive {
+                                            if isActive && isWindowVisible {
                                                 withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
                                                     pulseScale = 1.3
                                                 }
                                             } else {
                                                 pulseScale = 1.0
+                                            }
+                                        }
+                                        .onChange(of: isWindowVisible) { _, visible in
+                                            // Управляем анимацией в зависимости от видимости окна
+                                            if visible && calibrator.state.isActive {
+                                                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                                                    pulseScale = 1.3
+                                                }
+                                            } else {
+                                                pulseScale = calibrator.state.isActive ? 1.3 : 1.0
                                             }
                                         }
                                 }
@@ -148,6 +161,39 @@ struct MenuContent: View {
             // Проверяем наличие челки на текущем экране для корректного позиционирования окна
             // На MacBook'ах с челкой (M2+) окно может провалиться под челку при скрытом меню-баре
             hasNotch = NSScreen.main?.hasNotch ?? false
+            
+            // Подписываемся на изменения видимости окна для оптимизации производительности
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didChangeOcclusionStateNotification,
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let window = notification.object as? NSWindow {
+                    let wasVisible = isWindowVisible
+                    isWindowVisible = window.occlusionState.contains(.visible)
+                    
+                    // Оптимизируем только UI обновления, не затрагивая сбор данных и анализ
+                    if isWindowVisible && !wasVisible {
+                        // Окно стало видимым - включаем fast mode для более отзывчивого UI
+                        Task { @MainActor in
+                            battery.enableFastMode()
+                        }
+                    } else if !isWindowVisible && wasVisible {
+                        // Окно скрыто - отключаем fast mode для экономии ресурсов
+                        Task { @MainActor in
+                            battery.disableFastMode()
+                        }
+                    }
+                }
+            }
+        }
+        .onDisappear {
+            // Отписываемся от уведомлений при уничтожении view
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.didChangeOcclusionStateNotification,
+                object: nil
+            )
         }
         .onChange(of: battery.state) { _, _ in
             // Обновляем аналитику при изменении состояния
@@ -217,7 +263,7 @@ struct MenuContent: View {
                         Circle()
                             .fill(.blue)
                             .frame(width: 6, height: 6)
-                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: videoLoadEngine.isRunning)
+                            .animation(isWindowVisible ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: videoLoadEngine.isRunning)
                         Text("GPU")
                             .font(.caption2)
                             .fontWeight(.medium)
@@ -233,7 +279,7 @@ struct MenuContent: View {
                         Circle()
                             .fill(.orange)
                             .frame(width: 6, height: 6)
-                            .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: loadGenerator.isRunning)
+                            .animation(isWindowVisible ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: loadGenerator.isRunning)
                         Text("CPU")
                             .font(.caption2)
                             .fontWeight(.medium)

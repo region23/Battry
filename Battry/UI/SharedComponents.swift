@@ -75,7 +75,8 @@ struct EnhancedStatCard: View {
     private var healthStatusColor: Color {
         guard let healthStatus = healthStatus else { return accentColor }
         switch healthStatus {
-        case .normal: return .green
+        case .excellent: return .green
+        case .normal: return .blue
         case .acceptable: return .orange
         case .poor: return .red
         }

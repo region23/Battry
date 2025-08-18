@@ -3,7 +3,8 @@
 "power.battery" = "От батареи";
 
 // Health status indicators
-"health.status.normal" = "Норма";
+"health.status.excellent" = "Отлично";
+"health.status.normal" = "Нормально";
 "health.status.acceptable" = "Приемлемо";
 "health.status.poor" = "Плохо";
 "time.remaining" = "Осталось ~ %@";

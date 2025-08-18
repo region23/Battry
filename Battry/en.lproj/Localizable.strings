@@ -3,6 +3,7 @@
 "power.battery" = "On Battery";
 
 // Health status indicators
+"health.status.excellent" = "Excellent";
 "health.status.normal" = "Normal";
 "health.status.acceptable" = "Acceptable";
 "health.status.poor" = "Poor";

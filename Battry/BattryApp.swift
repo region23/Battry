@@ -45,24 +45,6 @@ struct BattryApp: App {
                 safetyGuard: safetyGuard
             )
                 .frame(width: 460)
-                .task {
-                    // Настраиваем callback для safetyGuard
-                    safetyGuard.setStopCallback { reason in
-                        Task { @MainActor in
-                            loadGenerator.stop(reason: reason)
-                            videoLoadEngine.stop()
-                        }
-                    }
-                    
-                    // Стартуем периодический опрос и сбор истории при запуске
-                    battery.start()
-                    history.start()
-                    calibrator.bind(to: battery.publisher, viewModel: battery)
-                    calibrator.attachHistory(history)
-                    calibrator.attachLoadGenerators(cpu: loadGenerator, video: videoLoadEngine)
-                    // Связываем генератор нагрузки с охранником безопасности
-                    safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
-                }
         } label: {
             HStack(spacing: 4) {
                 if let iconName = getMenuBarIcon() {
@@ -81,6 +63,25 @@ struct BattryApp: App {
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .monospacedDigit()
                 }
+            }
+            .onAppear {
+                // Инициализируем опрос батареи при создании label (показывается сразу при запуске)
+                battery.start()
+                history.start()
+                calibrator.bind(to: battery.publisher, viewModel: battery)
+                calibrator.attachHistory(history)
+                calibrator.attachLoadGenerators(cpu: loadGenerator, video: videoLoadEngine)
+                
+                // Настраиваем callback для safetyGuard
+                safetyGuard.setStopCallback { reason in
+                    Task { @MainActor in
+                        loadGenerator.stop(reason: reason)
+                        videoLoadEngine.stop()
+                    }
+                }
+                
+                // Связываем генератор нагрузки с охранником безопасности
+                safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
             }
         }
         .menuBarExtraStyle(.window)
