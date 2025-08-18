@@ -452,9 +452,31 @@ struct ChartsPanel: View {
     }
     
     private func healthScoreSeries(_ raw: [BatteryReading]) -> [(Date, Double)] {
-        // Пока просто возвращаем пустой массив - Health Score рассчитывается в AnalyticsEngine
-        // В будущем можно добавить интеграцию с AnalyticsEngine
-        return []
+        guard raw.count >= 8 else { return [] }
+        // Подбираем окно анализа в зависимости от выбранного периода
+        let windowSeconds: TimeInterval = {
+            switch timeframe {
+            case .session: return 30 * 60 // 30 минут
+            case .h24: return 2 * 3600    // 2 часа
+            case .d7: return 6 * 3600     // 6 часов
+            case .d30: return 12 * 3600   // 12 часов
+            }
+        }()
+        let engine = AnalyticsEngine()
+        var series: [(Date, Double)] = []
+        // Ограничим число точек для производительности
+        let maxPoints = 200
+        let step = max(1, raw.count / maxPoints)
+        for idx in stride(from: 0, to: raw.count, by: step) {
+            let t = raw[idx].timestamp
+            let start = t.addingTimeInterval(-windowSeconds)
+            // Берем окно данных до текущей точки
+            let window = raw.filter { $0.timestamp >= start && $0.timestamp <= t }
+            guard window.count >= 4 else { continue }
+            let analysis = engine.analyze(history: window, snapshot: snapshot)
+            series.append((t, Double(analysis.healthScore)))
+        }
+        return series
     }
     
     /// Получает события генератора для текущего временного диапазона

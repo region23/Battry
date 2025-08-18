@@ -96,6 +96,16 @@ final class CalibrationEngine: ObservableObject {
         return newDir.appendingPathComponent("calibration.json")
     }()
 
+    // MARK: - CP Discharge Mode
+    enum CalibrationRunKind {
+        case standard
+        case cp(preset: PowerPreset)
+    }
+    private var currentRunKind: CalibrationRunKind = .standard
+    private lazy var constantPowerController = ConstantPowerController()
+    private var cpTargetPowerW: Double = 0
+    private var cpPreset: PowerPreset = .medium
+
     /// Подписывается на поток снимков батареи
     func bind(to publisher: PassthroughSubject<BatterySnapshot, Never>, viewModel: BatteryViewModel? = nil) {
         cancellable = publisher
@@ -136,6 +146,21 @@ final class CalibrationEngine: ObservableObject {
         // Инициализируем метаданные генератора
         currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata()
         
+        save()
+        updateSleepPrevention()
+        updatePollingMode()
+    }
+
+    /// Запускает полный CP‑разряд до 5% с выбранным пресетом (0.1/0.2/0.3C)
+    func startCPDischarge(preset: PowerPreset) {
+        currentRunKind = .cp(preset: preset)
+        cpPreset = preset
+        state = .waitingFull
+        samples.removeAll()
+        lastSampleAt = nil
+        autoResetDueToGap = false
+        // Обнуляем метаданные генератора
+        currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata()
         save()
         updateSleepPrevention()
         updatePollingMode()
@@ -208,6 +233,14 @@ final class CalibrationEngine: ObservableObject {
                 if loadGeneratorSettings.isEnabled && loadGeneratorSettings.autoStart {
                     startLoadGenerators()
                 }
+
+                // Если режим CP — вычисляем целевую мощность и запускаем контроллер
+                if case .cp(let preset) = currentRunKind {
+                    let nominalV = 11.1 // можно улучшить с avg V_OC при желании
+                    cpTargetPowerW = PowerCalculator.targetPower(for: preset, designCapacityMah: snapshot.designCapacity, nominalVoltage: nominalV)
+                    setupCPController()
+                    constantPowerController.start(targetPower: cpTargetPowerW)
+                }
                 
                 save()
                 updateSleepPrevention()
@@ -254,6 +287,11 @@ final class CalibrationEngine: ObservableObject {
                                             durationHours: dt,
                                             avgDischargePerHour: dischargePerHour,
                                             estimatedRuntimeFrom100To0Hours: runtime)
+
+                // Если режим CP — останавливаем контроллер
+                if case .cp = currentRunKind {
+                    constantPowerController.stop()
+                }
 
                 // Считаем аналитику и генерируем отчёт
                 let analytics = AnalyticsEngine()
@@ -475,6 +513,27 @@ final class CalibrationEngine: ObservableObject {
             ProcessInfo.processInfo.endActivity(token)
         }
         activity = nil
+    }
+
+    // MARK: - CP Controller Setup
+    private func setupCPController() {
+        constantPowerController.setCallbacks(
+            powerReading: { [weak self] in
+                guard let self = self, let vm = self.batteryViewModel else { return 0 }
+                return abs(vm.state.power)
+            },
+            loadControl: { [weak self] duty in
+                guard let self = self else { return }
+                // Управляем CPU‑генератором
+                if duty <= 0.05 {
+                    self.loadGenerator?.stop(reason: .userStopped)
+                } else {
+                    // Подбор профиля по duty
+                    let profile: LoadProfile = duty < 0.4 ? .light : (duty < 0.7 ? .medium : .heavy)
+                    self.loadGenerator?.start(profile: profile)
+                }
+            }
+        )
     }
 
     /// Кодирует Codable-структуру в словарь для JSON

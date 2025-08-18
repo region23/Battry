@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Metal
 
 /// Профили нагрузки для генератора CPU
 enum LoadProfile {
@@ -81,6 +82,9 @@ final class LoadGenerator: ObservableObject {
     
     private var workTimers: [DispatchSourceTimer] = []
     private var sleepActivity: NSObjectProtocol?
+    private var gpuEnabled: Bool = false
+    private var gpuTimer: DispatchSourceTimer?
+    private var gpuEngine: GPUComputeEngine?
     
     /// Запускает генератор с указанным профилем
     func start(profile: LoadProfile) {
@@ -99,6 +103,10 @@ final class LoadGenerator: ObservableObject {
         
         // Создаём рабочие потоки
         startWorkThreads(params: params)
+        // Запускаем GPU ветку при необходимости
+        if gpuEnabled {
+            startGPULoad(params: params)
+        }
         
         print("LoadGenerator: Started with profile \(profile) - \(params.threads) threads, \(Int(params.dutyCycle * 100))% duty cycle")
     }
@@ -108,6 +116,7 @@ final class LoadGenerator: ObservableObject {
         guard isRunning else { return }
         
         stopWorkThreads()
+        stopGPULoad()
         
         // Разблокируем сон системы
         if let activity = sleepActivity {
@@ -170,10 +179,109 @@ final class LoadGenerator: ObservableObject {
         workTimers.removeAll()
     }
     
+    // MARK: - GPU Load (optional)
+    /// Включает/выключает использование GPU для дополнительной нагрузки
+    func enableGPU(_ enabled: Bool) {
+        gpuEnabled = enabled
+        if isRunning {
+            if enabled, let profile = currentProfile {
+                startGPULoad(params: profile.parameters.validated)
+            } else {
+                stopGPULoad()
+            }
+        }
+    }
+
+    private func startGPULoad(params: LoadParameters) {
+        guard gpuTimer == nil else { return }
+        if gpuEngine == nil { gpuEngine = GPUComputeEngine() }
+        guard let engine = gpuEngine else { return }
+        let periodMs = params.periodMs
+        let duty = params.dutyCycle
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+        timer.schedule(deadline: .now(), repeating: .milliseconds(periodMs))
+        timer.setEventHandler { [weak self] in
+            guard let self = self, self.isRunning else { return }
+            // Пробуем приблизить длительность работы duty*period
+            let workMs = max(1, Int(Double(periodMs) * duty))
+            engine.runWork(milliseconds: workMs)
+        }
+        timer.resume()
+        gpuTimer = timer
+    }
+
+    private func stopGPULoad() {
+        gpuTimer?.cancel()
+        gpuTimer = nil
+        gpuEngine = nil
+    }
+    
     deinit {
         // Can't access MainActor isolated properties in deinit
         // Timer cleanup will happen automatically when timers are deallocated
     }
+}
+
+// MARK: - Metal GPU Compute Engine
+final class GPUComputeEngine {
+    private let device: MTLDevice?
+    private let queue: MTLCommandQueue?
+    private var pipeline: MTLComputePipelineState?
+    private var buffer: MTLBuffer?
+    
+    init?() {
+        self.device = MTLCreateSystemDefaultDevice()
+        guard let device = device,
+              let queue = device.makeCommandQueue() else { return nil }
+        self.queue = queue
+        do {
+            let library = try device.makeLibrary(source: GPUComputeEngine.kernelSource, options: nil)
+            guard let fn = library.makeFunction(name: "battry_kernel") else { return nil }
+            self.pipeline = try device.makeComputePipelineState(function: fn)
+            // Prepare a working buffer
+            let count = 1 << 20 // ~1M floats (~4MB)
+            self.buffer = device.makeBuffer(length: count * MemoryLayout<Float>.size, options: .storageModeShared)
+        } catch {
+            print("GPUComputeEngine: Failed to build pipeline: \(error)")
+            return nil
+        }
+    }
+    
+    func runWork(milliseconds: Int) {
+        guard milliseconds > 0, let device = device, let queue = queue, let pipeline = pipeline, let buffer = buffer else { return }
+        let start = Date()
+        let target = start.addingTimeInterval(Double(milliseconds) / 1000.0)
+        // Determine grid sizes
+        let gridSize = MTLSize(width: 1 << 20, height: 1, depth: 1)
+        let threadGroupSize = MTLSize(width: min(pipeline.maxTotalThreadsPerThreadgroup, 256), height: 1, depth: 1)
+        while Date() < target {
+            guard let cmd = queue.makeCommandBuffer(), let enc = cmd.makeComputeCommandEncoder() else { break }
+            enc.setComputePipelineState(pipeline)
+            enc.setBuffer(buffer, offset: 0, index: 0)
+            enc.dispatchThreads(gridSize, threadsPerThreadgroup: threadGroupSize)
+            enc.endEncoding()
+            cmd.commit()
+            // avoid piling up too many CBs
+            cmd.waitUntilCompleted()
+        }
+        _ = device // keep refs
+    }
+    
+    private static let kernelSource: String = """
+    #include <metal_stdlib>
+    using namespace metal;
+    kernel void battry_kernel(device float *outBuffer [[ buffer(0) ]],
+                              uint gid [[thread_position_in_grid]]) {
+        float acc = float(gid) * 1e-6f;
+        // Simple chaotic math to keep ALUs busy
+        for (uint i = 0; i < 512; ++i) {
+            acc = sin(acc) + cos(acc) + sqrt(fabs(acc) + 1.0f);
+        }
+        if (gid < 1024) {
+            outBuffer[gid] = acc;
+        }
+    }
+    """
 }
 
 /// Фабрика для создания профиля из процента CPU

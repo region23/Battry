@@ -269,6 +269,17 @@ enum ReportGenerator {
                     <span class="value">\(qhr.unstableUnderLoad ? (lang == "ru" ? "Нестабилен (≥20% SOC)" : "Unstable (≥20% SOC)") : (lang == "ru" ? "Стабилен" : "Stable"))</span>
                   </div>
                 </div>
+                <div class="temperature-analysis">
+                  <h5>\(lang == "ru" ? "Детализация стабильности" : "Stability Breakdown")</h5>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Микро‑дропы ≥20% SOC:" : "Micro-drops ≥20% SOC:")</span>
+                    <span class="value">\(qhr.microDropCountAbove20) (\(String(format: "%.2f", qhr.microDropRateAbove20PerHour)) /h)</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">\(lang == "ru" ? "Микро‑дропы <20% SOC:" : "Micro-drops <20% SOC:")</span>
+                    <span class="value">\(qhr.microDropCountBelow20) (\(String(format: "%.2f", qhr.microDropRateBelow20PerHour)) /h)</span>
+                  </div>
+                </div>
               </div>
             </div>
             """
@@ -1086,7 +1097,7 @@ enum ReportGenerator {
               \(generateTemperatureChart(history: recent, lang: lang))
               \(generateDCIRChart(quickHealthResult: quickHealthResult, lang: lang))
               \(generateOCVChart(history: history, quickHealthResult: quickHealthResult, lang: lang))
-              \(generateEnergyMetricsChart(result: result, quickHealthResult: quickHealthResult, lang: lang))
+              \(generateEnergyMetricsChart(result: result, snapshot: snapshot, history: recent, quickHealthResult: quickHealthResult, lang: lang))
             </section>
 
             <!-- Footer -->
@@ -1584,12 +1595,17 @@ enum ReportGenerator {
     }
     
     /// Generates energy metrics chart
-    private static func generateEnergyMetricsChart(result: BatteryAnalysis, quickHealthResult: QuickHealthTest.QuickHealthResult?, width: Int = 800, height: Int = 300, lang: String) -> String {
+    private static func generateEnergyMetricsChart(result: BatteryAnalysis, snapshot: BatterySnapshot, history: [BatteryReading], quickHealthResult: QuickHealthTest.QuickHealthResult?, width: Int = 800, height: Int = 300, lang: String) -> String {
         // Create a combined energy metrics visualization
         let sohEnergy = quickHealthResult?.sohEnergy ?? result.sohEnergy
         let averagePower = quickHealthResult?.averagePower ?? result.averagePower
         let targetPower = quickHealthResult?.targetPower ?? 10.0
         let powerQuality = quickHealthResult?.powerControlQuality ?? 100.0
+        // Runtime forecasts for 0.1C/0.2C/0.3C using E_design with avg V_OC
+        let avgVOC = OCVAnalyzer.averageVOC(from: history, dcirPoints: quickHealthResult?.dcirPoints ?? []) ?? 11.1
+        let designWh = Double(max(0, snapshot.designCapacity)) * max(5.0, avgVOC) / 1000.0
+        let effectiveWh = designWh * max(0.0, min(1.0, sohEnergy / 100.0))
+        let forecasts = runtimeForecastsHHMM(designWh: designWh, effectiveWh: effectiveWh)
         
         return """
         <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
@@ -1623,10 +1639,11 @@ enum ReportGenerator {
               <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(lang == "ru" ? "Измеренное окно" : "Measured window")</div>
             </div>
             
-            <div class="energy-metric" style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
-              <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary);">0.1C / 0.2C / 0.3C</div>
-              <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Прогноз автономности" : "Runtime forecast")</div>
-              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">\(formatRuntimeForPreset(designMah: result.sohEnergy > 0 ? Int((result.sohEnergy/100.0) * Double(result.sohEnergy>0 ? result.sohEnergy : 100)) : 0, cRate: 0.1)) • \(formatRuntimeForPreset(designMah: result.sohEnergy > 0 ? Int((result.sohEnergy/100.0) * Double(result.sohEnergy>0 ? result.sohEnergy : 100)) : 0, cRate: 0.2)) • \(formatRuntimeForPreset(designMah: result.sohEnergy > 0 ? Int((result.sohEnergy/100.0) * Double(result.sohEnergy>0 ? result.sohEnergy : 100)) : 0, cRate: 0.3))</div>
+            <div class="energy-metric" style="text-align: left; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
+              <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">\(lang == "ru" ? "Прогноз автономности (CP)" : "Runtime Forecast (CP)")</div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">0.1C: <strong>\(forecasts.f0)</strong></div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.2rem;">0.2C: <strong>\(forecasts.f1)</strong></div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.2rem;">0.3C: <strong>\(forecasts.f2)</strong></div>
             </div>
           </div>
         </div>
@@ -1634,15 +1651,23 @@ enum ReportGenerator {
     }
     
     /// Helper functions for new chart generation
-    /// Formats runtime forecast for a given C-rate preset
-    private static func formatRuntimeForPreset(designMah: Int, cRate: Double) -> String {
-        guard designMah > 0 else { return "—" }
-        let designWh = Double(designMah) * 11.1 / 1000.0
-        let targetW = designWh * cRate
-        guard targetW > 0.1 else { return "—" }
-        let hours = designWh / targetW
-        if hours >= 1.0 { return String(format: "%.1f h", hours) }
-        return String(format: "%.0f m", hours * 60)
+    private static func runtimeForecastsHHMM(designWh: Double, effectiveWh: Double) -> (f0: String, f1: String, f2: String) {
+        func one(_ cRate: Double) -> String {
+            guard designWh > 0, effectiveWh > 0 else { return "—" }
+            let targetW = designWh * cRate
+            guard targetW > 0 else { return "—" }
+            let hours = effectiveWh / targetW
+            return formatHoursMinutes(hours: hours)
+        }
+        return (one(0.1), one(0.2), one(0.3))
+    }
+
+    /// Formats hours as HH:MM (zero-padded minutes)
+    private static func formatHoursMinutes(hours: Double) -> String {
+        let totalMinutes = max(0, Int((hours * 60).rounded()))
+        let h = totalMinutes / 60
+        let m = totalMinutes % 60
+        return String(format: "%d:%02d", h, m)
     }
     private static func generateSOCLabels(minSOC: Double, maxSOC: Double, chartWidth: Int, marginLeft: Int, marginTop: Int, chartHeight: Int, lang: String) -> String {
         var labels: [String] = []

@@ -67,7 +67,11 @@ final class QuickHealthTest: ObservableObject {
         
         // Стабильность
         let microDropCount: Int
+        let microDropCountAbove20: Int
+        let microDropCountBelow20: Int
         let microDropRatePerHour: Double
+        let microDropRateAbove20PerHour: Double
+        let microDropRateBelow20PerHour: Double
         let unstableUnderLoad: Bool
         let stabilityScore: Double // 0-100
         
@@ -103,6 +107,8 @@ final class QuickHealthTest: ObservableObject {
     private var cpIntervals: [(startIdx: Int, endIdx: Int?)] = []
     private var energyWindowTargetSOC: Int? = nil
     private var cpPhase: Int = 0 // 0: not started, 1: 80→60, 2: 60→50
+    private var baselineStartAt: Date? = nil
+    private var requireWindow95to90: Bool = false
     
     private weak var batteryViewModel: BatteryViewModel?
     private weak var loadGenerator: LoadGenerator?
@@ -195,11 +201,17 @@ final class QuickHealthTest: ObservableObject {
         energyWindowTargetSOC = nil
         cpPhase = 0
         
+        // Определяем необходимость ожидания окна 95–90% для baseline
+        requireWindow95to90 = (currentSOC > 95)
         state = .calibrating
-        currentStep = "Calibrating baseline (2-3 minutes)..."
-        
-        // Начинаем калибровку в покое
-        scheduleStateChange(to: .pulseTesting(targetSOC: testTargetSOCs[0]), after: calibrationDurationSec)
+        baselineStartAt = nil
+        if requireWindow95to90 {
+            currentStep = "Waiting for 95–90% SOC window (current: \(currentSOC)%)"
+        } else if currentSOC >= 90 {
+            currentStep = "Baseline at rest (2–3 min) in 95–90% window…"
+        } else {
+            currentStep = "Baseline at rest (2–3 min)…"
+        }
     }
     
     /// Останавливает тест
@@ -239,7 +251,46 @@ final class QuickHealthTest: ObservableObject {
         // Обрабатываем состояние теста
         switch state {
         case .calibrating:
-            progress = min(0.2, Double(samples.count * 30) / (calibrationDurationSec * 60)) // каждые 30 сек = ~2% прогресса
+            let soc = snapshot.percentage
+            // Ожидание окна 95–90% при старте выше 95%
+            if requireWindow95to90 && (baselineStartAt == nil) {
+                if soc > 95 {
+                    currentStep = "Waiting for 95–90% SOC window (current: \(soc)%)"
+                    break
+                } else if soc >= 90 { // вошли в окно — стартуем baseline
+                    baselineStartAt = Date()
+                    currentStep = "Baseline at rest (2–3 min) in 95–90% window…"
+                } else { // прошли ниже 90% до начала — запускаем baseline сразу
+                    baselineStartAt = Date()
+                    currentStep = "Baseline at rest (2–3 min)…"
+                }
+            }
+
+            // Если baseline ещё не начат и окно не требуется, проверяем SOC
+            if !requireWindow95to90 && baselineStartAt == nil {
+                if soc >= 90 {
+                    baselineStartAt = Date()
+                    currentStep = "Baseline at rest (2–3 min) in 95–90% window…"
+                } else {
+                    // Нет окна — пропускаем baseline
+                    state = .pulseTesting(targetSOC: testTargetSOCs[0])
+                    break
+                }
+            }
+
+            // Ведём baseline, если стартовал
+            if let t0 = baselineStartAt {
+                let elapsed = Date().timeIntervalSince(t0)
+                let ratio = min(1.0, elapsed / calibrationDurationSec)
+                // Ограничиваем вклад baseline в общий прогресс первыми 20%
+                progress = max(progress, 0.2 * ratio)
+                if elapsed >= calibrationDurationSec {
+                    // Переходим к пульсам на 80%
+                    state = .pulseTesting(targetSOC: testTargetSOCs[0])
+                    progress = max(progress, 0.2)
+                    baselineStartAt = nil
+                }
+            }
             
         case .pulseTesting(let targetSOC):
             handlePulseTestState(targetSOC: targetSOC, snapshot: snapshot)
@@ -420,11 +471,11 @@ final class QuickHealthTest: ObservableObject {
         let ocvAnalyzer = OCVAnalyzer(dcirPoints: dcirMeasurements)
         let ocvAnalysis = ocvAnalyzer.analyzeOCV(from: samples)
         
-        // Подсчет микро-дропов
-        let microDrops = countMicroDrops(in: samples)
+        // Подсчет микро-дропов (общий и по SOC-диапазонам)
+        let microStats = computeMicroDropStats(samples: samples)
+        let microDrops = microStats.totalCount
         let stabilityScore = calculateStabilityScore(microDrops: microDrops, samples: samples)
-        let durationHoursAll = max(1e-6, samples.last!.timestamp.timeIntervalSince(samples.first!.timestamp) / 3600.0)
-        let microDropRate = Double(microDrops) / durationHoursAll
+        let microDropRate = microStats.totalRatePerHour
         let unstable = hasMicroDropsAboveSOC(samples: samples, thresholdPct: 2, windowSec: 120, socMin: 20)
         
         // Температурный анализ
@@ -437,6 +488,12 @@ final class QuickHealthTest: ObservableObject {
             sohEnergy: sohEnergyPct,
             dcirAt50: dcirAnalysis.dcirAt50Percent,
             averageTemperature: avgTemperature
+        )
+        // Записываем наблюдение для самообучения температурной нормализации
+        TemperatureNormalizer.recordObservation(
+            sohEnergy: sohEnergyPct,
+            dcirAt50: dcirAnalysis.dcirAt50Percent,
+            temperature: avgTemperature
         )
         
         // SOH по емкости (из последних данных)
@@ -472,7 +529,11 @@ final class QuickHealthTest: ObservableObject {
             kneeSOC: ocvAnalysis.kneeSOC,
             kneeIndex: ocvAnalysis.kneeIndex,
             microDropCount: microDrops,
+            microDropCountAbove20: microStats.countAbove20,
+            microDropCountBelow20: microStats.countBelow20,
             microDropRatePerHour: microDropRate,
+            microDropRateAbove20PerHour: microStats.rateAbove20PerHour,
+            microDropRateBelow20PerHour: microStats.rateBelow20PerHour,
             unstableUnderLoad: unstable,
             stabilityScore: stabilityScore,
             averageTemperature: avgTemperature,
@@ -531,6 +592,39 @@ final class QuickHealthTest: ObservableObject {
         }
         
         return dropCount
+    }
+    
+    /// Возвращает статистику микро‑дропов по SOC диапазонам
+    private func computeMicroDropStats(samples: [BatteryReading]) -> (totalCount: Int, countAbove20: Int, countBelow20: Int, totalRatePerHour: Double, rateAbove20PerHour: Double, rateBelow20PerHour: Double) {
+        guard samples.count >= 2 else { return (0,0,0,0,0,0) }
+        var total = 0
+        var above20 = 0
+        var below20 = 0
+        var durationAbove20: Double = 0 // hours
+        var durationBelow20: Double = 0 // hours
+        // Считаем длительности диапазонов по prev.percentage (без зарядки)
+        for i in 1..<samples.count {
+            let prev = samples[i-1]
+            let curr = samples[i]
+            let dt = curr.timestamp.timeIntervalSince(prev.timestamp) / 3600.0
+            guard dt > 0, !prev.isCharging && !curr.isCharging else { continue }
+            if prev.percentage >= 20 { durationAbove20 += dt } else { durationBelow20 += dt }
+        }
+        // Считаем события
+        for i in 1..<samples.count {
+            let prev = samples[i-1]
+            let curr = samples[i]
+            let timeDiff = curr.timestamp.timeIntervalSince(prev.timestamp)
+            let percentDrop = prev.percentage - curr.percentage
+            guard !curr.isCharging && !prev.isCharging && timeDiff <= 120 && percentDrop >= 2 else { continue }
+            total += 1
+            if prev.percentage >= 20 { above20 += 1 } else { below20 += 1 }
+        }
+        let totalDuration = max(1e-6, durationAbove20 + durationBelow20)
+        let totalRate = Double(total) / totalDuration
+        let rateAbove = durationAbove20 > 0 ? Double(above20) / durationAbove20 : 0
+        let rateBelow = durationBelow20 > 0 ? Double(below20) / durationBelow20 : 0
+        return (total, above20, below20, totalRate, rateAbove, rateBelow)
     }
     private func hasMicroDropsAboveSOC(samples: [BatteryReading], thresholdPct: Int, windowSec: Double, socMin: Int) -> Bool {
         guard samples.count >= 2 else { return false }

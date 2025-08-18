@@ -46,6 +46,70 @@ struct SettingsPanel: View {
                 }
             }
             
+            // Температурная нормализация (самообучение)
+            SettingsSection {
+                SettingsHeader(title: i18n.language == .ru ? "Температурная нормализация" : "Temperature Normalization", icon: "thermometer")
+                let coeffs = TemperatureNormalizer.currentCoefficients()
+                VStack(spacing: 10) {
+                    SettingsRow {
+                        SettingsLabel(
+                            title: i18n.language == .ru ? "Коэффициент SOH (%/°C)" : "SOH coefficient (%/°C)",
+                            icon: "function",
+                            description: i18n.language == .ru ? "Используется для нормализации SOH по температуре" : "Used to normalize SOH by temperature"
+                        )
+                        Spacer()
+                        Text(String(format: "%.3f", coeffs.sohPerDegree))
+                            .foregroundStyle(.secondary)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    SettingsRow {
+                        SettingsLabel(
+                            title: i18n.language == .ru ? "Коэффициент DCIR (%/°C)" : "DCIR coefficient (%/°C)",
+                            icon: "function",
+                            description: i18n.language == .ru ? "Используется для нормализации DCIR по температуре" : "Used to normalize DCIR by temperature"
+                        )
+                        Spacer()
+                        Text(String(format: "%.3f", coeffs.dcirPerDegree))
+                            .foregroundStyle(.secondary)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    SettingsRow {
+                        SettingsLabel(
+                            title: i18n.language == .ru ? "Рабочий диапазон (°C)" : "Operating range (°C)",
+                            icon: "thermometer",
+                            description: i18n.language == .ru ? "Нормализация применяется только внутри этого диапазона" : "Normalization applies only within this range"
+                        )
+                        Spacer()
+                        Text(String(format: "%.0f–%.0f", coeffs.minTemperature, coeffs.maxTemperature))
+                            .foregroundStyle(.secondary)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    SettingsRow {
+                        SettingsLabel(
+                            title: i18n.language == .ru ? "Наблюдений в базе" : "Observations stored",
+                            icon: "tray",
+                            description: i18n.language == .ru ? "Используются для подстройки коэффициентов" : "Used to fit coefficients"
+                        )
+                        Spacer()
+                        Text("\(TemperatureNormalizer.observationCount())")
+                            .foregroundStyle(.secondary)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    HStack {
+                        Spacer()
+                        Button {
+                            TemperatureNormalizer.resetSelfLearning()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.counterclockwise")
+                                Text(i18n.language == .ru ? "Сбросить коэффициенты" : "Reset coefficients")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+            
             // Секция управления данными
             SettingsSection {
                 SettingsHeader(title: i18n.t("settings.data"), icon: "externaldrive")

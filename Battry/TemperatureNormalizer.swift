@@ -6,6 +6,8 @@ struct TemperatureNormalizer {
     
     /// Эталонная температура для нормализации (°C)
     static let referenceTemperature: Double = 25.0
+    /// Максимальное число наблюдений, которые храним на диске для регрессии
+    private static let maxStoredObservations: Int = 200
     
     /// Результат температурной нормализации
     struct NormalizationResult {
@@ -22,15 +24,26 @@ struct TemperatureNormalizer {
     }
     
     /// Температурные коэффициенты для различных метрик батареи
-    private struct TemperatureCoefficients {
+    private struct TemperatureCoefficients: Codable {
         /// Коэффициент для SOH (%/°C) - емкость слегка увеличивается при нагреве
-        static let sohPerDegree: Double = 0.15
-        /// Коэффициент для DCIR (%/°C) - сопротивление уменьшается при нагреве  
-        static let dcirPerDegree: Double = -2.5
+        var sohPerDegree: Double = 0.15
+        /// Коэффициент для DCIR (%/°C) - сопротивление уменьшается при нагреве
+        var dcirPerDegree: Double = -2.5
         /// Минимально допустимая температура для коррекции
-        static let minTemperature: Double = 10.0
+        var minTemperature: Double = 10.0
         /// Максимально допустимая температура для коррекции
-        static let maxTemperature: Double = 50.0
+        var maxTemperature: Double = 50.0
+    }
+
+    /// Текущие (самообучающиеся) коэффициенты
+    private static var coefficients: TemperatureCoefficients = loadCoefficients()
+
+    /// Наблюдение для самообучения
+    private struct Observation: Codable {
+        let timestamp: Date
+        let temperature: Double
+        let sohEnergy: Double
+        let dcirAt50: Double?
     }
     
     /// Нормализует результаты теста к эталонной температуре
@@ -46,8 +59,8 @@ struct TemperatureNormalizer {
     ) -> NormalizationResult {
         
         // Проверка входных данных
-        guard averageTemperature >= TemperatureCoefficients.minTemperature &&
-              averageTemperature <= TemperatureCoefficients.maxTemperature else {
+        guard averageTemperature >= coefficients.minTemperature &&
+              averageTemperature <= coefficients.maxTemperature else {
             // Для экстремальных температур возвращаем исходные значения с низким качеством
             return NormalizationResult(
                 normalizedSOH: sohEnergy,
@@ -62,13 +75,13 @@ struct TemperatureNormalizer {
         let temperatureDelta = averageTemperature - referenceTemperature
         
         // Коррекция SOH
-        let sohCorrection = temperatureDelta * TemperatureCoefficients.sohPerDegree
+        let sohCorrection = temperatureDelta * coefficients.sohPerDegree
         let normalizedSOH = max(0, min(100, sohEnergy - sohCorrection))
         
         // Коррекция DCIR (если доступна)
         let normalizedDCIR: Double?
         if let dcir = dcirAt50 {
-            let dcirCorrectionPercent = temperatureDelta * TemperatureCoefficients.dcirPerDegree / 100.0
+            let dcirCorrectionPercent = temperatureDelta * coefficients.dcirPerDegree / 100.0
             let correctedDCIR = dcir * (1.0 - dcirCorrectionPercent)
             normalizedDCIR = max(10, correctedDCIR) // минимум 10 мОм
         } else {
@@ -208,6 +221,119 @@ struct TemperatureNormalizer {
 
 /// Расширение для работы с историческими данными
 extension TemperatureNormalizer {
+    // MARK: - Self-learning storage paths
+    private static var appSupportDir: URL {
+        let fm = FileManager.default
+        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let dir = base.appendingPathComponent("Battry", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    private static var coeffsURL: URL { appSupportDir.appendingPathComponent("temperature_coeffs.json") }
+    private static var observationsURL: URL { appSupportDir.appendingPathComponent("temperature_observations.json") }
+
+    // MARK: - Load/Save
+    private static func loadCoefficients() -> TemperatureCoefficients {
+        if let data = try? Data(contentsOf: coeffsURL),
+           let c = try? JSONDecoder().decode(TemperatureCoefficients.self, from: data) {
+            return c
+        }
+        return TemperatureCoefficients()
+    }
+    private static func saveCoefficients(_ c: TemperatureCoefficients) {
+        if let data = try? JSONEncoder().encode(c) {
+            try? data.write(to: coeffsURL, options: .atomic)
+        }
+    }
+
+    // MARK: - Public API for Settings UI
+    /// Возвращает текущие коэффициенты температурной нормализации
+    static func currentCoefficients() -> (sohPerDegree: Double, dcirPerDegree: Double, minTemperature: Double, maxTemperature: Double) {
+        return (coefficients.sohPerDegree, coefficients.dcirPerDegree, coefficients.minTemperature, coefficients.maxTemperature)
+    }
+    /// Возвращает текущее число наблюдений в хранилище
+    static func observationCount() -> Int {
+        return loadObservations().count
+    }
+    /// Сбрасывает самообучающиеся коэффициенты и историю наблюдений
+    static func resetSelfLearning() {
+        let fm = FileManager.default
+        try? fm.removeItem(at: coeffsURL)
+        try? fm.removeItem(at: observationsURL)
+        coefficients = TemperatureCoefficients()
+        saveCoefficients(coefficients)
+        saveObservations([])
+    }
+    private static func loadObservations() -> [Observation] {
+        if let data = try? Data(contentsOf: observationsURL),
+           let arr = try? JSONDecoder().decode([Observation].self, from: data) {
+            return arr
+        }
+        return []
+    }
+    private static func saveObservations(_ arr: [Observation]) {
+        if let data = try? JSONEncoder().encode(arr) {
+            try? data.write(to: observationsURL, options: .atomic)
+        }
+    }
+
+    /// Записывает наблюдение и, при наличии достаточного числа данных, перестраивает коэффициенты
+    static func recordObservation(sohEnergy: Double, dcirAt50: Double?, temperature: Double) {
+        guard sohEnergy > 0, temperature > -50, temperature < 100 else { return }
+        var obs = loadObservations()
+        obs.append(Observation(timestamp: Date(), temperature: temperature, sohEnergy: sohEnergy, dcirAt50: dcirAt50))
+        if obs.count > maxStoredObservations { obs = Array(obs.suffix(maxStoredObservations)) }
+        saveObservations(obs)
+        // Регрессия при наличии > 8 наблюдений и хотя бы 4 с DCIR
+        let dcirCount = obs.filter { $0.dcirAt50 != nil }.count
+        if obs.count >= 8 && dcirCount >= 4 {
+            regressCoefficients(using: obs)
+        }
+    }
+
+    /// Выполняет линейную регрессию коэффициентов по истории наблюдений
+    private static func regressCoefficients(using observations: [Observation]) {
+        // SOH vs Temperature
+        let xsS = observations.map { $0.temperature }
+        let ysS = observations.map { $0.sohEnergy }
+        if let slopeS = linearRegressionSlope(x: xsS, y: ysS) {
+            // Ограничим разумными пределами: -1..1 %/°C
+            coefficients.sohPerDegree = min(1.0, max(-1.0, slopeS))
+        }
+        // DCIR vs Temperature (в абсолютных мОм/°C)
+        let dcirObs = observations.compactMap { o -> (Double, Double)? in
+            guard let d = o.dcirAt50, d > 0 else { return nil }
+            return (o.temperature, d)
+        }
+        if dcirObs.count >= 4 {
+            let xsD = dcirObs.map { $0.0 }
+            let ysD = dcirObs.map { $0.1 }
+            if let slopeD = linearRegressionSlope(x: xsD, y: ysD) {
+                let meanD = ysD.reduce(0, +) / Double(ysD.count)
+                if meanD > 0 {
+                    // Переводим в %/°C
+                    let perDegree = (slopeD / meanD) * 100.0
+                    // Ограничим в разумных пределах
+                    coefficients.dcirPerDegree = min(10.0, max(-10.0, perDegree))
+                }
+            }
+        }
+        saveCoefficients(coefficients)
+    }
+
+    /// Возвращает наклон b линейной регрессии y = a + b x
+    private static func linearRegressionSlope(x: [Double], y: [Double]) -> Double? {
+        guard x.count == y.count, x.count >= 2 else { return nil }
+        let n = Double(x.count)
+        let sumX = x.reduce(0, +)
+        let sumY = y.reduce(0, +)
+        let sumXY = zip(x, y).map(*).reduce(0, +)
+        let sumXX = x.map { $0 * $0 }.reduce(0, +)
+        let denom = n * sumXX - sumX * sumX
+        guard abs(denom) > 1e-12 else { return nil }
+        let slope = (n * sumXY - sumX * sumY) / denom
+        return slope
+    }
     
     /// Анализирует температурные тренды в истории тестов
     /// - Parameter testHistory: История тестов с температурными данными

@@ -36,6 +36,7 @@ struct CalibrationPanel: View {
     @State private var showHeavyProfileWarning: Bool = false
     @State private var showStopTestConfirm: Bool = false
     @State private var isAdvancedExpanded: Bool = false
+    @State private var cpSelectedPreset: PowerPreset = .medium
     
 
     var body: some View {
@@ -77,6 +78,8 @@ struct CalibrationPanel: View {
                     quickHealthTestSection
                     // Отдельный блок: Тест автономности
                     idleStateView
+                    // Отдельный блок: Полный CP‑разряд до 5%
+                    cpDischargeSection
                 }
                 
             case .waitingFull:
@@ -215,6 +218,48 @@ struct CalibrationPanel: View {
 // MARK: - State Views
 
 extension CalibrationPanel {
+    private var cpDischargeSection: some View {
+        CardSection(title: i18n.language == .ru ? "Полный CP‑разряд до 5%" : "Full CP Discharge to 5%", icon: "battery.25") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(i18n.language == .ru ? "Стандартизированный разряд при постоянной мощности до 5% с прогнозируемым временем." : "Standardized constant-power discharge down to 5% with reproducible runtime.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    PowerPresetSelector(
+                        selectedPreset: $cpSelectedPreset,
+                        designCapacityMah: snapshot.designCapacity
+                    )
+                    .frame(maxWidth: 260)
+
+                    Spacer()
+
+                    Button {
+                        calibrator.startCPDischarge(preset: cpSelectedPreset)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.circle.fill")
+                            Text(i18n.language == .ru ? "Старт CP‑разряда" : "Start CP Discharge")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(snapshot.isCharging || snapshot.powerSource == .ac || snapshot.percentage < 98)
+                }
+
+                if snapshot.percentage < 98 {
+                    Text(i18n.language == .ru ? "Требуется ≥98% и питание отключено" : "Requires ≥98% and unplugged")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else if snapshot.isCharging || snapshot.powerSource == .ac {
+                    Text(i18n.language == .ru ? "Отключите питание" : "Disconnect power")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
     private var idleStateView: some View {
         CardSection(title: i18n.t("calibration.start.test"), icon: "target") {
             VStack(alignment: .leading, spacing: 10) {
@@ -807,6 +852,13 @@ extension CalibrationPanel {
                         ))
                             .toggleStyle(.checkbox)
                             .font(.caption)
+
+                        Toggle(i18n.language == .ru ? "Включить GPU ветку" : "Enable GPU branch", isOn: Binding(
+                            get: { loadGenerator.isRunning && false ? true : false },
+                            set: { enabled in loadGenerator.enableGPU(enabled) }
+                        ))
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
                     }
                 }
                 
