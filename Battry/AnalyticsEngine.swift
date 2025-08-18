@@ -243,7 +243,9 @@ final class AnalyticsEngine: ObservableObject {
 
         // Энергетический анализ
         if snapshot.designCapacity > 0 {
-            let designEnergyWh = EnergyCalculator.designEnergyCapacity(fromCapacityMah: snapshot.designCapacity)
+            // Используем среднее V_OC для расчёта эталонной энергии (вместо фикс. 11.1 В)
+            let avgVOC = OCVAnalyzer.averageVOC(from: history) ?? 11.1
+            let designEnergyWh = EnergyCalculator.designEnergyCapacity(fromCapacityMah: snapshot.designCapacity, nominalVoltage: avgVOC)
             if let energyAnalysis = EnergyCalculator.analyzeEnergyPerformance(samples: history, designCapacityWh: designEnergyWh) {
                 result.sohEnergy = energyAnalysis.sohEnergy
                 result.averagePower = energyAnalysis.averagePower

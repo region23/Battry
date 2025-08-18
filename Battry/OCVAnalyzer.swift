@@ -37,6 +37,21 @@ struct OCVAnalyzer {
     init(dcirPoints: [DCIRCalculator.DCIRPoint] = []) {
         self.dcirPoints = dcirPoints.sorted { $0.socPercent < $1.socPercent }
     }
+
+    /// Вычисляет среднее напряжение холостого хода V_OC по данным выборок
+    /// - Parameters:
+    ///   - samples: Исторические выборки батареи
+    ///   - dcirPoints: Точки DCIR для более точной реконструкции OCV (опционально)
+    ///   - binSize: Размер бинов по SOC для усреднения
+    /// - Returns: Среднее значение V_OC в Вольтах или nil, если данных недостаточно
+    static func averageVOC(from samples: [BatteryReading], dcirPoints: [DCIRCalculator.DCIRPoint] = [], binSize: Double = 2.0) -> Double? {
+        guard !samples.isEmpty else { return nil }
+        let analyzer = OCVAnalyzer(dcirPoints: dcirPoints)
+        let ocvCurve = analyzer.buildOCVCurve(from: samples, binSize: binSize)
+        guard !ocvCurve.isEmpty else { return nil }
+        let sum = ocvCurve.reduce(0.0) { $0 + $1.ocvVoltage }
+        return sum / Double(ocvCurve.count)
+    }
     
     /// Интерполирует значение DCIR для заданного SOC
     func interpolatedDCIR(at soc: Double) -> Double? {
