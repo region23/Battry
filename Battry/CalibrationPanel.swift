@@ -37,6 +37,7 @@ struct CalibrationPanel: View {
     @State private var showStopTestConfirm: Bool = false
     @State private var isAdvancedExpanded: Bool = false
     @State private var cpSelectedPreset: PowerPreset = .medium
+    @AppStorage("settings.enableGPUBranch") private var enableGPUBranch: Bool = false
     
 
     var body: some View {
@@ -120,6 +121,8 @@ struct CalibrationPanel: View {
                     loadGenerator: loadGenerator
                 )
             }
+            // Включаем/выключаем GPU ветку в соответствии с настройкой
+            loadGenerator.enableGPU(enableGPUBranch)
         }
         
     }
@@ -240,6 +243,11 @@ extension CalibrationPanel {
                         HStack(spacing: 6) {
                             Image(systemName: "play.circle.fill")
                             Text(i18n.language == .ru ? "Старт CP‑разряда" : "Start CP Discharge")
+                            let nominalV = 11.1
+                            let targetW = PowerCalculator.targetPower(for: cpSelectedPreset, designCapacityMah: snapshot.designCapacity, nominalVoltage: nominalV)
+                            Text(String(format: "(%.1fW)", targetW))
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
@@ -875,8 +883,8 @@ extension CalibrationPanel {
                             .font(.caption)
 
                         Toggle(i18n.language == .ru ? "Включить GPU ветку" : "Enable GPU branch", isOn: Binding(
-                            get: { loadGenerator.isRunning && false ? true : false },
-                            set: { enabled in loadGenerator.enableGPU(enabled) }
+                            get: { enableGPUBranch },
+                            set: { enabled in enableGPUBranch = enabled; loadGenerator.enableGPU(enabled) }
                         ))
                         .toggleStyle(.checkbox)
                         .font(.caption)
