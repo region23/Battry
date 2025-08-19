@@ -210,20 +210,35 @@ final class AnalyticsEngine: ObservableObject {
         return max(0, -slope) // discharge rate is negative slope
     }
 
-    /// Подсчёт микро‑просадок: падение ≥2% за ≤120 секунд без зарядки (со сглаживанием окна 3)
+    /// Подсчёт микро‑просадок: падение ≥2% за ≤120 секунд без зарядки (скользящее окно)
     private func countMicroDrops(history: [BatteryReading]) -> Int {
         guard history.count >= 2 else { return 0 }
-        // сгладим проценты для устойчивости к одиночным выбросам
+        // Небольшое сглаживание процентов для устойчивости
         let smoothedPct = medianFilter3(history.map { $0.percentage })
         var cnt = 0
-        for i in 1..<history.count {
-            let prev = history[i-1]
-            let cur = history[i]
-            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
-            let d = smoothedPct[i] - smoothedPct[i-1]
-            if !cur.isCharging && !prev.isCharging && dt <= 120 && d <= -2 {
-                cnt += 1
+        var i = 0
+        while i < history.count {
+            let start = history[i]
+            // Пропускаем точки при зарядке
+            if start.isCharging { i += 1; continue }
+            // Ищем в окне до 120 секунд точку с падением ≥2%
+            var j = i + 1
+            var found = false
+            while j < history.count {
+                let dt = history[j].timestamp.timeIntervalSince(start.timestamp)
+                if dt > 120 { break }
+                if !history[j].isCharging {
+                    let drop = smoothedPct[i] - smoothedPct[j]
+                    if drop >= 2 {
+                        cnt += 1
+                        found = true
+                        break
+                    }
+                }
+                j += 1
             }
+            // Сдвигаем окно: если нашли событие, начинаем поиск после конечной точки, иначе двигаемся на 1
+            i = found ? j : (i + 1)
         }
         return cnt
     }
@@ -419,9 +434,41 @@ final class AnalyticsEngine: ObservableObject {
     /// Извлекает DCIR точки из истории (простейшая реализация)
     /// В реальности это будет работать только если в истории есть данные от пульс-тестов
     private func extractDCIRFromHistory(history: [BatteryReading]) -> [DCIRCalculator.DCIRPoint] {
-        // Пока возвращаем пустой массив - DCIR будет работать только через QuickHealthTest
-        // В будущем можно добавить логику поиска резких изменений тока в истории
-        return []
+        guard history.count >= 6 else { return [] }
+        var points: [DCIRCalculator.DCIRPoint] = []
+        // Поиск резких ступеней нагрузки по мощности за короткое время
+        for idx in 1..<history.count {
+            let prev = history[idx - 1]
+            let cur = history[idx]
+            // Пропускаем зарядку
+            if prev.isCharging || cur.isCharging { continue }
+            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+            if dt <= 0 || dt > 3.0 { continue }
+            let pPrev = abs(prev.power)
+            let pCur = abs(cur.power)
+            let dP = pCur - pPrev
+            // Порог ступени мощности ~3 Вт
+            if abs(dP) >= 3.0 {
+                if let pt = DCIRCalculator.estimateDCIR(samples: history, pulseStartIndex: idx, windowSeconds: 3.0) {
+                    points.append(pt)
+                }
+            }
+        }
+        // Убираем возможные дубликаты по временной близости и SOC
+        if points.count > 1 {
+            points.sort { $0.timestamp < $1.timestamp }
+            var filtered: [DCIRCalculator.DCIRPoint] = []
+            for p in points {
+                if let last = filtered.last {
+                    let closeInTime = p.timestamp.timeIntervalSince(last.timestamp) < 5.0
+                    let closeInSOC = abs(p.socPercent - last.socPercent) < 1.0
+                    if closeInTime && closeInSOC { continue }
+                }
+                filtered.append(p)
+            }
+            return filtered
+        }
+        return points
     }
     
     // MARK: - Public Health Score API

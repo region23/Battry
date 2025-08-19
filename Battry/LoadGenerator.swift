@@ -85,6 +85,8 @@ final class LoadGenerator: ObservableObject {
     private var gpuEnabled: Bool = false
     private var gpuTimer: DispatchSourceTimer?
     private var gpuEngine: GPUComputeEngine?
+    // Последние применённые параметры для возможности динамического изменения duty
+    private var lastParams: LoadParameters? = nil
     
     /// Запускает генератор с указанным профилем
     func start(profile: LoadProfile) {
@@ -94,6 +96,7 @@ final class LoadGenerator: ObservableObject {
         currentProfile = profile
         isRunning = true
         lastStopReason = nil
+        lastParams = params
         
         // Блокируем сон системы во время работы генератора
         sleepActivity = ProcessInfo.processInfo.beginActivity(
@@ -127,8 +130,35 @@ final class LoadGenerator: ObservableObject {
         isRunning = false
         currentProfile = nil
         lastStopReason = reason
+        lastParams = nil
         
         print("LoadGenerator: Stopped - \(reason)")
+    }
+
+    /// Обновляет интенсивность (duty cycle) без изменения числа потоков и периода
+    /// Если генератор не запущен, метод ничего не делает
+    func setIntensity(_ intensity: Double) {
+        guard isRunning, var params = lastParams else { return }
+        // Валидация duty в диапазоне (0.1 ... 0.9)
+        let newDuty = max(0.1, min(intensity, 0.9))
+        // Перезапускаем рабочие потоки с новыми параметрами
+        params = LoadParameters(threads: params.threads, dutyCycle: newDuty, periodMs: params.periodMs).validated
+        restartWorkThreads(with: params)
+        lastParams = params
+    }
+
+    /// Обеспечивает запуск с нужным профилем (перезапускает при смене профиля)
+    func ensureProfile(_ profile: LoadProfile) {
+        if !isRunning {
+            start(profile: profile)
+            return
+        }
+        if let current = currentProfile, current.localizationKey == profile.localizationKey {
+            return
+        }
+        // Профиль изменился — перезапускаем
+        stop(reason: .userStopped)
+        start(profile: profile)
     }
     
     /// Создаёт и запускает рабочие потоки
@@ -177,6 +207,12 @@ final class LoadGenerator: ObservableObject {
             timer.cancel()
         }
         workTimers.removeAll()
+    }
+
+    /// Перезапускает рабочие потоки с новыми параметрами
+    private func restartWorkThreads(with params: LoadParameters) {
+        stopWorkThreads()
+        startWorkThreads(params: params)
     }
     
     // MARK: - GPU Load (optional)

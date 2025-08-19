@@ -127,6 +127,8 @@ final class QuickHealthTest: ObservableObject {
     private let calibrationDurationSec: TimeInterval = 150 // 2.5 мин калибровка в покое
     private let pulseDurationSec: TimeInterval = 10 // 10 сек пульс нагрузки
     private let restDurationSec: TimeInterval = 25 // 25 сек отдых между пульсами
+    // Конфигурируемая ширина энергетического окна в процентах SOC (по умолчанию 15%)
+    private let energyWindowSpanPct: Int = 15
     
     // MARK: - Public Methods
     
@@ -314,14 +316,10 @@ final class QuickHealthTest: ObservableObject {
         
         // Выполняем серию пульс-тестов на этом уровне SOC
         performPulseTests(at: targetSOC) {
-            // Ветка CP-окна
+            // Ветка CP-окна: единожды на уровне 80% в соответствии с span
             if targetSOC == 80 {
-                // После пульсов на 80% запускаем CP до 60%
-                self.startEnergyWindow(to: 60)
-                return
-            } else if targetSOC == 60 {
-                // После пульсов на 60% продолжаем CP до 50%
-                self.startEnergyWindow(to: 50)
+                let target = max(5, 80 - energyWindowSpanPct)
+                self.startEnergyWindow(to: target)
                 return
             }
 
@@ -384,9 +382,9 @@ final class QuickHealthTest: ObservableObject {
     private func startEnergyWindow(to targetSOC: Int) {
         energyWindowTargetSOC = targetSOC
         state = .energyWindow
-        cpPhase = (targetSOC == 60) ? 1 : 2
+        cpPhase = 1
         currentStep = "Energy window CP to \(targetSOC)% @ \(String(format: "%.1f", targetPowerW))W"
-        progress = max(progress, targetSOC == 60 ? 0.6 : 0.8)
+        progress = max(progress, 0.7)
         // Фиксируем начало CP-интервала
         cpIntervals.append((startIdx: samples.count, endIdx: nil))
         // Запускаем Constant Power контроллер
@@ -406,15 +404,8 @@ final class QuickHealthTest: ObservableObject {
             }
             progress = max(progress, targetSOC == 60 ? 0.75 : 0.9)
 
-            // Переходы
-            if targetSOC == 60 {
-                // После 80→60 продолжаем плановый цикл: пульсы на 60%
-                state = .pulseTesting(targetSOC: 60)
-            } else {
-                // После 60→50 возвращаемся к пульсам на 40%
-                currentTargetIndex = 2 // индекс для 40% в массиве целей
-                state = .pulseTesting(targetSOC: 40)
-            }
+            // После завершения окна CP продолжаем пульсы на 60%
+            state = .pulseTesting(targetSOC: 60)
             energyWindowTargetSOC = nil
         } else {
             currentStep = "Energy window CP: \(currentSOC)% → \(targetSOC)% | \(String(format: "%.1f", constantPowerController.currentPowerW))W"
@@ -445,23 +436,28 @@ final class QuickHealthTest: ObservableObject {
         let endTime = Date()
         let durationMinutes = endTime.timeIntervalSince(startTime) / 60.0
         
-        // Анализ энергии 80→50% только по CP-интервалам
+        // Анализ энергии только по CP-интервалам
         var energyWhTotal: Double = 0
         var cpDurationSec: Double = 0
+        var collectedSocSpan: Double = 0
         for interval in cpIntervals {
             guard let endIdx = interval.endIdx, interval.startIdx < endIdx, endIdx <= samples.count else { continue }
             let slice = Array(samples[interval.startIdx..<endIdx])
             energyWhTotal += EnergyCalculator.integrateEnergy(samples: slice)
-            if let f = slice.first, let l = slice.last { cpDurationSec += l.timestamp.timeIntervalSince(f.timestamp) }
+            if let f = slice.first, let l = slice.last {
+                cpDurationSec += l.timestamp.timeIntervalSince(f.timestamp)
+                collectedSocSpan += max(0, Double(f.percentage - l.percentage))
+            }
         }
         let avgPowerDuringCP = cpDurationSec > 0 ? energyWhTotal / (cpDurationSec / 3600.0) : 0
-        // Оценка SOH_energy: масштабируем 80→50% (30% SOC) к 100% и используем средний V_OC для E_design
+        // Оценка SOH_energy: масштабируем на 100% по фактическому SOC-окну
         let designMah = samples.last?.designCapacity ?? batteryViewModel?.state.designCapacity ?? 0
         // Среднее V_OC из OCV-кривой (если доступно), fallback 11.1 В
         let ocvForAvg = OCVAnalyzer(dcirPoints: dcirMeasurements).analyzeOCV(from: samples).ocvCurve
         let avgVOC: Double = ocvForAvg.isEmpty ? 11.1 : max(5.0, ocvForAvg.map { $0.ocvVoltage }.reduce(0, +) / Double(ocvForAvg.count))
         let designWh = Double(designMah) * avgVOC / 1000.0
-        let estimatedFullEnergyWh = energyWhTotal * (100.0 / 30.0)
+        let socSpan = max(1.0, collectedSocSpan)
+        let estimatedFullEnergyWh = energyWhTotal * (100.0 / socSpan)
         let sohEnergyPct = (designWh > 0) ? max(0, min(100, (estimatedFullEnergyWh / designWh) * 100.0)) : 100.0
         
         // Анализ DCIR
@@ -597,12 +593,9 @@ final class QuickHealthTest: ObservableObject {
     /// Возвращает статистику микро‑дропов по SOC диапазонам
     private func computeMicroDropStats(samples: [BatteryReading]) -> (totalCount: Int, countAbove20: Int, countBelow20: Int, totalRatePerHour: Double, rateAbove20PerHour: Double, rateBelow20PerHour: Double) {
         guard samples.count >= 2 else { return (0,0,0,0,0,0) }
-        var total = 0
-        var above20 = 0
-        var below20 = 0
+        // Подсчитаем длительности по диапазонам SOC
         var durationAbove20: Double = 0 // hours
         var durationBelow20: Double = 0 // hours
-        // Считаем длительности диапазонов по prev.percentage (без зарядки)
         for i in 1..<samples.count {
             let prev = samples[i-1]
             let curr = samples[i]
@@ -610,15 +603,31 @@ final class QuickHealthTest: ObservableObject {
             guard dt > 0, !prev.isCharging && !curr.isCharging else { continue }
             if prev.percentage >= 20 { durationAbove20 += dt } else { durationBelow20 += dt }
         }
-        // Считаем события
-        for i in 1..<samples.count {
-            let prev = samples[i-1]
-            let curr = samples[i]
-            let timeDiff = curr.timestamp.timeIntervalSince(prev.timestamp)
-            let percentDrop = prev.percentage - curr.percentage
-            guard !curr.isCharging && !prev.isCharging && timeDiff <= 120 && percentDrop >= 2 else { continue }
-            total += 1
-            if prev.percentage >= 20 { above20 += 1 } else { below20 += 1 }
+        // События со скользящим окном ≤120 c
+        var total = 0
+        var above20 = 0
+        var below20 = 0
+        var i = 0
+        while i < samples.count {
+            let start = samples[i]
+            if start.isCharging { i += 1; continue }
+            var j = i + 1
+            var found = false
+            while j < samples.count {
+                let dt = samples[j].timestamp.timeIntervalSince(start.timestamp)
+                if dt > 120 { break }
+                if !samples[j].isCharging {
+                    let drop = start.percentage - samples[j].percentage
+                    if drop >= 2 {
+                        total += 1
+                        if start.percentage >= 20 { above20 += 1 } else { below20 += 1 }
+                        found = true
+                        break
+                    }
+                }
+                j += 1
+            }
+            i = found ? j : (i + 1)
         }
         let totalDuration = max(1e-6, durationAbove20 + durationBelow20)
         let totalRate = Double(total) / totalDuration
@@ -628,14 +637,21 @@ final class QuickHealthTest: ObservableObject {
     }
     private func hasMicroDropsAboveSOC(samples: [BatteryReading], thresholdPct: Int, windowSec: Double, socMin: Int) -> Bool {
         guard samples.count >= 2 else { return false }
-        for i in 1..<samples.count {
-            let prev = samples[i-1]
-            let curr = samples[i]
-            let dt = curr.timestamp.timeIntervalSince(prev.timestamp)
-            let drop = prev.percentage - curr.percentage
-            if !prev.isCharging && !curr.isCharging && prev.percentage >= socMin && dt <= windowSec && drop >= thresholdPct {
-                return true
+        var i = 0
+        while i < samples.count {
+            let start = samples[i]
+            if start.isCharging || start.percentage < socMin { i += 1; continue }
+            var j = i + 1
+            while j < samples.count {
+                let dt = samples[j].timestamp.timeIntervalSince(start.timestamp)
+                if dt > windowSec { break }
+                if !samples[j].isCharging {
+                    let drop = start.percentage - samples[j].percentage
+                    if drop >= thresholdPct { return true }
+                }
+                j += 1
             }
+            i += 1
         }
         return false
     }
@@ -692,9 +708,16 @@ final class QuickHealthTest: ObservableObject {
                 return abs(vm.state.power)
             },
             loadControl: { [weak self] dutyCycle in
-                // Управляем нагрузкой через LoadGenerator
-                guard let self = self else { return }
-                self.applyLoadWithDutyCycle(dutyCycle)
+                // Управляем нагрузкой через LoadGenerator (интенсивность + профиль)
+                guard let self = self, let loadGen = self.loadGenerator else { return }
+                // Поддерживаем профиль согласно целевой мощности
+                if let rec = self.constantPowerController.getRecommendedLoadIntensity() {
+                    loadGen.ensureProfile(rec.profile)
+                    loadGen.setIntensity(rec.intensity)
+                } else {
+                    // Fallback: light/medium/heavy по duty
+                    self.applyLoadWithDutyCycle(dutyCycle)
+                }
             }
         )
     }

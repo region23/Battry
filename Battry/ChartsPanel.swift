@@ -29,6 +29,8 @@ struct ChartsPanel: View {
     @State private var showDrain: Bool = false
     @State private var showPower: Bool = false
     @State private var showHealthScore: Bool = false
+    @State private var showOCV: Bool = false
+    @State private var showDCIR: Bool = false
 
     private func data() -> [BatteryReading] {
         switch timeframe {
@@ -120,6 +122,18 @@ struct ChartsPanel: View {
                         isSelected: showHealthScore
                     ) { showHealthScore.toggle() }
 
+                    MetricToggleButton(
+                        title: "OCV",
+                        color: .teal,
+                        isSelected: showOCV
+                    ) { showOCV.toggle() }
+
+                    MetricToggleButton(
+                        title: "DCIR",
+                        color: .pink,
+                        isSelected: showDCIR
+                    ) { showDCIR.toggle() }
+
                     Spacer()
                 }
             }
@@ -210,6 +224,22 @@ struct ChartsPanel: View {
                             .interpolationMethod(.monotone)
                         }
                     }
+                    // OCV overlay reconstructed from readings (requires DCIR points if available)
+                    if showOCV {
+                        let ocvAnalyzer = OCVAnalyzer(dcirPoints: [])
+                        let ocvCurve = ocvAnalyzer.buildOCVCurve(from: raw, binSize: 2.0)
+                        // Отобразим OCV как SOC vs Voltage, сопоставив SOC к времени через ближайшие точки
+                        // Для простоты прорисуем как Voltage vs Time по ближайшему времени в бине
+                        ForEach(ocvCurve.indices, id: \.self) { i in
+                            let pt = ocvCurve[i]
+                            LineMark(
+                                x: .value("t", pt.timestamp),
+                                y: .value("V_OC", pt.ocvVoltage)
+                            )
+                            .foregroundStyle(by: .value("series", "ocv"))
+                            .interpolationMethod(.monotone)
+                        }
+                    }
                     if showPower {
                         let powers = powerSeries(raw)
                         ForEach(powers.indices, id: \.self) { i in
@@ -226,6 +256,33 @@ struct ChartsPanel: View {
                             LineMark(x: .value("t", h.0), y: .value("Score", h.1))
                                 .foregroundStyle(by: .value("series", "health"))
                                 .interpolationMethod(.monotone)
+                        }
+                    }
+                    // DCIR vs SOC как точки на отдельной оси по времени: отобразим маркерами
+                    if showDCIR {
+                        // В AnalyticsEngine DCIR из истории может быть извлечён. Попытаемся рассчитать на лету
+                        let engine = AnalyticsEngine()
+                        let dcirPts = engine.analyze(history: raw, snapshot: snapshot).dcirAt50Percent != nil ? engine : nil
+                        // Если в кеше уже посчитано в рамках healthScoreSeries — используем простую на лету оценку
+                        // Упростим: вычислим DCIR по ступеням мощности (быстрая эвристика)
+                        var plotted: [(Date, Double)] = []
+                        for idx in 1..<raw.count {
+                            let prev = raw[idx-1]
+                            let cur = raw[idx]
+                            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+                            if prev.isCharging || cur.isCharging || dt <= 0 || dt > 3 { continue }
+                            let dP = abs(cur.power) - abs(prev.power)
+                            if abs(dP) >= 3.0 {
+                                if let pt = DCIRCalculator.estimateDCIR(samples: raw, pulseStartIndex: idx, windowSeconds: 3.0) {
+                                    // Привяжем к текущему времени
+                                    plotted.append((cur.timestamp, pt.resistanceMohm))
+                                }
+                            }
+                        }
+                        ForEach(plotted.indices, id: \.self) { i in
+                            let p = plotted[i]
+                            PointMark(x: .value("t", p.0), y: .value("mΩ", p.1))
+                                .foregroundStyle(by: .value("series", "dcir"))
                         }
                     }
                     if showDrain {
@@ -255,8 +312,10 @@ struct ChartsPanel: View {
                     "percent": .blue,
                     "temp": .red,
                     "volt": .green,
+                    "ocv": .teal,
                     "power": .orange,
                     "health": .purple,
+                    "dcir": .pink,
                     "drain": .yellow,
                 ])
                 .chartLegend(.hidden)
