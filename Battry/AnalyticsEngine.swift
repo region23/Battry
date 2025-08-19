@@ -316,15 +316,23 @@ final class AnalyticsEngine: ObservableObject {
         if let kneeSOC = result.kneeSOC, kneeSOC > 40 { anomalies.append("Раннее колено OCV кривой (\(String(format: "%.0f", kneeSOC))% SOC).") }
         result.anomalies = anomalies
 
-        // Рекомендация на основе композитного скора
+        // Рекомендация на основе композитного скора с пресетами мощности
+        let powerRecommendations = generatePowerPresetRecommendations(
+            healthScore: result.healthScore,
+            sohEnergy: result.sohEnergy,
+            averagePower: result.averagePower,
+            designCapacity: snapshot.designCapacity,
+            maxCapacity: snapshot.maxCapacity
+        )
+        
         if result.healthScore < 50 {
-            result.recommendation = "Требуется замена батареи в ближайшее время."
+            result.recommendation = "Требуется замена батареи в ближайшее время. \(powerRecommendations.critical)"
         } else if result.healthScore < 70 {
-            result.recommendation = "Планируйте замену батареи. Избегайте высоких нагрузок."
+            result.recommendation = "Планируйте замену батареи. \(powerRecommendations.moderate)"
         } else if result.healthScore < 85 {
-            result.recommendation = "Состояние приемлемое. Мониторьте регулярно."
+            result.recommendation = "Состояние приемлемое. \(powerRecommendations.good)"
         } else {
-            result.recommendation = "Батарея в отличном состоянии."
+            result.recommendation = "Батарея в отличном состоянии. \(powerRecommendations.excellent)"
         }
         result.averageTemperature = avgTemperature
         
@@ -514,5 +522,48 @@ final class AnalyticsEngine: ObservableObject {
         guard !recent.isEmpty else { return 0 }
         
         return recent.map { abs($0.power) }.reduce(0, +) / Double(recent.count)
+    }
+    
+    /// Генерирует рекомендации по пресетам мощности согласно рекомендациям профессора
+    private func generatePowerPresetRecommendations(
+        healthScore: Int,
+        sohEnergy: Double,
+        averagePower: Double,
+        designCapacity: Int,
+        maxCapacity: Int
+    ) -> (excellent: String, good: String, moderate: String, critical: String) {
+        
+        // Рассчитываем C-rate для текущей батареи
+        let avgVOC = 11.1 // Номинальное напряжение MacBook
+        let designWh = Double(designCapacity) * avgVOC / 1000.0
+        let maxWh = Double(maxCapacity) * avgVOC / 1000.0
+        
+        // Пресеты мощности
+        let light01C = designWh * 0.1 // ~5-8 Вт
+        let medium02C = designWh * 0.2 // ~10-15 Вт  
+        let heavy03C = designWh * 0.3 // ~15-25 Вт
+        
+        // Оценка времени работы на пресетах
+        let runtimeLight = maxWh > 0 ? maxWh / light01C : 0
+        let runtimeMedium = maxWh > 0 ? maxWh / medium02C : 0
+        let runtimeHeavy = maxWh > 0 ? maxWh / heavy03C : 0
+        
+        let excellent = String(format: 
+            "Рекомендуемые нагрузки: до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч).", 
+            light01C, runtimeLight, medium02C, runtimeMedium, heavy03C, runtimeHeavy)
+            
+        let good = String(format:
+            "Избегайте нагрузок выше %.0f Вт. Оптимально: %.0f Вт (~%.1f ч).", 
+            medium02C, light01C, runtimeLight)
+            
+        let moderate = String(format:
+            "Ограничьте нагрузку до %.0f Вт (~%.1f ч). При тяжелой работе возможны сбои.", 
+            light01C, runtimeLight)
+            
+        let critical = String(format:
+            "Используйте только легкие задачи до %.0f Вт. Частые подзарядки обязательны.", 
+            light01C * 0.7) // Еще более консервативный лимит
+        
+        return (excellent, good, moderate, critical)
     }
 }

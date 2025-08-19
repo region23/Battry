@@ -89,7 +89,7 @@ struct TemperatureNormalizer {
         }
         
         // Температурный коэффициент (для информации)
-        let tempCoeff = 1.0 + (temperatureDelta * TemperatureCoefficients.sohPerDegree / 100.0)
+        let tempCoeff = 1.0 + (temperatureDelta * coefficients.sohPerDegree / 100.0)
         
         // Качество нормализации (выше при температуре ближе к эталонной)
         let tempDistance = abs(temperatureDelta)
@@ -292,33 +292,84 @@ extension TemperatureNormalizer {
     }
 
     /// Выполняет линейную регрессию коэффициентов по истории наблюдений
+    /// Улучшенная версия с взвешиванием по времени и фильтрацией выбросов
     private static func regressCoefficients(using observations: [Observation]) {
-        // SOH vs Temperature
-        let xsS = observations.map { $0.temperature }
-        let ysS = observations.map { $0.sohEnergy }
-        if let slopeS = linearRegressionSlope(x: xsS, y: ysS) {
-            // Ограничим разумными пределами: -1..1 %/°C
-            coefficients.sohPerDegree = min(1.0, max(-1.0, slopeS))
+        let now = Date()
+        
+        // Фильтруем выбросы и применяем временные веса (более свежие наблюдения важнее)
+        let weightedObservations = observations.compactMap { obs -> (temp: Double, soh: Double, dcir: Double?, weight: Double)? in
+            // Исключаем очевидные выбросы
+            guard obs.sohEnergy > 20 && obs.sohEnergy < 120,
+                  obs.temperature > 5 && obs.temperature < 45 else { return nil }
+            
+            // Временной вес: более свежие данные важнее (экспоненциальный спад)
+            let ageHours = now.timeIntervalSince(obs.timestamp) / 3600.0
+            let weight = exp(-ageHours / (30 * 24)) // полураспад 30 дней
+            
+            return (obs.temperature, obs.sohEnergy, obs.dcirAt50, max(0.1, weight))
         }
-        // DCIR vs Temperature (в абсолютных мОм/°C)
-        let dcirObs = observations.compactMap { o -> (Double, Double)? in
-            guard let d = o.dcirAt50, d > 0 else { return nil }
-            return (o.temperature, d)
+        
+        guard weightedObservations.count >= 8 else { return }
+        
+        // SOH vs Temperature (взвешенная регрессия)
+        let xsS = weightedObservations.map { $0.temp }
+        let ysS = weightedObservations.map { $0.soh }
+        let weightsS = weightedObservations.map { $0.weight }
+        
+        if let slopeS = weightedLinearRegressionSlope(x: xsS, y: ysS, weights: weightsS) {
+            // Улучшенные пределы согласно рекомендациям профессора
+            let filteredSlope = min(0.5, max(-0.5, slopeS)) // более консервативные пределы
+            
+            // Сглаживание изменений коэффициентов (exponential moving average)
+            let alpha = 0.3 // коэффициент сглаживания
+            coefficients.sohPerDegree = (1 - alpha) * coefficients.sohPerDegree + alpha * filteredSlope
         }
-        if dcirObs.count >= 4 {
-            let xsD = dcirObs.map { $0.0 }
-            let ysD = dcirObs.map { $0.1 }
-            if let slopeD = linearRegressionSlope(x: xsD, y: ysD) {
+        
+        // DCIR vs Temperature (взвешенная регрессия)
+        let dcirObs = weightedObservations.compactMap { obs -> (temp: Double, dcir: Double, weight: Double)? in
+            guard let d = obs.dcir, d > 10 && d < 1000 else { return nil }
+            return (obs.temp, d, obs.weight)
+        }
+        
+        if dcirObs.count >= 6 { // требуем больше точек для DCIR
+            let xsD = dcirObs.map { $0.temp }
+            let ysD = dcirObs.map { $0.dcir }
+            let weightsD = dcirObs.map { $0.weight }
+            
+            if let slopeD = weightedLinearRegressionSlope(x: xsD, y: ysD, weights: weightsD) {
                 let meanD = ysD.reduce(0, +) / Double(ysD.count)
                 if meanD > 0 {
-                    // Переводим в %/°C
+                    // Переводим в %/°C с улучшенной фильтрацией
                     let perDegree = (slopeD / meanD) * 100.0
-                    // Ограничим в разумных пределах
-                    coefficients.dcirPerDegree = min(10.0, max(-10.0, perDegree))
+                    let filteredDCIR = min(5.0, max(-5.0, perDegree))
+                    
+                    // Сглаживание изменений
+                    let alpha = 0.25
+                    coefficients.dcirPerDegree = (1 - alpha) * coefficients.dcirPerDegree + alpha * filteredDCIR
                 }
             }
         }
+        
         saveCoefficients(coefficients)
+    }
+    
+    /// Взвешенная линейная регрессия с учетом весов наблюдений
+    private static func weightedLinearRegressionSlope(x: [Double], y: [Double], weights: [Double]) -> Double? {
+        guard x.count == y.count && y.count == weights.count, x.count >= 2 else { return nil }
+        
+        let sumW = weights.reduce(0, +)
+        guard sumW > 0 else { return nil }
+        
+        let sumWX = zip(weights, x).map(*).reduce(0, +)
+        let sumWY = zip(weights, y).map(*).reduce(0, +)
+        let sumWXY = zip(zip(weights, x), y).map { $0.0 * $0.1 * $1 }.reduce(0, +)
+        let sumWXX = zip(zip(weights, x), x).map { $0.0 * $0.1 * $1 }.reduce(0, +)
+        
+        let denom = sumW * sumWXX - sumWX * sumWX
+        guard abs(denom) > 1e-12 else { return nil }
+        
+        let slope = (sumW * sumWXY - sumWX * sumWY) / denom
+        return slope
     }
 
     /// Возвращает наклон b линейной регрессии y = a + b x

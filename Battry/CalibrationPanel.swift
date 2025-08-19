@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 /// Панель проведения теста/калибровки автономности
 struct CalibrationPanel: View {
@@ -532,7 +533,7 @@ extension CalibrationPanel {
                         Button {
                             // Save as PDF
                             let panel = NSSavePanel()
-                            panel.allowedFileTypes = ["pdf"]
+                            panel.allowedContentTypes = [.pdf]
                             panel.nameFieldStringValue = "Battry_Report.pdf"
                             panel.begin { resp in
                                 if resp == .OK, let dest = panel.url {

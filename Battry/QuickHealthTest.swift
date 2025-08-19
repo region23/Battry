@@ -318,7 +318,7 @@ final class QuickHealthTest: ObservableObject {
         performPulseTests(at: targetSOC) {
             // Ветка CP-окна: единожды на уровне 80% в соответствии с span
             if targetSOC == 80 {
-                let target = max(5, 80 - energyWindowSpanPct)
+                let target = max(5, 80 - self.energyWindowSpanPct)
                 self.startEnergyWindow(to: target)
                 return
             }

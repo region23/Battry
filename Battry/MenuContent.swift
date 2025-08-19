@@ -369,6 +369,86 @@ struct MenuContent: View {
         }
     }
     
+    /// Новая метрика вместо "%/час": тренд энергопотребления
+    private func getPowerConsumptionTrend() -> String {
+        let currentPower = analytics.getAveragePowerLast15Min(history: history.items)
+        let analysis = analytics.lastAnalysis
+        
+        guard currentPower > 0.1 else { 
+            return i18n.t("collecting.stats")
+        }
+        
+        if i18n.language == .ru {
+            if let avgPower = analysis?.averagePower, avgPower > 0 {
+                let change = ((currentPower - avgPower) / avgPower) * 100
+                if abs(change) < 5 {
+                    return String(format: "%.1f Вт • стабильно", currentPower)
+                } else if change > 0 {
+                    return String(format: "%.1f Вт • ↑%.0f%%", currentPower, change)
+                } else {
+                    return String(format: "%.1f Вт • ↓%.0f%%", currentPower, abs(change))
+                }
+            }
+            return String(format: "%.1f Вт", currentPower)
+        } else {
+            if let avgPower = analysis?.averagePower, avgPower > 0 {
+                let change = ((currentPower - avgPower) / avgPower) * 100
+                if abs(change) < 5 {
+                    return String(format: "%.1f W • stable", currentPower)
+                } else if change > 0 {
+                    return String(format: "%.1f W • ↑%.0f%%", currentPower, change)
+                } else {
+                    return String(format: "%.1f W • ↓%.0f%%", currentPower, abs(change))
+                }
+            }
+            return String(format: "%.1f W", currentPower)
+        }
+    }
+    
+    /// Новая метрика: эффективность использования энергии батареи
+    private func getEnergyEfficiency() -> String {
+        guard let analysis = analytics.lastAnalysis else {
+            return i18n.t("collecting.stats")
+        }
+        
+        let sohEnergy = analysis.sohEnergy
+        let sohCapacity = 100 - battery.state.wearPercent
+        
+        if sohEnergy <= 0 || sohCapacity <= 0 {
+            return i18n.t("collecting.stats")
+        }
+        
+        let efficiency = (sohEnergy / sohCapacity) * 100
+        
+        if i18n.language == .ru {
+            return String(format: "%.0f%%", efficiency)
+        } else {
+            return String(format: "%.0f%%", efficiency)
+        }
+    }
+    
+    /// Цвет для метрики эффективности энергии
+    private func getEnergyEfficiencyColor() -> Color {
+        guard let analysis = analytics.lastAnalysis else { return .secondary }
+        
+        let sohEnergy = analysis.sohEnergy
+        let sohCapacity = 100 - battery.state.wearPercent
+        
+        if sohEnergy <= 0 || sohCapacity <= 0 {
+            return .secondary
+        }
+        
+        let efficiency = (sohEnergy / sohCapacity) * 100
+        
+        if efficiency >= 95 {
+            return .green
+        } else if efficiency >= 85 {
+            return .orange
+        } else {
+            return .red
+        }
+    }
+    
     
     private func estimatedRuntimeText() -> String {
         let runtime = getEstimatedRuntime()
@@ -473,6 +553,28 @@ struct MenuContent: View {
         let hours = effectiveWh / targetW
         if hours >= 1.0 { return String(format: "%.1fч", hours) }
         return String(format: "%.0fм", hours * 60)
+    }
+    
+    /// Получить текст для пресета мощности с указанием ватт
+    private func getPowerPresetText(_ cRate: Double) -> String {
+        let designMah = battery.state.designCapacity
+        guard designMah > 0, cRate > 0 else {
+            if i18n.language == .ru {
+                return cRate == 0.1 ? "Лёгкая" : cRate == 0.2 ? "Средняя" : "Тяжёлая"
+            } else {
+                return cRate == 0.1 ? "Light" : cRate == 0.2 ? "Medium" : "Heavy"
+            }
+        }
+        
+        let avgVOC = OCVAnalyzer.averageVOC(from: history.items) ?? 11.1
+        let designWh = Double(designMah) * max(5.0, avgVOC) / 1000.0
+        let targetW = designWh * cRate
+        
+        if i18n.language == .ru {
+            return String(format: "%.0f Вт", targetW)
+        } else {
+            return String(format: "%.0f W", targetW)
+        }
     }
     
     // MARK: - Новые функции для метрик согласно рекомендациям профессора
@@ -619,21 +721,21 @@ struct MenuContent: View {
                     }
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
-                            Text(i18n.t("preset.light")).font(.caption2).foregroundStyle(.secondary)
+                            Text(getPowerPresetText(0.1)).font(.caption2).foregroundStyle(.secondary)
                             Text(getRuntimeForCRate(0.1)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.blue.opacity(0.1), in: Capsule())
                         HStack(spacing: 4) {
-                            Text(i18n.t("preset.medium")).font(.caption2).foregroundStyle(.secondary)
+                            Text(getPowerPresetText(0.2)).font(.caption2).foregroundStyle(.secondary)
                             Text(getRuntimeForCRate(0.2)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.orange.opacity(0.1), in: Capsule())
                         HStack(spacing: 4) {
-                            Text(i18n.t("preset.heavy")).font(.caption2).foregroundStyle(.secondary)
+                            Text(getPowerPresetText(0.3)).font(.caption2).foregroundStyle(.secondary)
                             Text(getRuntimeForCRate(0.3)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
@@ -668,21 +770,21 @@ struct MenuContent: View {
                             isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
                         )
                         EnhancedStatCard(
-                            title: i18n.t("discharge.per.hour.24h"),
-                            value: discharge24hValueText(),
-                            icon: "chart.line.downtrend.xyaxis",
-                            accentColor: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 12 ? .orange : (analytics.hasEnoughData24h(history: history.items) ? Color.accentColor : .secondary),
-                            healthStatus: analytics.hasEnoughData24h(history: history.items) && analytics.estimateDischargePerHour24h(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour24h(history: history.items)) : nil,
-                            isCollectingData: isCollecting24h()
+                            title: i18n.t("power.consumption.trend"),
+                            value: getPowerConsumptionTrend(),
+                            icon: "chart.line.uptrend.xyaxis",
+                            accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 20 ? .orange : Color.accentColor,
+                            isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
                         )
+                        .help(i18n.language == .ru ? "Тренд энергопотребления за последние дни" : "Power consumption trend over recent days")
                         EnhancedStatCard(
-                            title: i18n.t("discharge.per.hour.7d"),
-                            value: discharge7dValueText(),
-                            icon: "chart.line.downtrend.xyaxis",
-                            accentColor: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 10 ? .orange : (analytics.hasEnoughData7d(history: history.items) ? Color.accentColor : .secondary),
-                            healthStatus: analytics.hasEnoughData7d(history: history.items) && analytics.estimateDischargePerHour7d(history: history.items) >= 0.1 ? analytics.evaluateDischargeStatus(ratePerHour: analytics.estimateDischargePerHour7d(history: history.items)) : nil,
-                            isCollectingData: isCollecting7d()
+                            title: i18n.t("energy.efficiency"),
+                            value: getEnergyEfficiency(),
+                            icon: "leaf.fill",
+                            accentColor: getEnergyEfficiencyColor(),
+                            isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
                         )
+                        .help(i18n.language == .ru ? "Эффективность использования энергии батареи" : "Battery energy usage efficiency")
                     }
                 }
             }
@@ -875,7 +977,7 @@ struct HealthSummary: View {
                 .font(.headline)
             HStack {
                 StatCard(title: i18n.t("health"), value: "\(analysis.healthScore)/100")
-                StatCard(title: i18n.t("avg.discharge.per.hour.7d"), value: i18n.language == .ru ? String(format: "%.1f %% в час", analysis.avgDischargePerHour) : String(format: "%.1f %%/h", analysis.avgDischargePerHour))
+                StatCard(title: i18n.t("average.power"), value: i18n.language == .ru ? String(format: "%.1f Вт", analysis.averagePower) : String(format: "%.1f W", analysis.averagePower))
                 StatCard(title: i18n.t("runtime"), value: i18n.language == .ru ? String(format: "%.1f ч", analysis.estimatedRuntimeFrom100To0Hours) : String(format: "%.1f h", analysis.estimatedRuntimeFrom100To0Hours))
             }
             if !analysis.anomalies.isEmpty {
@@ -920,10 +1022,10 @@ struct EnhancedHealthSummary: View {
                     accentColor: healthColor
                 )
                 EnhancedStatCard(
-                    title: i18n.t("avg.discharge.per.hour.7d"),
-                    value: i18n.language == .ru ? String(format: "%.1f %%/ч", analysis.avgDischargePerHour) : String(format: "%.1f %%/h", analysis.avgDischargePerHour),
-                    icon: "chart.line.downtrend.xyaxis",
-                    accentColor: analysis.avgDischargePerHour > 15 ? .orange : Color.accentColor
+                    title: i18n.t("average.power"),
+                    value: i18n.language == .ru ? String(format: "%.1f Вт", analysis.averagePower) : String(format: "%.1f W", analysis.averagePower),
+                    icon: "bolt.fill",
+                    accentColor: analysis.averagePower > 15 ? .orange : Color.accentColor
                 )
                 EnhancedStatCard(
                     title: i18n.t("runtime"),

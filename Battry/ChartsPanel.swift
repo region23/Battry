@@ -226,24 +226,7 @@ struct ChartsPanel: View {
                     }
                     // OCV overlay reconstructed from readings using DCIR points derived from power steps (if present)
                     if showOCV {
-                        // Extract DCIR points from the current raw window (heuristic similar to AnalyticsEngine)
-                        var dcirPts: [DCIRCalculator.DCIRPoint] = []
-                        if raw.count >= 6 {
-                            for idx in 1..<raw.count {
-                                let prev = raw[idx - 1]
-                                let cur = raw[idx]
-                                if prev.isCharging || cur.isCharging { continue }
-                                let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
-                                if dt <= 0 || dt > 3.0 { continue }
-                                let dP = abs(cur.power) - abs(prev.power)
-                                if abs(dP) >= 3.0,
-                                   let pt = DCIRCalculator.estimateDCIR(samples: raw, pulseStartIndex: idx, windowSeconds: 3.0) {
-                                    dcirPts.append(pt)
-                                }
-                            }
-                        }
-                        let ocvAnalyzer = OCVAnalyzer(dcirPoints: dcirPts)
-                        let ocvCurve = ocvAnalyzer.buildOCVCurve(from: raw, binSize: 2.0)
+                        let ocvCurve = calculateOCVCurve(from: raw)
                         // Отобразим OCV как SOC vs Voltage, сопоставив SOC к времени через ближайшие точки
                         // Для простоты прорисуем как Voltage vs Time по ближайшему времени в бине
                         ForEach(ocvCurve.indices, id: \.self) { i in
@@ -276,25 +259,7 @@ struct ChartsPanel: View {
                     }
                     // DCIR vs SOC как точки на отдельной оси по времени: отобразим маркерами
                     if showDCIR {
-                        // В AnalyticsEngine DCIR из истории может быть извлечён. Попытаемся рассчитать на лету
-                        let engine = AnalyticsEngine()
-                        let dcirPts = engine.analyze(history: raw, snapshot: snapshot).dcirAt50Percent != nil ? engine : nil
-                        // Если в кеше уже посчитано в рамках healthScoreSeries — используем простую на лету оценку
-                        // Упростим: вычислим DCIR по ступеням мощности (быстрая эвристика)
-                        var plotted: [(Date, Double)] = []
-                        for idx in 1..<raw.count {
-                            let prev = raw[idx-1]
-                            let cur = raw[idx]
-                            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
-                            if prev.isCharging || cur.isCharging || dt <= 0 || dt > 3 { continue }
-                            let dP = abs(cur.power) - abs(prev.power)
-                            if abs(dP) >= 3.0 {
-                                if let pt = DCIRCalculator.estimateDCIR(samples: raw, pulseStartIndex: idx, windowSeconds: 3.0) {
-                                    // Привяжем к текущему времени
-                                    plotted.append((cur.timestamp, pt.resistanceMohm))
-                                }
-                            }
-                        }
+                        let plotted = calculateDCIRSeries(from: raw)
                         ForEach(plotted.indices, id: \.self) { i in
                             let p = plotted[i]
                             PointMark(x: .value("t", p.0), y: .value("mΩ", p.1))
@@ -346,8 +311,10 @@ struct ChartsPanel: View {
         if showPercent { parts.append("%") }
         if showTemp { parts.append("°C") }
         if showVolt { parts.append("V") }
+        if showOCV { parts.append("OCV") }
         if showPower { parts.append("W") }
         if showHealthScore { parts.append("Health") }
+        if showDCIR { parts.append("DCIR") }
         if showDrain { parts.append("%/h") }
         var s = parts.joined(separator: ", ")
         var extras: [String] = []
@@ -559,6 +526,50 @@ struct ChartsPanel: View {
         let readings = data()
         guard let firstReading = readings.first, let lastReading = readings.last else { return [] }
         return history.eventsBetween(from: firstReading.timestamp, to: lastReading.timestamp)
+    }
+    
+    private func calculateOCVCurve(from raw: [BatteryReading]) -> [OCVAnalyzer.OCVPoint] {
+        // Extract DCIR points from the current raw window (heuristic similar to AnalyticsEngine)
+        var dcirPts: [DCIRCalculator.DCIRPoint] = []
+        if raw.count >= 6 {
+            for idx in 1..<raw.count {
+                let prev = raw[idx - 1]
+                let cur = raw[idx]
+                if prev.isCharging || cur.isCharging { continue }
+                let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+                if dt <= 0 || dt > 3.0 { continue }
+                let dP = abs(cur.power) - abs(prev.power)
+                if abs(dP) >= 3.0,
+                   let pt = DCIRCalculator.estimateDCIR(samples: raw, pulseStartIndex: idx, windowSeconds: 3.0) {
+                    dcirPts.append(pt)
+                }
+            }
+        }
+        let ocvAnalyzer = OCVAnalyzer(dcirPoints: dcirPts)
+        return ocvAnalyzer.buildOCVCurve(from: raw, binSize: 2.0)
+    }
+    
+    private func calculateDCIRSeries(from raw: [BatteryReading]) -> [(Date, Double)] {
+        // В AnalyticsEngine DCIR из истории может быть извлечён. Попытаемся рассчитать на лету
+        let engine = AnalyticsEngine()
+        let _ = engine.analyze(history: raw, snapshot: snapshot).dcirAt50Percent != nil ? engine : nil
+        // Если в кеше уже посчитано в рамках healthScoreSeries — используем простую на лету оценку
+        // Упростим: вычислим DCIR по ступеням мощности (быстрая эвристика)
+        var plotted: [(Date, Double)] = []
+        for idx in 1..<raw.count {
+            let prev = raw[idx-1]
+            let cur = raw[idx]
+            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+            if prev.isCharging || cur.isCharging || dt <= 0 || dt > 3 { continue }
+            let dP = abs(cur.power) - abs(prev.power)
+            if abs(dP) >= 3.0 {
+                if let pt = DCIRCalculator.estimateDCIR(samples: raw, pulseStartIndex: idx, windowSeconds: 3.0) {
+                    // Привяжем к текущему времени
+                    plotted.append((cur.timestamp, pt.resistanceMohm))
+                }
+            }
+        }
+        return plotted
     }
 }
 
