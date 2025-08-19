@@ -224,9 +224,25 @@ struct ChartsPanel: View {
                             .interpolationMethod(.monotone)
                         }
                     }
-                    // OCV overlay reconstructed from readings (requires DCIR points if available)
+                    // OCV overlay reconstructed from readings using DCIR points derived from power steps (if present)
                     if showOCV {
-                        let ocvAnalyzer = OCVAnalyzer(dcirPoints: [])
+                        // Extract DCIR points from the current raw window (heuristic similar to AnalyticsEngine)
+                        var dcirPts: [DCIRCalculator.DCIRPoint] = []
+                        if raw.count >= 6 {
+                            for idx in 1..<raw.count {
+                                let prev = raw[idx - 1]
+                                let cur = raw[idx]
+                                if prev.isCharging || cur.isCharging { continue }
+                                let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+                                if dt <= 0 || dt > 3.0 { continue }
+                                let dP = abs(cur.power) - abs(prev.power)
+                                if abs(dP) >= 3.0,
+                                   let pt = DCIRCalculator.estimateDCIR(samples: raw, pulseStartIndex: idx, windowSeconds: 3.0) {
+                                    dcirPts.append(pt)
+                                }
+                            }
+                        }
+                        let ocvAnalyzer = OCVAnalyzer(dcirPoints: dcirPts)
                         let ocvCurve = ocvAnalyzer.buildOCVCurve(from: raw, binSize: 2.0)
                         // Отобразим OCV как SOC vs Voltage, сопоставив SOC к времени через ближайшие точки
                         // Для простоты прорисуем как Voltage vs Time по ближайшему времени в бине

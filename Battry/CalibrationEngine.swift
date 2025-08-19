@@ -236,8 +236,19 @@ final class CalibrationEngine: ObservableObject {
 
                 // Если режим CP — вычисляем целевую мощность и запускаем контроллер
                 if case .cp(let preset) = currentRunKind {
-                    let nominalV = 11.1 // можно улучшить с avg V_OC при желании
-                    cpTargetPowerW = PowerCalculator.targetPower(for: preset, designCapacityMah: snapshot.designCapacity, nominalVoltage: nominalV)
+                    // Используем среднее V_OC из недавней истории, fallback на 11.1 В
+                    var avgVOC: Double = 11.1
+                    if let hs = historyStore {
+                        let recent = hs.recent(hours: 6)
+                        if let v = OCVAnalyzer.averageVOC(from: recent) {
+                            avgVOC = max(5.0, v)
+                        }
+                    }
+                    cpTargetPowerW = PowerCalculator.targetPower(
+                        for: preset,
+                        designCapacityMah: snapshot.designCapacity,
+                        nominalVoltage: avgVOC
+                    )
                     setupCPController()
                     constantPowerController.start(targetPower: cpTargetPowerW)
                 }

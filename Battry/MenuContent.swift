@@ -458,6 +458,22 @@ struct MenuContent: View {
             return String(format: "%.0fм", runtimeHours * 60)
         }
     }
+
+    /// Время работы для эквивалентного C‑рейта (0.1C/0.2C/0.3C) по рекомендациям эксперта
+    private func getRuntimeForCRate(_ cRate: Double) -> String {
+        let designMah = battery.state.designCapacity
+        guard designMah > 0, cRate > 0 else { return "—" }
+        // Используем среднее V_OC, если доступно в аналитике; иначе номинал 11.1В
+        let avgVOC = OCVAnalyzer.averageVOC(from: history.items) ?? 11.1
+        let designWh = Double(designMah) * max(5.0, avgVOC) / 1000.0
+        let sohCap = battery.state.maxCapacity > 0 ? Double(battery.state.maxCapacity) / Double(designMah) : 1.0
+        let effectiveWh = max(0.0, min(1.0, sohCap)) * designWh
+        let targetW = designWh * cRate
+        guard targetW > 0 else { return "—" }
+        let hours = effectiveWh / targetW
+        if hours >= 1.0 { return String(format: "%.1fч", hours) }
+        return String(format: "%.0fм", hours * 60)
+    }
     
     // MARK: - Новые функции для метрик согласно рекомендациям профессора
     
@@ -590,7 +606,7 @@ struct MenuContent: View {
                     .help(i18n.language == .ru ? "Длительно >40°C ускоряет износ" : "Prolonged >40°C accelerates wear")
                 }
 
-                // Компактный блок прогнозов времени для типовых нагрузок
+                // Компактный блок прогнозов времени для типовых нагрузок (пересчитанных как 0.1C/0.2C/0.3C)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Image(systemName: "clock.arrow.circlepath")
@@ -604,21 +620,21 @@ struct MenuContent: View {
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
                             Text(i18n.t("preset.light")).font(.caption2).foregroundStyle(.secondary)
-                            Text(getRuntimeForPowerPreset(5.0)).font(.caption2).fontWeight(.medium)
+                            Text(getRuntimeForCRate(0.1)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.blue.opacity(0.1), in: Capsule())
                         HStack(spacing: 4) {
                             Text(i18n.t("preset.medium")).font(.caption2).foregroundStyle(.secondary)
-                            Text(getRuntimeForPowerPreset(10.0)).font(.caption2).fontWeight(.medium)
+                            Text(getRuntimeForCRate(0.2)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(.orange.opacity(0.1), in: Capsule())
                         HStack(spacing: 4) {
                             Text(i18n.t("preset.heavy")).font(.caption2).foregroundStyle(.secondary)
-                            Text(getRuntimeForPowerPreset(15.0)).font(.caption2).fontWeight(.medium)
+                            Text(getRuntimeForCRate(0.3)).font(.caption2).fontWeight(.medium)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)

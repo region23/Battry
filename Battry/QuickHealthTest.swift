@@ -127,8 +127,8 @@ final class QuickHealthTest: ObservableObject {
     private let calibrationDurationSec: TimeInterval = 150 // 2.5 мин калибровка в покое
     private let pulseDurationSec: TimeInterval = 10 // 10 сек пульс нагрузки
     private let restDurationSec: TimeInterval = 25 // 25 сек отдых между пульсами
-    // Конфигурируемая ширина энергетического окна в процентах SOC (по умолчанию 15%)
-    private let energyWindowSpanPct: Int = 15
+    // Конфигурируемая ширина энергетического окна в процентах SOC (по умолчанию 30% → окно 80→50)
+    private let energyWindowSpanPct: Int = 30
     
     // MARK: - Public Methods
     
