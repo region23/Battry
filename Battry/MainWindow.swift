@@ -23,7 +23,7 @@ struct MainWindow: View {
             initialPanel: windowState.activePanel,
             windowState: windowState
         )
-        .frame(width: 460, height: 600)
+        .frame(width: 720, height: 500)
         .navigationTitle("Battry")
     }
 }

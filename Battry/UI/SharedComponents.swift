@@ -34,16 +34,16 @@ struct EnhancedStatCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             // Заголовок с иконкой
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(accentColor)
                 }
                 Text(title)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                 Spacer()
@@ -51,8 +51,8 @@ struct EnhancedStatCard: View {
                 if let badge = badge {
                     Text(badge)
                         .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
                         .background(badgeColor.opacity(0.15), in: Capsule())
                         .foregroundStyle(badgeColor)
                 } else if let healthStatus = healthStatus {
@@ -68,15 +68,15 @@ struct EnhancedStatCard: View {
                     .lineLimit(1)
             } else {
                 Text(value)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.7)
             }
         }
-        .padding(10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(healthStatusColor.opacity(0.1), lineWidth: 1)
         )
     }
@@ -98,8 +98,8 @@ struct EnhancedStatCard: View {
         let i18n = Localization.shared
         Text(i18n.t(status.localizationKey))
             .font(.caption2)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
             .background(healthStatusColor.opacity(0.15), in: Capsule())
             .foregroundStyle(healthStatusColor)
     }
@@ -150,8 +150,8 @@ struct PeriodButton: View {
             Text(title)
                 .font(.caption)
                 .fontWeight(.medium)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(
                     isSelected ? Color.accentColor : Color.clear,
                     in: Capsule()
@@ -172,18 +172,18 @@ struct MetricToggleButton: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Circle()
                     .fill(color)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 6, height: 6)
                 Text(title)
-                    .font(.callout)
-                    .fontWeight(.medium)
+                    .font(.caption)
+                    .fontWeight(.semibold)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
             .background(
                 isSelected ? color.opacity(0.15) : Color.clear,
                 in: Capsule()

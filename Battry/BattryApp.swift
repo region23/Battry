@@ -50,7 +50,7 @@ struct BattryApp: App {
             )
         }
         .windowResizability(.contentSize)
-        .defaultSize(width: 460, height: 600)
+        .defaultSize(width: 720, height: 500)
         
         // Меню в строке меню
         MenuBarExtra {
