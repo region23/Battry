@@ -33,11 +33,37 @@ struct MenuContent: View {
     @ObservedObject var i18n: Localization = .shared
     @Environment(\.colorScheme) var colorScheme
     @State private var isAnalyzing = false
-    @State private var panel: Panel = .overview
+    @State private var panel: Panel
     @State private var hasNotch = false
     @State private var pulseScale: CGFloat = 1.0
     @State private var isWindowVisible = true
     @State private var showDetails = false
+    
+    // Опционально принимаем windowState для синхронизации
+    private let windowState: WindowState?
+    
+    /// Инициализатор с возможностью задать начальную панель
+    init(
+        battery: BatteryViewModel,
+        history: HistoryStore,
+        analytics: AnalyticsEngine,
+        calibrator: CalibrationEngine,
+        loadGenerator: LoadGenerator,
+        safetyGuard: LoadSafetyGuard,
+        updateChecker: UpdateChecker,
+        initialPanel: Panel = .overview,
+        windowState: WindowState? = nil
+    ) {
+        self.battery = battery
+        self.history = history
+        self.analytics = analytics
+        self.calibrator = calibrator
+        self.loadGenerator = loadGenerator
+        self.safetyGuard = safetyGuard
+        self.updateChecker = updateChecker
+        self.windowState = windowState
+        self._panel = State(initialValue: initialPanel)
+    }
     
     /// Вычисляет отступ сверху для корректного позиционирования под челкой
     private var topPadding: CGFloat {
@@ -58,6 +84,7 @@ struct MenuContent: View {
                     ForEach(Panel.allCases.filter { $0 != .settings && $0 != .about }) { p in
                         Button {
                             panel = p
+                            windowState?.switchToPanel(p)
                         } label: {
                             HStack(spacing: 4) {
                                 Text(i18n.t("panel.\(p.rawValue)"))
@@ -200,12 +227,14 @@ struct MenuContent: View {
         .contextMenu {
             Button {
                 panel = .settings
+                windowState?.switchToPanel(.settings)
             } label: {
                 Label(i18n.t("settings"), systemImage: "gearshape")
             }
             
             Button {
                 panel = .about
+                windowState?.switchToPanel(.about)
             } label: {
                 Label(i18n.t("about"), systemImage: "info.circle")
             }
@@ -216,6 +245,11 @@ struct MenuContent: View {
                 NSApplication.shared.terminate(nil)
             } label: {
                 Label(i18n.t("quit"), systemImage: "power")
+            }
+        }
+        .onChange(of: windowState?.activePanel) { _, newPanel in
+            if let newPanel = newPanel, newPanel != panel {
+                panel = newPanel
             }
         }
     }

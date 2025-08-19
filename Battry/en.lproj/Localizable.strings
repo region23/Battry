@@ -318,3 +318,9 @@
 "hide.details" = "Hide Details";
 "temperature.status.normal" = "Normal";
 "temperature.status.high" = "High";
+
+// Menu bar menu items
+"menu.open.battry" = "Open Battry";
+"menu.settings" = "Settings...";
+"menu.about" = "About";
+"menu.quit" = "Quit";

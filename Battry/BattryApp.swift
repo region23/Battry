@@ -29,23 +29,37 @@ struct BattryApp: App {
     @StateObject private var updateChecker = UpdateChecker()
     /// Локализация (переключение языка в UI)
     @StateObject private var i18n = Localization.shared
+    /// Состояние главного окна
+    @StateObject private var windowState = WindowState()
     
     /// Настройка отображения процента в меню баре
     @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
 
     var body: some Scene {
-        MenuBarExtra {
-            // Основное содержимое окна из строки меню
-            MenuContent(
-                battery: battery, 
-                history: history, 
-                analytics: analytics, 
+        // Основное окно приложения
+        WindowGroup(id: "main") {
+            MainWindow(
+                battery: battery,
+                history: history,
+                analytics: analytics,
                 calibrator: calibrator,
                 loadGenerator: loadGenerator,
                 safetyGuard: safetyGuard,
-                updateChecker: updateChecker
+                updateChecker: updateChecker,
+                windowState: windowState
             )
-                .frame(width: 460)
+        }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 460, height: 600)
+        
+        // Меню в строке меню
+        MenuBarExtra {
+            MenuBarMenuContent(
+                battery: battery,
+                i18n: i18n,
+                windowState: windowState,
+                setupServices: setupServices
+            )
         } label: {
             HStack(spacing: 4) {
                 if let iconName = getMenuBarIcon() {
@@ -65,31 +79,34 @@ struct BattryApp: App {
                         .monospacedDigit()
                 }
             }
-            .onAppear {
-                // Инициализируем опрос батареи при создании label (показывается сразу при запуске)
-                battery.start()
-                history.start()
-                calibrator.bind(to: battery.publisher, viewModel: battery)
-                calibrator.attachHistory(history)
-                calibrator.attachLoadGenerators(cpu: loadGenerator)
-                
-                // Настраиваем callback для safetyGuard
-                safetyGuard.setStopCallback { reason in
-                    Task { @MainActor in
-                        loadGenerator.stop(reason: reason)
-                    }
-                }
-                
-                // Связываем генератор нагрузки с охранником безопасности
-                safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
-            }
         }
-        .menuBarExtraStyle(.window)
+        .menuBarExtraStyle(.menu)
         .onChange(of: battery.state) { oldValue, newValue in
             // На каждое обновление состояния добавляем точку в историю
             history.append(from: newValue)
         }
     }
+    
+    /// Настраивает все сервисы приложения
+    private func setupServices() {
+        // Инициализируем опрос батареи
+        battery.start()
+        history.start()
+        calibrator.bind(to: battery.publisher, viewModel: battery)
+        calibrator.attachHistory(history)
+        calibrator.attachLoadGenerators(cpu: loadGenerator)
+        
+        // Настраиваем callback для safetyGuard
+        safetyGuard.setStopCallback { reason in
+            Task { @MainActor in
+                loadGenerator.stop(reason: reason)
+            }
+        }
+        
+        // Связываем генератор нагрузки с охранником безопасности
+        safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
+    }
+    
     
     /// Выбирает иконку для строки меню
     private func getMenuBarIcon() -> String? {

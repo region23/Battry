@@ -318,3 +318,9 @@
 "hide.details" = "Скрыть детали";
 "temperature.status.normal" = "Норма";
 "temperature.status.high" = "Высокая";
+
+// Меню в menu bar
+"menu.open.battry" = "Открыть Battry";
+"menu.settings" = "Настройки...";
+"menu.about" = "О программе";
+"menu.quit" = "Выход";
