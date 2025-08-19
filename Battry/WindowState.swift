@@ -21,6 +21,7 @@ class WindowState: ObservableObject {
     /// Сохраняем в AppStorage
     @AppStorage("app.selectedPanel") private var storedPanel: Panel = .overview
     
+    
     private var cancellables = Set<AnyCancellable>()
     
     init() {
@@ -44,11 +45,27 @@ class WindowState: ObservableObject {
         activePanel = panel
     }
     
+    /// Проверяет видимость главного окна приложения
+    func isMainWindowVisible() -> Bool {
+        let mainWindow = NSApp.windows.first { window in
+            return window.contentView != nil && 
+                   !window.styleMask.contains(.utilityWindow)
+        }
+        return mainWindow?.isVisible == true
+    }
+    
     /// Активирует главное окно приложения и переключается на панель
-    func activateWindow(panel: Panel? = nil) {
-        // Сначала переключаем панель, если указана
+    func activateWindow(panel: Panel? = nil, forcePanel: Bool = false) {
+        // Проверяем видимость окна перед переключением панели
+        let windowWasVisible = isMainWindowVisible()
+        
+        // Переключаем панель если:
+        // 1. Принудительное переключение включено, или
+        // 2. Окно было скрыто
         if let panel = panel {
-            activePanel = panel
+            if forcePanel || !windowWasVisible {
+                activePanel = panel
+            }
         }
         
         // Активируем приложение
@@ -66,9 +83,8 @@ class WindowState: ObservableObject {
             window.makeKeyAndOrderFront(nil)
             window.orderFrontRegardless()
         } else {
-            // Если главное окно не найдено, ничего не делаем
-            // Приложение-агент обычно не создаёт новые окна программно
-            print("Главное окно не найдено")
+            // Если главное окно не найдено (что теперь не должно происходить)
+            print("Главное окно не найдено - это не должно происходить")
         }
     }
 }

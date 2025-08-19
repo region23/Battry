@@ -12,22 +12,22 @@ struct SettingsPanel: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 12) {
                 // Основные настройки
                 ModernSettingsCard {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
                         ModernSettingsHeader(
                             title: i18n.t("settings.general"),
                             icon: "gearshape.fill",
                             color: .blue
                         )
                         
-                        VStack(spacing: 12) {
+                        VStack(spacing: 8) {
                             ModernSettingsRow {
                                 HStack {
                                     Image(systemName: "globe")
                                         .foregroundStyle(.blue)
-                                        .frame(width: 20)
+                                        .frame(width: 18)
                                     Text(i18n.t("settings.language"))
                                         .font(.system(.body, weight: .medium))
                                     Spacer()
@@ -46,7 +46,7 @@ struct SettingsPanel: View {
                                 HStack {
                                     Image(systemName: "percent")
                                         .foregroundStyle(.blue)
-                                        .frame(width: 20)
+                                        .frame(width: 18)
                                     Text(i18n.t("settings.show.percentage"))
                                         .font(.system(.body, weight: .medium))
                                     Spacer()
@@ -142,14 +142,14 @@ struct SettingsPanel: View {
                 
                 // Управление данными
                 ModernSettingsCard {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
                         ModernSettingsHeader(
                             title: i18n.t("settings.data"),
                             icon: "externaldrive.fill",
                             color: .green
                         )
                         
-                        VStack(spacing: 12) {
+                        VStack(spacing: 8) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(i18n.t("settings.data.entries.label"))
@@ -259,7 +259,7 @@ struct ModernSettingsCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             content
         }
-        .padding(20)
+        .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.regularMaterial)
@@ -295,11 +295,11 @@ struct ModernSettingsHeader: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(color)
-                .frame(width: 20, height: 20)
+                .frame(width: 18, height: 18)
             Text(title)
-                .font(.system(.title3, weight: .semibold))
+                .font(.system(.body, weight: .semibold))
                 .foregroundStyle(.primary)
         }
     }
@@ -333,8 +333,8 @@ struct ModernSettingsRow<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             content
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.primary.opacity(0.03))

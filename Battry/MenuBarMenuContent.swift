@@ -7,6 +7,7 @@ struct MenuBarMenuContent: View {
     @ObservedObject var windowState: WindowState
     let setupServices: () -> Void
     
+    
     var body: some View {
         VStack {
             Button(i18n.t("menu.open.battry")) {
@@ -17,12 +18,12 @@ struct MenuBarMenuContent: View {
             Divider()
             
             Button(i18n.t("menu.settings")) {
-                windowState.activateWindow(panel: .settings)
+                windowState.activateWindow(panel: .settings, forcePanel: true)
             }
             .keyboardShortcut(",", modifiers: .command)
             
             Button(i18n.t("menu.about")) {
-                windowState.activateWindow(panel: .about)
+                windowState.activateWindow(panel: .about, forcePanel: true)
             }
             
             Divider()
