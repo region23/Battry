@@ -7,216 +7,210 @@ struct SettingsPanel: View {
     @ObservedObject var calibrator: CalibrationEngine
     @ObservedObject var i18n: Localization = .shared
     @State private var showClearDataConfirm: Bool = false
+    @State private var isTemperatureExpanded: Bool = false
     @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Секция основных настроек
-            SettingsSection {
-                SettingsHeader(title: i18n.t("settings.general"), icon: "gearshape")
-                
-                VStack(spacing: 12) {
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.t("settings.language"),
-                            icon: "globe",
-                            description: i18n.t("settings.language.description")
+        ScrollView {
+            VStack(spacing: 20) {
+                // Основные настройки
+                ModernSettingsCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ModernSettingsHeader(
+                            title: i18n.t("settings.general"),
+                            icon: "gearshape.fill",
+                            color: .blue
                         )
-                        Spacer()
-                        Picker("", selection: $i18n.language) {
-                            ForEach(AppLanguage.allCases) { l in
-                                Text(l.label).tag(l)
+                        
+                        VStack(spacing: 12) {
+                            ModernSettingsRow {
+                                HStack {
+                                    Image(systemName: "globe")
+                                        .foregroundStyle(.blue)
+                                        .frame(width: 20)
+                                    Text(i18n.t("settings.language"))
+                                        .font(.system(.body, weight: .medium))
+                                    Spacer()
+                                    Picker("", selection: $i18n.language) {
+                                        ForEach(AppLanguage.allCases) { l in
+                                            Text(l.label).tag(l)
+                                        }
+                                    }
+                                    .pickerStyle(.segmented)
+                                    .frame(width: 120)
+                                }
                             }
+                            .help(i18n.t("settings.language.description"))
+                            
+                            ModernSettingsRow {
+                                HStack {
+                                    Image(systemName: "percent")
+                                        .foregroundStyle(.blue)
+                                        .frame(width: 20)
+                                    Text(i18n.t("settings.show.percentage"))
+                                        .font(.system(.body, weight: .medium))
+                                    Spacer()
+                                    Toggle("", isOn: $showPercentageInMenuBar)
+                                        .labelsHidden()
+                                        .tint(.blue)
+                                }
+                            }
+                            .help(i18n.t("settings.show.percentage.description"))
                         }
-                        .pickerStyle(.segmented)
-                        .frame(width: 120)
                     }
-                    
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.t("settings.show.percentage"),
-                            icon: "percent",
-                            description: i18n.t("settings.show.percentage.description")
-                        )
-                        Spacer()
-                        Toggle("", isOn: $showPercentageInMenuBar)
-                            .labelsHidden()
-                    }
-                    
                 }
-            }
-            
-            // Температурная нормализация (самообучение)
-            SettingsSection {
-                SettingsHeader(title: i18n.language == .ru ? "Температурная нормализация" : "Temperature Normalization", icon: "thermometer")
-                let coeffs = TemperatureNormalizer.currentCoefficients()
-                VStack(spacing: 10) {
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.language == .ru ? "Коэффициент SOH (%/°C)" : "SOH coefficient (%/°C)",
-                            icon: "function",
-                            description: i18n.language == .ru ? "Используется для нормализации SOH по температуре" : "Used to normalize SOH by temperature"
-                        )
-                        Spacer()
-                        Text(String(format: "%.3f", coeffs.sohPerDegree))
-                            .foregroundStyle(.secondary)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.language == .ru ? "Коэффициент DCIR (%/°C)" : "DCIR coefficient (%/°C)",
-                            icon: "function",
-                            description: i18n.language == .ru ? "Используется для нормализации DCIR по температуре" : "Used to normalize DCIR by temperature"
-                        )
-                        Spacer()
-                        Text(String(format: "%.3f", coeffs.dcirPerDegree))
-                            .foregroundStyle(.secondary)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.language == .ru ? "Рабочий диапазон (°C)" : "Operating range (°C)",
-                            icon: "thermometer",
-                            description: i18n.language == .ru ? "Нормализация применяется только внутри этого диапазона" : "Normalization applies only within this range"
-                        )
-                        Spacer()
-                        Text(String(format: "%.0f–%.0f", coeffs.minTemperature, coeffs.maxTemperature))
-                            .foregroundStyle(.secondary)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.language == .ru ? "Наблюдений в базе" : "Observations stored",
-                            icon: "tray",
-                            description: i18n.language == .ru ? "Используются для подстройки коэффициентов" : "Used to fit coefficients"
-                        )
-                        Spacer()
-                        Text("\(TemperatureNormalizer.observationCount())")
-                            .foregroundStyle(.secondary)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    HStack {
-                        Spacer()
+                
+                // Температурная нормализация
+                ModernSettingsCard {
+                    VStack(alignment: .leading, spacing: 12) {
                         Button {
-                            TemperatureNormalizer.resetSelfLearning()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isTemperatureExpanded.toggle()
+                            }
                         } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "arrow.counterclockwise")
-                                Text(i18n.language == .ru ? "Сбросить коэффициенты" : "Reset coefficients")
+                            HStack {
+                                ModernSettingsHeader(
+                                    title: i18n.language == .ru ? "Температурная нормализация" : "Temperature Normalization",
+                                    icon: "thermometer.variable",
+                                    color: .orange
+                                )
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .rotationEffect(.degrees(isTemperatureExpanded ? 90 : 0))
                             }
                         }
-                        .buttonStyle(.bordered)
-                    }
-                }
-            }
-            
-            // Секция управления данными
-            SettingsSection {
-                SettingsHeader(title: i18n.t("settings.data"), icon: "externaldrive")
-                
-                VStack(spacing: 12) {
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.t("settings.data.entries.label"),
-                            icon: "list.number",
-                            description: i18n.t("settings.data.entries.description")
-                        )
-                        Spacer()
-                        Text("\(history.itemsCount)")
-                            .foregroundStyle(.secondary)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.t("settings.data.size.label"),
-                            icon: "externaldrive",
-                            description: i18n.t("settings.data.size.description")
-                        )
-                        Spacer()
-                        Text(readableSize(totalBytes))
-                            .foregroundStyle(.secondary)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    
-                    SettingsRow {
-                        SettingsLabel(
-                            title: i18n.t("settings.data.open.folder"),
-                            icon: "folder",
-                            description: i18n.t("settings.data.open.folder.description")
-                        )
-                        Spacer()
-                        Button {
-                            openDataFolder()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "folder")
-                                Text(i18n.t("settings.data.open.folder"))
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-                
-                Divider()
-                    .padding(.vertical, 8)
-                
-                // Опасная зона - удаление данных
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Label(i18n.t("settings.data.danger.zone"), systemImage: "exclamationmark.triangle")
+                        .buttonStyle(.plain)
+                        
+                        // Краткое объяснение всегда видимо
+                        Text(i18n.language == .ru ? "Автоматическая корректировка результатов тестов батареи с учётом температуры для точного сравнения" : "Automatic correction of battery test results considering temperature for accurate comparison")
                             .font(.caption)
-                            .foregroundStyle(.orange)
-                        Spacer()
-                    }
-                    
-                    Button(role: .destructive) {
-                        showClearDataConfirm = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "trash")
-                            Text(i18n.t("settings.data.clear"))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        
+                        let coeffs = TemperatureNormalizer.currentCoefficients()
+                        let observationCount = TemperatureNormalizer.observationCount()
+                        
+                        // Статус обучения
+                        StatusIndicator(
+                            status: observationCount > 10 ? .active : .learning,
+                            text: observationCount > 10 ? 
+                                (i18n.language == .ru ? "Активна • \(observationCount) наблюдений" : "Active • \(observationCount) observations") :
+                                (i18n.language == .ru ? "Обучается • \(observationCount) наблюдений" : "Learning • \(observationCount) observations")
+                        )
+                        
+                        if isTemperatureExpanded {
+                            VStack(spacing: 10) {
+                                DetailRow(
+                                    title: "SOH (%/°C)",
+                                    value: String(format: "%.3f", coeffs.sohPerDegree),
+                                    helpText: i18n.language == .ru ? "Коррекция ёмкости по температуре" : "Capacity correction by temperature"
+                                )
+                                
+                                DetailRow(
+                                    title: "DCIR (%/°C)",
+                                    value: String(format: "%.3f", coeffs.dcirPerDegree),
+                                    helpText: i18n.language == .ru ? "Коррекция сопротивления по температуре" : "Resistance correction by temperature"
+                                )
+                                
+                                DetailRow(
+                                    title: i18n.language == .ru ? "Диапазон" : "Range",
+                                    value: String(format: "%.0f–%.0f°C", coeffs.minTemperature, coeffs.maxTemperature),
+                                    helpText: i18n.language == .ru ? "Рабочий диапазон температур" : "Operating temperature range"
+                                )
+                                
+                                HStack {
+                                    Spacer()
+                                    Button {
+                                        TemperatureNormalizer.resetSelfLearning()
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "arrow.counterclockwise")
+                                            Text(i18n.language == .ru ? "Сбросить коэффициенты" : "Reset coefficients")
+                                        }
+                                        .font(.caption)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.orange)
+                                }
+                            }
+                            .padding(.top, 8)
                         }
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-
-                    if showClearDataConfirm {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
-                                Text(i18n.t("settings.data.clear"))
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
+                }
+                
+                // Управление данными
+                ModernSettingsCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ModernSettingsHeader(
+                            title: i18n.t("settings.data"),
+                            icon: "externaldrive.fill",
+                            color: .green
+                        )
+                        
+                        VStack(spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(i18n.t("settings.data.entries.label"))
+                                        .font(.system(.body, weight: .medium))
+                                    Text("\(history.itemsCount) записей")
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(i18n.t("settings.data.size.label"))
+                                        .font(.system(.body, weight: .medium))
+                                    Text(readableSize(totalBytes))
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
-                            Text(i18n.t("settings.data.confirm"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            HStack(spacing: 8) {
-                                Button(i18n.t("reset"), role: .destructive) {
-                                    clearAllData()
-                                    showClearDataConfirm = false
+                            
+                            Divider()
+                            
+                            HStack(spacing: 12) {
+                                Button {
+                                    openDataFolder()
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "folder.fill")
+                                        Text(i18n.t("settings.data.open.folder"))
+                                    }
+                                    .font(.system(.body, weight: .medium))
                                 }
                                 .buttonStyle(.borderedProminent)
-                                Button(i18n.t("cancel"), role: .cancel) {
-                                    showClearDataConfirm = false
+                                .tint(.green)
+                                .help(i18n.t("settings.data.open.folder.description"))
+                                
+                                Button(role: .destructive) {
+                                    showClearDataConfirm = true
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "trash.fill")
+                                        Text(i18n.t("settings.data.clear"))
+                                    }
+                                    .font(.system(.body, weight: .medium))
                                 }
                                 .buttonStyle(.bordered)
+                                .tint(.red)
                             }
                         }
-                        .padding(8)
-                        .background(
-                            .regularMaterial,
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        )
                     }
                 }
-                .padding(.top, 4)
             }
-            
-            Spacer()
+            .padding()
+        }
+        .alert(i18n.t("settings.data.clear"), isPresented: $showClearDataConfirm) {
+            Button(i18n.t("reset"), role: .destructive) {
+                clearAllData()
+            }
+            Button(i18n.t("cancel"), role: .cancel) {}
+        } message: {
+            Text(i18n.t("settings.data.confirm"))
         }
     }
 
@@ -252,7 +246,30 @@ private extension HistoryStore {
     var itemsCount: Int { items.count }
 }
 
-// MARK: - Settings UI Components
+// MARK: - Modern Settings UI Components
+
+struct ModernSettingsCard<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .padding(20)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.regularMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+                }
+        }
+    }
+}
 
 struct SettingsSection<Content: View>: View {
     let content: Content
@@ -262,11 +279,29 @@ struct SettingsSection<Content: View>: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             content
         }
-        .padding(16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+struct ModernSettingsHeader: View {
+    let title: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 20, height: 20)
+            Text(title)
+                .font(.system(.title3, weight: .semibold))
+                .foregroundStyle(.primary)
+        }
     }
 }
 
@@ -275,15 +310,50 @@ struct SettingsHeader: View {
     let icon: String
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Color.accentColor)
             Text(title)
-                .font(.headline)
+                .font(.subheadline)
                 .fontWeight(.semibold)
         }
-        .padding(.bottom, 4)
+        .padding(.bottom, 2)
+    }
+}
+
+struct ModernSettingsRow<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.03))
+        }
+    }
+}
+
+struct CompactSettingsRow<Content: View>: View {
+    let content: Content
+    
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+    
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            content
+        }
+        .padding(.vertical, 2)
     }
 }
 
@@ -299,6 +369,75 @@ struct SettingsRow<Content: View>: View {
             content
         }
         .padding(.vertical, 4)
+    }
+}
+
+struct StatusIndicator: View {
+    enum Status {
+        case active, learning, inactive
+        
+        var color: Color {
+            switch self {
+            case .active: return .green
+            case .learning: return .orange
+            case .inactive: return .gray
+            }
+        }
+    }
+    
+    let status: Status
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(status.color)
+                .frame(width: 8, height: 8)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(status.color.opacity(0.1))
+        }
+    }
+}
+
+struct DetailRow: View {
+    let title: String
+    let value: String
+    let helpText: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.system(.body, weight: .medium))
+                .help(helpText)
+            Spacer()
+            Text(value)
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct CompactLabel: View {
+    let title: String
+    let icon: String
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(.secondary)
+                .frame(width: 12, height: 12)
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+        }
     }
 }
 

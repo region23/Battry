@@ -289,10 +289,6 @@
 "quick.health.test" = "Quick Health Test";
 "health.score.composite" = "Composite Health Score";
 
-// Power presets
-"preset.light" = "Light Load (0.1C)";
-"preset.medium" = "Medium Load (0.2C)";
-"preset.heavy" = "Heavy Load (0.3C)";
 "power.preset.selection" = "Power Preset";
 "constant.power.mode" = "Constant Power Mode";
 "target.power" = "Target Power";
@@ -309,9 +305,6 @@
 "knee.index" = "Knee Index";
 "average.power.15min" = "Power (15 min)";
 "power.presets" = "Runtime estimates";
-"preset.light" = "Light ~5W";
-"preset.medium" = "Medium ~10W";
-"preset.heavy" = "Heavy ~15W";
 "load.generator.enable.gpu" = "Enable GPU branch";
 "export.pdf" = "Export to PDF";
 "show.details" = "Show Details";
@@ -324,3 +317,15 @@
 "menu.settings" = "Settings...";
 "menu.about" = "About";
 "menu.quit" = "Quit";
+
+// Missing localization keys
+"power.consumption.trend" = "Power Consumption Trend";
+"energy.efficiency" = "Energy Efficiency";
+"average.power" = "Average Power";
+"reports.open" = "Open Reports";
+
+// Hard-coded strings
+"cpu.label" = "CPU";
+"original.label" = "Original";
+"temp.at.25c" = "@ 25°C";
+"test.temp" = "Test temp";

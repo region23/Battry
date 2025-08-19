@@ -10,16 +10,6 @@ extension NSScreen {
     }
 }
 
-/// Вкладки главного окна
-enum Panel: String, CaseIterable, Identifiable {
-    case overview
-    case trends
-    case test
-    case settings
-    case about
-    var id: String { rawValue }
-}
-
 /// Главное содержимое окна из строки меню
 struct MenuContent: View {
     @ObservedObject var battery: BatteryViewModel
@@ -140,13 +130,6 @@ struct MenuContent: View {
                         .fill(.quaternary.opacity(0.5))
                 )
                 Spacer(minLength: 8)
-                // Открыть вкладку About
-                Button {
-                    panel = .about
-                } label: {
-                    Image(systemName: "info.circle")
-                }
-                .help(i18n.t("about"))
                 // Открыть вкладку настроек
                 Button {
                     panel = .settings
@@ -154,6 +137,13 @@ struct MenuContent: View {
                     Image(systemName: "gearshape")
                 }
                 .help(i18n.t("settings"))
+                // Открыть вкладку About
+                Button {
+                    panel = .about
+                } label: {
+                    Image(systemName: "info.circle")
+                }
+                .help(i18n.t("about"))
             }
 
             Divider()
@@ -187,6 +177,11 @@ struct MenuContent: View {
             // Проверяем наличие челки на текущем экране для корректного позиционирования окна
             // На MacBook'ах с челкой (M2+) окно может провалиться под челку при скрытом меню-баре
             hasNotch = NSScreen.main?.hasNotch ?? false
+            
+            // Синхронизируем активную панель из windowState при первом появлении
+            if let windowState = windowState, panel != windowState.activePanel {
+                panel = windowState.activePanel
+            }
             
             // Подписываемся на изменения видимости окна для оптимизации производительности
             NotificationCenter.default.addObserver(
@@ -270,10 +265,24 @@ struct MenuContent: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text(getPowerSourceText())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .accessibilityLabel(i18n.t("power.battery"))
+                        HStack(spacing: 4) {
+                            Text(getPowerSourceText())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel(i18n.t("power.battery"))
+                            // Текущая мощность потребления
+                            if abs(battery.state.power) > 0.1 {
+                                HStack(spacing: 2) {
+                                    Image(systemName: battery.state.power < 0 ? "bolt.fill" : "arrow.up.circle.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(battery.state.power < 0 ? .red : .green)
+                                    Text(String(format: "%.1f W", abs(battery.state.power)))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .help(battery.state.power < 0 ? i18n.t("tooltip.power.discharging") : i18n.t("tooltip.power.charging"))
+                            }
+                        }
                     }
                 }
                 Text(battery.timeRemainingText)
@@ -281,19 +290,6 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
                     .help(i18n.t("tooltip.time.remaining.header"))
                     .accessibilityLabel(i18n.t("time.remaining"))
-                
-                // Текущая мощность потребления
-                if abs(battery.state.power) > 0.1 {
-                    HStack(spacing: 4) {
-                        Image(systemName: battery.state.power < 0 ? "bolt.fill" : "arrow.up.circle.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(battery.state.power < 0 ? .red : .green)
-                        Text(String(format: "%.1f W", abs(battery.state.power)))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .help(battery.state.power < 0 ? i18n.t("tooltip.power.discharging") : i18n.t("tooltip.power.charging"))
-                }
             }
             
             Spacer()
@@ -306,7 +302,7 @@ struct MenuContent: View {
                             .fill(.orange)
                             .frame(width: 6, height: 6)
                             .animation(isWindowVisible ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: loadGenerator.isRunning)
-                        Text("CPU")
+                        Text(i18n.t("cpu.label"))
                             .font(.caption2)
                             .fontWeight(.medium)
                             .foregroundStyle(.orange)

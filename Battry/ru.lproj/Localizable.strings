@@ -289,10 +289,6 @@
 "quick.health.test" = "Быстрый тест здоровья";
 "health.score.composite" = "Композитный индекс здоровья";
 
-// Пресеты мощности  
-"preset.light" = "Лёгкая нагрузка (0.1C)";
-"preset.medium" = "Средняя нагрузка (0.2C)";
-"preset.heavy" = "Тяжёлая нагрузка (0.3C)";
 "power.preset.selection" = "Пресет мощности";
 "constant.power.mode" = "Режим постоянной мощности";
 "target.power" = "Целевая мощность";
@@ -309,9 +305,6 @@
 "knee.index" = "Индекс колена";
 "average.power.15min" = "Мощность (15 мин)";
 "power.presets" = "Прогнозы времени";
-"preset.light" = "Лёгкая ~5Вт";
-"preset.medium" = "Средняя ~10Вт";
-"preset.heavy" = "Тяжёлая ~15Вт";
 "load.generator.enable.gpu" = "Включить GPU ветку";
 "export.pdf" = "Экспорт в PDF";
 "show.details" = "Показать детали";
@@ -324,3 +317,15 @@
 "menu.settings" = "Настройки...";
 "menu.about" = "О программе";
 "menu.quit" = "Выход";
+
+// Отсутствующие ключи локализации
+"power.consumption.trend" = "Тренд потребления энергии";
+"energy.efficiency" = "Энергоэффективность";
+"average.power" = "Средняя мощность";
+"reports.open" = "Открыть отчёты";
+
+// Жестко закодированные строки
+"cpu.label" = "Процессор";
+"original.label" = "Исходная";
+"temp.at.25c" = "@ 25°C";
+"test.temp" = "Тест. темп.";

@@ -38,6 +38,7 @@ struct CalibrationPanel: View {
     @State private var showStopTestConfirm: Bool = false
     @State private var isAdvancedExpanded: Bool = false
     @State private var cpSelectedPreset: PowerPreset = .medium
+    @State private var quickTestSelectedPreset: PowerPreset = .medium
     @AppStorage("settings.enableGPUBranch") private var enableGPUBranch: Bool = false
     
 
@@ -76,12 +77,19 @@ struct CalibrationPanel: View {
             switch calibrator.state {
             case .idle:
                 VStack(alignment: .leading, spacing: 10) {
-                    // Отдельный блок: Быстрый тест здоровья
-                    quickHealthTestSection
-                    // Отдельный блок: Тест автономности
-                    idleStateView
-                    // Отдельный блок: Полный CP‑разряд до 5%
-                    cpDischargeSection
+                    // 2-колоночный layout для тестов
+                    HStack(alignment: .top, spacing: 12) {
+                        // Левая колонка: Быстрый тест здоровья
+                        quickHealthTestSection
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                        
+                        // Правая колонка: Полный тест батареи
+                        fullBatteryTestSection
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                    }
+                    
+                    // Секция результатов анализов - полная ширина под тестами
+                    analysisResultsSection
                 }
                 
             case .waitingFull:
@@ -96,10 +104,6 @@ struct CalibrationPanel: View {
             case .completed(let res):
                 completedStateView(result: res)
             }
-            
-            
-            // Секция результатов анализов - отображается всегда
-            analysisResultsSection
             
             Spacer()
         }
@@ -222,41 +226,29 @@ struct CalibrationPanel: View {
 // MARK: - State Views
 
 extension CalibrationPanel {
-    private var cpDischargeSection: some View {
-        CardSection(title: i18n.language == .ru ? "Полный CP‑разряд до 5%" : "Full CP Discharge to 5%", icon: "battery.25") {
-            VStack(alignment: .leading, spacing: 8) {
+    private var fullBatteryTestSection: some View {
+        CardSection(title: i18n.language == .ru ? "Полный тест батареи" : "Full Battery Test", icon: "battery.25") {
+            VStack(alignment: .leading, spacing: 10) {
+                // Добавляем отступ для выравнивания с левым блоком
+
+                
                 Text(i18n.language == .ru ? "Стандартизированный разряд при постоянной мощности до 5% с прогнозируемым временем." : "Standardized constant-power discharge down to 5% with reproducible runtime.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .frame(minHeight: 32, alignment: .top)
 
-                HStack(spacing: 10) {
-                    PowerPresetSelector(
-                        selectedPreset: $cpSelectedPreset,
-                        designCapacityMah: snapshot.designCapacity
-                    )
-                    .frame(maxWidth: 260)
+                // Power Preset Selector
+                InlinePowerPresetSelector(
+                    selectedPreset: $cpSelectedPreset,
+                    designCapacityMah: snapshot.designCapacity
+                )
 
-                    Spacer()
-
-                    Button {
-                        calibrator.startCPDischarge(preset: cpSelectedPreset)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "play.circle.fill")
-                            Text(i18n.language == .ru ? "Старт CP‑разряда" : "Start CP Discharge")
-                            let nominalV = 11.1
-                            let targetW = PowerCalculator.targetPower(for: cpSelectedPreset, designCapacityMah: snapshot.designCapacity, nominalVoltage: nominalV)
-                            Text(String(format: "(%.1fW)", targetW))
-                                .foregroundStyle(.secondary)
-                                .font(.caption)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(snapshot.isCharging || snapshot.powerSource == .ac || snapshot.percentage < 98)
-                }
-
+                // Advanced Settings Section (Collapsible)
+                advancedSettingsSection
+                
+                Spacer()
+                
+                // Status messages
                 if snapshot.percentage < 98 {
                     Text(i18n.language == .ru ? "Требуется ≥98% и питание отключено" : "Requires ≥98% and unplugged")
                         .font(.caption2)
@@ -266,65 +258,32 @@ extension CalibrationPanel {
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 }
-            }
-        }
-    }
-    private var idleStateView: some View {
-        CardSection(title: i18n.t("calibration.start.test"), icon: "target") {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(i18n.t("analysis.intro"))
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(nil)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Image(systemName: "checklist")
-                            .foregroundStyle(.orange)
-                        Text(i18n.t("precheck.title"))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Spacer()
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        checklistItem(i18n.t("precheck.brightness"))
-                        checklistItem(i18n.t("precheck.background"))  
-                        checklistItem(i18n.t("precheck.load"))
-                        checklistItem(i18n.t("precheck.network"))
-                        checklistItem(i18n.t("precheck.temperature"))
-                        if enableLoadGenerator {
-                            checklistItem(i18n.t("precheck.load.generator"))
-                        }
-                    }
-                }
-                
-                // Advanced Settings Section (Collapsible)
-                advancedSettingsSection
-                
+
+                // Start button moved to bottom
                 Button {
-                    calibrator.start()
-                    // Auto-start load generator if enabled
-                    if autoStartGenerator && enableLoadGenerator {
-                        loadGenerator.start(profile: selectedProfile)
-                    }
-                    // Auto-start video load if enabled
-                    // video load removed
+                    calibrator.start(preset: cpSelectedPreset)
                 } label: {
-                    HStack {
-                        Image(systemName: "target")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text(i18n.t("analysis.start"))
-                            .font(.system(size: 16, weight: .semibold))
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.circle.fill")
+                        Text(i18n.language == .ru ? "Запустить полный тест" : "Start Full Test")
+                        let nominalV = 11.1
+                        let targetW = PowerCalculator.targetPower(for: cpSelectedPreset, designCapacityMah: snapshot.designCapacity, nominalVoltage: nominalV)
+                        Text(String(format: "(%.1fW)", targetW))
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
+                .disabled(snapshot.percentage < 98 || snapshot.isCharging || snapshot.powerSource == .ac)
             }
+            
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+        )
     }
     
     private var waitingFullStateView: some View {
@@ -555,7 +514,7 @@ extension CalibrationPanel {
                     
                     HStack(spacing: 8) {
                         Button(i18n.t("analysis.repeat")) { 
-                            calibrator.start() 
+                            calibrator.start(preset: .medium) 
                         }
                         .buttonStyle(.borderedProminent)
                         
@@ -1077,55 +1036,46 @@ extension CalibrationPanel {
             }
         }
     }
-    
-    // MARK: - Quick Health Test Section
+}
+
+// MARK: - Quick Health Test Section
+
+extension CalibrationPanel {
     
     @ViewBuilder
     private var quickHealthTestSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header with title
+            HStack(spacing: 6) {
                 Image(systemName: "waveform.path.ecg.rectangle")
-                    .foregroundStyle(.green)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
                 Text(i18n.t("quick.health.test"))
                     .font(.subheadline)
                     .fontWeight(.medium)
-                Spacer()
-                
-                // Badge показывающий, что это экспертная функция
-                Text("Expert")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.green, in: Capsule())
             }
             
-            Text(i18n.language == .ru ? "30-40 минут вместо полной разрядки (рекомендация эксперта)" : "30-40 minutes instead of full discharge (expert recommendation)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            
-            // Состояние теста
-            switch quickHealthTest.state {
-            case .idle:
-                HStack(spacing: 10) {
-                    Button(i18n.language == .ru ? "Запустить быстрый тест" : "Start Quick Test") {
-                        startQuickHealthTest()
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(snapshot.percentage < 85 || snapshot.isCharging || snapshot.powerSource == .ac)
-                    
-                    Spacer(minLength: 8)
-                    PowerPresetSelector(
-                        selectedPreset: Binding(
-                            get: { quickHealthTestSelectedPreset },
-                            set: { newPreset in setQuickHealthPreset(newPreset) }
-                        ),
+            // Content section
+            VStack(alignment: .leading, spacing: 10) {
+                
+                Text(i18n.language == .ru ? "Запатентованная методика: точный анализ за 30-40 минут" : "Patented methodology: accurate analysis in 30-40 minutes")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 32, alignment: .top)
+                
+                // Состояние теста
+                switch quickHealthTest.state {
+                case .idle:
+                    // Power Preset Selector
+                    InlinePowerPresetSelector(
+                        selectedPreset: $quickTestSelectedPreset,
                         designCapacityMah: snapshot.designCapacity
                     )
-                    .frame(maxWidth: 260)
-
+                    
+                    Spacer()
+                    
+                    // Status messages
                     if snapshot.percentage < 85 {
                         Text(i18n.language == .ru ? "Требуется ≥85%" : "Requires ≥85%")
                             .font(.caption2)
@@ -1135,7 +1085,20 @@ extension CalibrationPanel {
                             .font(.caption2)
                             .foregroundStyle(.orange)
                     }
-                }
+                    
+                    // Start button moved to bottom
+                    Button {
+                        startQuickHealthTest()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.circle.fill")
+                            Text(i18n.language == .ru ? "Запустить быстрый тест" : "Start Quick Test")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(snapshot.percentage < 85 || snapshot.isCharging || snapshot.powerSource == .ac)
                 
             case .calibrating:
                 HStack {
@@ -1281,22 +1244,27 @@ extension CalibrationPanel {
                     .font(.caption)
                 }
             }
+            }
         }
-        .padding(10)
+        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.green.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(.green.opacity(0.2), lineWidth: 1)
-                )
+            Color.green.opacity(0.04),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.green.opacity(0.3), lineWidth: 1)
         )
     }
-    
-    // MARK: - Quick Health Test Actions
+}
+
+// MARK: - Quick Health Test Actions
+
+extension CalibrationPanel {
     
     private func startQuickHealthTest() {
-        // Простая заглушка для теста - нужно будет подключить правильные зависимости
+        // Устанавливаем выбранный пресет перед запуском теста
+        quickHealthTest.setPowerPreset(quickTestSelectedPreset)
         quickHealthTest.start()
     }
     
@@ -1314,20 +1282,8 @@ extension CalibrationPanel {
             NSWorkspace.shared.open(reportURL)
         }
     }
-}
-
-// MARK: - Quick Health Test Actions
-
-extension CalibrationPanel {
-    // Bridge helpers to control QuickHealthTest preset from UI
-    private var quickHealthTestSelectedPreset: PowerPreset {
-        // QuickHealthTest does not expose preset publicly; mirror via local state if needed.
-        // For now, default to .medium; UI writes back through setQuickHealthPreset.
-        .medium
-    }
-    private func setQuickHealthPreset(_ preset: PowerPreset) {
-        quickHealthTest.setPowerPreset(preset)
-    }
+    
+    
     private var quickHealthCPQuality: Int {
         // No direct binding to controller here; show placeholder 0..100 based on last analysis if available
         return Int(quickHealthTest.lastResult?.powerControlQuality ?? 0)

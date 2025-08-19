@@ -97,11 +97,7 @@ final class CalibrationEngine: ObservableObject {
     }()
 
     // MARK: - CP Discharge Mode
-    enum CalibrationRunKind {
-        case standard
-        case cp(preset: PowerPreset)
-    }
-    private var currentRunKind: CalibrationRunKind = .standard
+    // Always use CP (Constant Power) mode for all tests
     private lazy var constantPowerController = ConstantPowerController()
     private var cpTargetPowerW: Double = 0
     private var cpPreset: PowerPreset = .medium
@@ -136,24 +132,9 @@ final class CalibrationEngine: ObservableObject {
         save()
     }
 
-    /// Начинает новую сессию (переход в ожидание 100%)
-    func start() {
-        state = .waitingFull
-        samples.removeAll()
-        lastSampleAt = nil
-        autoResetDueToGap = false
-        
-        // Инициализируем метаданные генератора
-        currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata()
-        
-        save()
-        updateSleepPrevention()
-        updatePollingMode()
-    }
 
-    /// Запускает полный CP‑разряд до 5% с выбранным пресетом (0.1/0.2/0.3C)
-    func startCPDischarge(preset: PowerPreset) {
-        currentRunKind = .cp(preset: preset)
+    /// Запускает полный тест батареи с CP-разрядом до 5% с выбранным пресетом (0.1/0.2/0.3C)
+    func start(preset: PowerPreset) {
         cpPreset = preset
         state = .waitingFull
         samples.removeAll()
@@ -234,24 +215,22 @@ final class CalibrationEngine: ObservableObject {
                     startLoadGenerators()
                 }
 
-                // Если режим CP — вычисляем целевую мощность и запускаем контроллер
-                if case .cp(let preset) = currentRunKind {
-                    // Используем среднее V_OC из недавней истории, fallback на 11.1 В
-                    var avgVOC: Double = 11.1
-                    if let hs = historyStore {
-                        let recent = hs.recent(hours: 6)
-                        if let v = OCVAnalyzer.averageVOC(from: recent) {
-                            avgVOC = max(5.0, v)
-                        }
+                // Вычисляем целевую мощность для CP-режима и запускаем контроллер
+                // Используем среднее V_OC из недавней истории, fallback на 11.1 В
+                var avgVOC: Double = 11.1
+                if let hs = historyStore {
+                    let recent = hs.recent(hours: 6)
+                    if let v = OCVAnalyzer.averageVOC(from: recent) {
+                        avgVOC = max(5.0, v)
                     }
-                    cpTargetPowerW = PowerCalculator.targetPower(
-                        for: preset,
-                        designCapacityMah: snapshot.designCapacity,
-                        nominalVoltage: avgVOC
-                    )
-                    setupCPController()
-                    constantPowerController.start(targetPower: cpTargetPowerW)
                 }
+                cpTargetPowerW = PowerCalculator.targetPower(
+                    for: cpPreset,
+                    designCapacityMah: snapshot.designCapacity,
+                    nominalVoltage: avgVOC
+                )
+                setupCPController()
+                constantPowerController.start(targetPower: cpTargetPowerW)
                 
                 save()
                 updateSleepPrevention()
@@ -299,10 +278,8 @@ final class CalibrationEngine: ObservableObject {
                                             avgDischargePerHour: dischargePerHour,
                                             estimatedRuntimeFrom100To0Hours: runtime)
 
-                // Если режим CP — останавливаем контроллер
-                if case .cp = currentRunKind {
-                    constantPowerController.stop()
-                }
+                // Останавливаем CP-контроллер
+                constantPowerController.stop()
 
                 // Считаем аналитику и генерируем отчёт
                 let analytics = AnalyticsEngine()

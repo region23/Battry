@@ -36,7 +36,7 @@ struct BattryApp: App {
     @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
 
     var body: some Scene {
-        // Основное окно приложения
+        // Основное окно приложения - используем handlesExternalEvents для единственности
         WindowGroup(id: "main") {
             MainWindow(
                 battery: battery,
@@ -51,6 +51,12 @@ struct BattryApp: App {
         }
         .windowResizability(.contentSize)
         .defaultSize(width: 720, height: 500)
+        .handlesExternalEvents(matching: ["main"])
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                // Заменяем стандартные команды меню на наши
+            }
+        }
         
         // Меню в строке меню
         MenuBarExtra {

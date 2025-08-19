@@ -1,5 +1,86 @@
 import SwiftUI
 
+/// Инлайн компонент выбора пресета мощности (упрощенная версия без обертки)
+struct InlinePowerPresetSelector: View {
+    @Binding var selectedPreset: PowerPreset
+    let designCapacityMah: Int
+    @ObservedObject private var i18n = Localization.shared
+    
+    /// Вычисленные целевые мощности для всех пресетов
+    private var targetPowers: [PowerPreset: Double] {
+        PowerCalculator.allTargetPowers(designCapacityMah: designCapacityMah)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Заголовок
+            HStack(spacing: 6) {
+                Image(systemName: "bolt.circle")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+                Text(i18n.t("power.preset.selection"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+            
+            // Пресеты в один ряд
+            HStack(spacing: 8) {
+                ForEach(PowerPreset.allCases) { preset in
+                    inlinePresetButton(for: preset)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func inlinePresetButton(for preset: PowerPreset) -> some View {
+        let isSelected = selectedPreset == preset
+        let targetPower = targetPowers[preset] ?? 5.0
+        
+        Button {
+            selectedPreset = preset
+        } label: {
+            VStack(spacing: 4) {
+                // Первая строка: Иконка + Мощность
+                HStack(spacing: 4) {
+                    Image(systemName: preset.icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(isSelected ? .white : Color.accentColor)
+                    Text("\(String(format: "%.0f", targetPower))W")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(isSelected ? .white : .primary)
+                }
+                
+                // Вторая строка: Название пресета
+                Text(i18n.t(preset.localizationKey))
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .foregroundStyle(isSelected ? .white.opacity(0.9) : .secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .background(
+                isSelected ? Color.accentColor : Color.clear,
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(
+                        isSelected ? Color.clear : Color.accentColor.opacity(0.3),
+                        lineWidth: 1
+                    )
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(preset.description)
+    }
+}
+
 /// UI компонент для выбора пресета мощности
 struct PowerPresetSelector: View {
     @Binding var selectedPreset: PowerPreset
@@ -46,7 +127,7 @@ struct PowerPresetSelector: View {
                 .padding(.top, 2)
             }
         }
-        .padding(12)
+        .padding(10)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
     
@@ -58,28 +139,29 @@ struct PowerPresetSelector: View {
         Button {
             selectedPreset = preset
         } label: {
-            VStack(spacing: 6) {
-                // Иконка
-                Image(systemName: preset.icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(isSelected ? .white : Color.accentColor)
+            VStack(spacing: 4) {
+                // Первая строка: Иконка + Мощность
+                HStack(spacing: 4) {
+                    Image(systemName: preset.icon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(isSelected ? .white : Color.accentColor)
+                    Text("\(String(format: "%.0f", targetPower))W")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(isSelected ? .white : .primary)
+                }
                 
-                // Название пресета
+                // Вторая строка: Название пресета
                 Text(i18n.t(preset.localizationKey))
                     .font(.caption2)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .foregroundStyle(isSelected ? .white : .primary)
-                
-                // Мощность
-                Text("\(String(format: "%.0f", targetPower))W")
-                    .font(.caption2)
-                    .foregroundStyle(isSelected ? .white : .secondary)
+                    .minimumScaleFactor(0.7)
+                    .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 4)
             .background(
                 isSelected ? Color.accentColor : Color.clear,
                 in: RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -91,6 +173,7 @@ struct PowerPresetSelector: View {
                         lineWidth: 1
                     )
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(preset.description)
@@ -182,7 +265,7 @@ struct TemperatureNormalizationInfo: View {
             HStack(spacing: 16) {
                 // Оригинальное значение
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Original")
+                    Text(i18n.t("original.label"))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Text(String(format: "%.1f%%", originalSOH))
@@ -197,7 +280,7 @@ struct TemperatureNormalizationInfo: View {
                 
                 // Нормализованное значение
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("@ 25°C")
+                    Text(i18n.t("temp.at.25c"))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Text(String(format: "%.1f%%", normalizedSOH))
@@ -210,7 +293,7 @@ struct TemperatureNormalizationInfo: View {
                 
                 // Температура теста
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Test temp")
+                    Text(i18n.t("test.temp"))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Text(String(format: "%.1f°C", averageTemperature))

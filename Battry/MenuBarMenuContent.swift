@@ -7,27 +7,22 @@ struct MenuBarMenuContent: View {
     @ObservedObject var windowState: WindowState
     let setupServices: () -> Void
     
-    @Environment(\.openWindow) private var openWindow
-    
     var body: some View {
         VStack {
             Button(i18n.t("menu.open.battry")) {
-                windowState.switchToPanel(.overview)
-                openWindow(id: "main")
+                windowState.activateWindow(panel: .overview)
             }
             .keyboardShortcut("o", modifiers: .command)
             
             Divider()
             
             Button(i18n.t("menu.settings")) {
-                windowState.switchToPanel(.settings)
-                openWindow(id: "main")
+                windowState.activateWindow(panel: .settings)
             }
             .keyboardShortcut(",", modifiers: .command)
             
             Button(i18n.t("menu.about")) {
-                windowState.switchToPanel(.about)
-                openWindow(id: "main")
+                windowState.activateWindow(panel: .about)
             }
             
             Divider()
