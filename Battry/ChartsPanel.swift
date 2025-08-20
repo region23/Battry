@@ -168,9 +168,11 @@ struct ChartsPanel: View {
                     if !readings.isEmpty {
                         BatteryHealthInfoPanel(readings: readings, snapshot: snapshot)
                             .frame(width: (geometry.size.width - 12) * 1/3)
+                            .frame(maxHeight: .infinity, alignment: .top)
                     } else {
                         Color.clear
                             .frame(width: (geometry.size.width - 12) * 1/3)
+                            .frame(maxHeight: .infinity)
                     }
                 }
             }
