@@ -113,6 +113,7 @@ final class QuickHealthTest: ObservableObject {
     
     private weak var batteryViewModel: BatteryViewModel?
     private weak var loadGenerator: LoadGenerator?
+    private weak var calibrationEngine: CalibrationEngine?
     // Video load removed
     
     // Constant Power контроль
@@ -166,10 +167,12 @@ final class QuickHealthTest: ObservableObject {
     /// Привязывает необходимые зависимости
     func bind(
         batteryViewModel: BatteryViewModel,
-        loadGenerator: LoadGenerator
+        loadGenerator: LoadGenerator,
+        calibrationEngine: CalibrationEngine? = nil
     ) {
         self.batteryViewModel = batteryViewModel
         self.loadGenerator = loadGenerator
+        self.calibrationEngine = calibrationEngine
         
         // Настраиваем ConstantPowerController
         setupConstantPowerController()
@@ -195,6 +198,12 @@ final class QuickHealthTest: ObservableObject {
     /// Запускает быстрый тест здоровья
     func start() {
         guard state == .idle else { return }
+        
+        // Проверяем, что не запущен полный тест
+        if let calibrator = calibrationEngine, calibrator.state.isActive {
+            state = .error(message: "Cannot start quick test: full battery test is running")
+            return
+        }
         
         // Проверяем предварительные условия
         guard let vm = batteryViewModel else {

@@ -774,53 +774,20 @@ struct BatteryHealthInfoPanel: View {
                 Spacer()
             }
             
-            // Компактный layout с вертикальным расположением
-            VStack(alignment: .leading, spacing: 8) {
-                // Health Score и статус в одной строке
-                HStack(alignment: .center, spacing: 12) {
-                    // Основной скор (меньше размер)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(analysis.healthScore)")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(healthColor)
-                        Text(healthZoneText)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    // Микро-дропы справа
-                    HealthMetricRow(
-                        title: i18n.t("micro.drops"),
-                        value: "\(analysis.microDropEvents)",
-                        color: analysis.microDropEvents == 0 ? .green : analysis.microDropEvents <= 2 ? .orange : .red
-                    )
+            // Компактный layout - только Health Score
+            HStack(alignment: .center, spacing: 12) {
+                // Основной скор
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(analysis.healthScore)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(healthColor)
+                    Text(healthZoneText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 
-                // Остальные метрики в две колонки
-                HStack(spacing: 16) {
-                    HealthMetricRow(
-                        title: "\(i18n.t("soh.energy")):",
-                        value: String(format: "%.0f%%", analysis.sohEnergy),
-                        color: analysis.sohEnergy >= 85 ? .green : analysis.sohEnergy >= 70 ? .orange : .red
-                    )
-                    
-                    HealthMetricRow(
-                        title: "\(i18n.t("temperature")):",
-                        value: String(format: "%.1f°C", snapshot.temperature),
-                        color: snapshot.temperature <= 30 ? .green : snapshot.temperature <= 35 ? .orange : .red
-                    )
-                    
-                    Spacer()
-                    
-                    HealthMetricRow(
-                        title: i18n.t("avg.power.watts").replacingOccurrences(of: "%s", with: "Ср Вт:"),
-                        value: String(format: "%.1fW", analysis.averagePower),
-                        color: analysis.averagePower <= 10 ? .green : analysis.averagePower <= 20 ? .orange : .red
-                    )
-                }
+                Spacer()
             }
             
             // Компактная рекомендация

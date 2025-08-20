@@ -118,8 +118,12 @@ struct BattryApp: App {
         // Инициализируем QuickHealthTest с зависимостями
         quickHealthTest.bind(
             batteryViewModel: battery,
-            loadGenerator: loadGenerator
+            loadGenerator: loadGenerator,
+            calibrationEngine: calibrator
         )
+        
+        // Привязываем CalibrationEngine к QuickHealthTest
+        calibrator.attachQuickHealthTest(quickHealthTest)
     }
     
     

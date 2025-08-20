@@ -486,20 +486,27 @@ final class AnalyticsEngine: ObservableObject {
     /// Получает актуальный Health Score для UI (0-100)
     func getHealthScore(history: [BatteryReading], snapshot: BatterySnapshot) -> Int {
         let now = Date()
-        
+
         // Проверяем актуальность кешированного анализа (не старше 30 секунд)
-        let isAnalysisStale = lastAnalysisTimestamp == nil || 
-                             now.timeIntervalSince(lastAnalysisTimestamp!) > 30
-        
+        let isAnalysisStale = lastAnalysisTimestamp == nil ||
+                              now.timeIntervalSince(lastAnalysisTimestamp!) > 30
+
         // Если кеш актуален, используем его
         if let cached = lastAnalysis, !isAnalysisStale {
             return cached.healthScore
         }
-        
-        // Выполняем полный анализ для получения точного индекса
-        let analysis = analyze(history: history, snapshot: snapshot)
-        lastAnalysisTimestamp = now
-        
+
+        // Выполняем анализ без немедленной мутации состояния во время рендера View
+        let analysis = Self.performAnalysis(history: history, snapshot: snapshot)
+
+        // Откладываем обновление кеша на следующий тик главной очереди,
+        // чтобы избежать изменения ObservableObject во время обновления View
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.lastAnalysis = analysis
+            self.lastAnalysisTimestamp = now
+        }
+
         return analysis.healthScore
     }
     

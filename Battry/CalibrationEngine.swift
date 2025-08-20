@@ -77,6 +77,7 @@ final class CalibrationEngine: ObservableObject {
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
     private weak var batteryViewModel: BatteryViewModel?
+    private weak var quickHealthTest: QuickHealthTest?
     private let alertManager = AlertManager.shared
     /// Порог завершения теста по проценту (до 5%)
     private let endThresholdPercent: Int = 5
@@ -139,6 +140,11 @@ final class CalibrationEngine: ObservableObject {
      func attachLoadGenerators(cpu: LoadGenerator) {
          self.loadGenerator = cpu
      }
+     
+     /// Привязывает QuickHealthTest для проверки взаимоисключающих состояний
+     func attachQuickHealthTest(_ quickHealthTest: QuickHealthTest) {
+         self.quickHealthTest = quickHealthTest
+     }
 
     /// Отвязывает подписку и сохраняет прогресс
     func unbind() {
@@ -150,6 +156,16 @@ final class CalibrationEngine: ObservableObject {
 
     /// Запускает полный тест батареи с CP-разрядом до 5% с выбранным пресетом (0.1/0.2/0.3C)
     func start(preset: PowerPreset) {
+        // Проверяем, что не запущен быстрый тест
+        if let quickTest = quickHealthTest, quickTest.state.isActive {
+            // Используем alertManager для показа ошибки
+            alertManager.showError(
+                title: "Cannot Start Test",
+                message: "Cannot start full battery test: quick health test is running"
+            )
+            return
+        }
+        
         cpPreset = preset
         state = .waitingFull
         samples.removeAll()

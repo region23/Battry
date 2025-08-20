@@ -621,9 +621,9 @@ struct MenuContent: View {
         let targetW = designWh * cRate
         
         if i18n.language == .ru {
-            return String(format: "%.0f Вт", targetW)
+            return String(format: "%.0fВт", targetW)
         } else {
-            return String(format: "%.0f W", targetW)
+            return String(format: "%.0fW", targetW)
         }
     }
     
@@ -690,6 +690,54 @@ struct MenuContent: View {
         return i18n.t("micro.drops.status.excellent")
     }
     
+    private func getMicroDropsCount() -> String {
+        if let analysis = analytics.lastAnalysis {
+            let microDrops = analysis.microDropEvents
+            if i18n.language == .ru {
+                return "\(microDrops) микро-дропов"
+            } else {
+                return "\(microDrops) micro-drops"
+            }
+        }
+        if i18n.language == .ru {
+            return "0 микро-дропов"
+        } else {
+            return "0 micro-drops"
+        }
+    }
+    
+    private func getMicroDropsTooltip() -> String {
+        if let analysis = analytics.lastAnalysis {
+            let microDrops = analysis.microDropEvents
+            if i18n.language == .ru {
+                if microDrops == 0 {
+                    return "Микро-дропы не обнаружены. Батарея показывает стабильную работу под нагрузкой. Это отличный показатель здоровья."
+                } else if microDrops <= 2 {
+                    return "Обнаружено \(microDrops) микро-дропа. Нормальный уровень для батареи такого возраста. Продолжайте мониторинг."
+                } else if microDrops <= 5 {
+                    return "Обнаружено \(microDrops) микро-дропов. Повышенное количество - следите за состоянием батареи и избегайте глубоких разрядов."
+                } else {
+                    return "Обнаружено \(microDrops) микро-дропов. Высокое количество указывает на проблемы с ячейками батареи. Рекомендуется диагностика."
+                }
+            } else {
+                if microDrops == 0 {
+                    return "No micro-drops detected. Battery shows stable performance under load. This is an excellent health indicator."
+                } else if microDrops <= 2 {
+                    return "Detected \(microDrops) micro-drops. Normal level for a battery of this age. Continue monitoring."
+                } else if microDrops <= 5 {
+                    return "Detected \(microDrops) micro-drops. Elevated count - monitor battery condition and avoid deep discharges."
+                } else {
+                    return "Detected \(microDrops) micro-drops. High count indicates cell-level issues. Professional diagnosis recommended."
+                }
+            }
+        }
+        if i18n.language == .ru {
+            return "Микро-дропы - это резкие падения заряда (≥2% за ≤2 минуты) без зарядки. Чем меньше, тем лучше здоровье батареи."
+        } else {
+            return "Micro-drops are sudden charge drops (≥2% in ≤2 minutes) without charging. Lower numbers indicate better battery health."
+        }
+    }
+
     private func getMicroDropHealthStatus() -> HealthStatus? {
         guard let analysis = analytics.lastAnalysis else { return nil }
         
@@ -726,14 +774,13 @@ struct MenuContent: View {
 
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Основные метрики батареи и производительности - 3 колонки
+            // Основные метрики батареи и производительности - 2x2
             CardSection(title: i18n.t("overview.battery.info"), icon: "battery.100") {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8),
                     GridItem(.flexible(), spacing: 8)
                 ], spacing: 8) {
-                    // Первый ряд: Health Score, Время работы, Средняя мощность
+                    // Первый ряд: Health Score, Время работы
                     EnhancedStatCard(
                         title: i18n.t("health.score"),
                         value: getHealthScoreDisplayValue(),
@@ -753,15 +800,11 @@ struct MenuContent: View {
                         accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
                         isCollectingData: isCollectingRuntime()
                     )
-                    EnhancedStatCard(
-                        title: i18n.t("average.power.15min"),
-                        value: getAveragePower15Min(),
-                        icon: "bolt.fill",
-                        accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 15 ? .orange : Color.accentColor,
-                        isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
-                    )
+                    .help(i18n.language == .ru ? 
+                        "Оценка времени работы от батареи при текущем уровне энергопотребления" : 
+                        "Estimated battery runtime at current power consumption level")
                     
-                    // Второй ряд: Износ, Температура, Тренд потребления
+                    // Второй ряд: Износ, Температура
                     EnhancedStatCard(
                         title: i18n.t("wear"),
                         value: (battery.state.designCapacity > 0 && battery.state.maxCapacity > 0)
@@ -780,51 +823,69 @@ struct MenuContent: View {
                                    battery.state.temperature > 35 ? .orange : Color.accentColor
                     )
                     .help(i18n.language == .ru ? "Длительно >40°C ускоряет износ" : "Prolonged >40°C accelerates wear")
+                    
+                    // Третий ряд: Средняя мощность и Прогнозы времени
                     EnhancedStatCard(
-                        title: i18n.t("power.consumption.trend"),
-                        value: getPowerConsumptionTrend(),
-                        icon: "chart.line.uptrend.xyaxis",
-                        accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 20 ? .orange : Color.accentColor,
+                        title: i18n.t("average.power.15min"),
+                        value: getAveragePower15Min(),
+                        icon: "bolt.fill",
+                        accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 15 ? .orange : Color.accentColor,
                         isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
                     )
-                    .help(i18n.language == .ru ? "Тренд энергопотребления за последние дни" : "Power consumption trend over recent days")
-                }
-
-                // Компактный блок прогнозов времени для типовых нагрузок (пересчитанных как 0.1C/0.2C/0.3C)
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Color.accentColor)
-                        Text(i18n.t("power.presets"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
+                    
+                    // Карточка с прогнозами времени для типовых нагрузок
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(Color.accentColor)
+                            Text(i18n.t("power.presets"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        HStack(spacing: 6) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "doc.text")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(getPowerPresetText(0.1)).font(.caption2).foregroundStyle(.secondary)
+                                Text(getRuntimeForCRate(0.1)).font(.caption2).fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.blue.opacity(0.1), in: Capsule())
+                            HStack(spacing: 3) {
+                                Image(systemName: "square.stack.3d.up")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(getPowerPresetText(0.2)).font(.caption2).foregroundStyle(.secondary)
+                                Text(getRuntimeForCRate(0.2)).font(.caption2).fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.orange.opacity(0.1), in: Capsule())
+                            HStack(spacing: 3) {
+                                Image(systemName: "gamecontroller")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(getPowerPresetText(0.3)).font(.caption2).foregroundStyle(.secondary)
+                                Text(getRuntimeForCRate(0.3)).font(.caption2).fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.red.opacity(0.1), in: Capsule())
+                        }
                     }
-                    HStack(spacing: 8) {
-                        HStack(spacing: 4) {
-                            Text(getPowerPresetText(0.1)).font(.caption2).foregroundStyle(.secondary)
-                            Text(getRuntimeForCRate(0.1)).font(.caption2).fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.blue.opacity(0.1), in: Capsule())
-                        HStack(spacing: 4) {
-                            Text(getPowerPresetText(0.2)).font(.caption2).foregroundStyle(.secondary)
-                            Text(getRuntimeForCRate(0.2)).font(.caption2).fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.orange.opacity(0.1), in: Capsule())
-                        HStack(spacing: 4) {
-                            Text(getPowerPresetText(0.3)).font(.caption2).foregroundStyle(.secondary)
-                            Text(getRuntimeForCRate(0.3)).font(.caption2).fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.red.opacity(0.1), in: Capsule())
-                        Spacer()
-                    }
+                    .padding(8)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
+                    )
+                    .help(i18n.language == .ru ? 
+                        "Прогноз времени работы при типовых нагрузках: легкая (веб, документы), средняя (приложения), тяжелая (игры, видео)" : 
+                        "Runtime forecast for typical workloads: light (web, docs), medium (apps), heavy (games, video)")
                 }
             }
             
@@ -868,7 +929,7 @@ struct MenuContent: View {
                     // Второй ряд: Микро-дропы, Knee Index
                     EnhancedStatCard(
                         title: i18n.t("micro.drops"),
-                        value: getMicroDrops(),
+                        value: getMicroDropsCount(),
                         icon: "arrow.down.circle",
                         accentColor: getMicroDropHealthStatus()?.color == "green" ? .green : 
                                    getMicroDropHealthStatus()?.color == "orange" ? .orange : 
@@ -876,7 +937,7 @@ struct MenuContent: View {
                         healthStatus: getMicroDropHealthStatus(),
                         isCollectingData: false
                     )
-                    .help(i18n.language == .ru ? "Резкие скачки заряда. 0 = отлично, >5 = проблема" : "Sudden charge drops. 0 = excellent, >5 = problem")
+                    .help(getMicroDropsTooltip())
                     EnhancedStatCard(
                         title: i18n.t("knee.index"),
                         value: getKneeIndex(),

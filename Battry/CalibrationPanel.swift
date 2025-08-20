@@ -51,35 +51,46 @@ struct CalibrationPanel: View {
             
             
             // Основная карточка состояния
-            switch calibrator.state {
-            case .idle:
+            if quickHealthTest.state.isActive {
+                // Показываем только быстрый тест на всю ширину
                 VStack(alignment: .leading, spacing: 10) {
-                    // 2-колоночный layout для тестов
-                    HStack(alignment: .top, spacing: 12) {
-                        // Левая колонка: Быстрый тест здоровья
-                        quickHealthTestSection
-                            .frame(maxWidth: .infinity, minHeight: 200)
-                        
-                        // Правая колонка: Полный тест батареи
-                        fullBatteryTestSection
-                            .frame(maxWidth: .infinity, minHeight: 200)
-                    }
+                    quickHealthTestSection
+                        .frame(maxWidth: .infinity)
                     
-                    // Секция результатов анализов - полная ширина под тестами
+                    // Секция результатов анализов
                     analysisResultsSection
                 }
+            } else {
+                switch calibrator.state {
+                case .idle:
+                    VStack(alignment: .leading, spacing: 10) {
+                        // 2-колоночный layout для тестов только если ни один не активен
+                        HStack(alignment: .top, spacing: 12) {
+                            // Левая колонка: Быстрый тест здоровья
+                            quickHealthTestSection
+                                .frame(maxWidth: .infinity, minHeight: 200)
+                            
+                            // Правая колонка: Полный тест батареи
+                            fullBatteryTestSection
+                                .frame(maxWidth: .infinity, minHeight: 200)
+                        }
+                        
+                        // Секция результатов анализов - полная ширина под тестами
+                        analysisResultsSection
+                    }
                 
-            case .waitingFull:
-                waitingFullStateView
-                
-            case .running(let start, let p):
-                runningStateView(start: start, startPercent: p)
-                
-            case .paused:
-                pausedStateView
-                
-            case .completed(let res):
-                completedStateView(result: res)
+                case .waitingFull:
+                    waitingFullStateView
+                    
+                case .running(let start, let p):
+                    runningStateView(start: start, startPercent: p)
+                    
+                case .paused:
+                    pausedStateView
+                    
+                case .completed(let res):
+                    completedStateView(result: res)
+                }
             }
             
             Spacer()
