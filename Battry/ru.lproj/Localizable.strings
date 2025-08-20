@@ -364,6 +364,8 @@
 "quick.test.resting" = "Отдых после %@ пульса (%d сек)";
 "quick.test.completed.soc" = "Завершены пульс-тесты @ %d%% SOC";
 "quick.test.waiting.soc" = "Ожидание разряда до %d%% (сейчас: %d%%)";
+"quick.test.waiting.soc.detailed" = "Разряжаем до %d%% (сейчас: %d%%) — ~%@";
+"quick.test.starting.current.level" = "Начинаем пульс-тесты на текущем уровне";
 "load.level.light" = "лёгкого";
 "load.level.medium" = "среднего";
 "load.level.heavy" = "тяжёлого";

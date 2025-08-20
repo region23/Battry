@@ -1135,8 +1135,8 @@ extension CalibrationPanel {
                     Spacer()
                     
                     // Status messages
-                    if snapshot.percentage < 85 {
-                        Text(i18n.language == .ru ? "Требуется ≥85%" : "Requires ≥85%")
+                    if snapshot.percentage < 80 {
+                        Text(i18n.language == .ru ? "Требуется ≥80%" : "Requires ≥80%")
                             .font(.caption2)
                             .foregroundStyle(.orange)
                     } else if snapshot.isCharging || snapshot.powerSource == .ac {
@@ -1157,7 +1157,7 @@ extension CalibrationPanel {
                         .padding(.vertical, 4)
                     }
                     .buttonStyle(.bordered)
-                    .disabled(snapshot.percentage < 85 || snapshot.isCharging || snapshot.powerSource == .ac)
+                    .disabled(snapshot.percentage < 80 || snapshot.isCharging || snapshot.powerSource == .ac)
                 
             case .calibrating:
                 HStack {

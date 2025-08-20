@@ -362,6 +362,8 @@
 "quick.test.resting" = "Resting after %@ pulse (%d sec)";
 "quick.test.completed.soc" = "Completed pulse tests @ %d%% SOC";
 "quick.test.waiting.soc" = "Waiting for battery to reach %d%% (current: %d%%)";
+"quick.test.waiting.soc.detailed" = "Discharging to %d%% (current: %d%%) — ~%@";
+"quick.test.starting.current.level" = "Starting pulse tests at current SOC level";
 "load.level.light" = "light";
 "load.level.medium" = "medium";
 "load.level.heavy" = "heavy";

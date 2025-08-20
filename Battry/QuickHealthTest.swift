@@ -110,11 +110,11 @@ final class QuickHealthTest: ObservableObject {
     static func estimatedTestTime(for preset: PowerPreset) -> Int {
         switch preset {
         case .light:
-            return 25  // 2 пульса × 4 SOC + энергетическое окно + калибровка
+            return 20  // 2 пульса × 4 SOC + энергетическое окно + калибровка
         case .medium:
-            return 32  // 3 пульса × 4 SOC + энергетическое окно + калибровка  
+            return 25  // 3 пульса × 4 SOC + энергетическое окно + калибровка  
         case .heavy:
-            return 40  // 2 пульса × 4 SOC (15 сек каждый) + энергетическое окно + калибровка
+            return 30  // 2 пульса × 4 SOC (15 сек каждый) + энергетическое окно + калибровка
         }
     }
     
@@ -141,6 +141,7 @@ final class QuickHealthTest: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private let testTargetSOCs = [80, 60, 40, 20] // Уровни SOC для пульс-тестов
+    private let i18n = Localization.shared
     /// Токен активности, предотвращающий сон системы
     private var sleepActivity: NSObjectProtocol?
     private var currentTargetIndex = 0
@@ -151,6 +152,7 @@ final class QuickHealthTest: ObservableObject {
     private var currentPulseIndex = 0
     private var totalPulsesPerSOC: Int { pulseSequence.count }
     private var averageDischargeRatePercentPerMinute: Double = 0.5 // estimated default
+    private var dischargeRateWithLightLoad: Double = 1.5 // estimated discharge rate with light CPU load (% per minute)
     
     /// Возвращает последовательность пульсов на основе выбранного пресета
     private var pulseSequence: [(LoadLevel, String)] {
@@ -254,8 +256,8 @@ final class QuickHealthTest: ObservableObject {
         }
         
         let currentSOC = vm.state.percentage
-        guard currentSOC >= 85 else {
-            state = .error(message: "Battery must be charged to at least 85% before starting test")
+        guard currentSOC >= 80 else {
+            state = .error(message: "Battery must be charged to at least 80% before starting test")
             return
         }
         
@@ -296,16 +298,26 @@ final class QuickHealthTest: ObservableObject {
         currentPulseIndex = 0
         estimatedTimeRemaining = nil
         
-        // Определяем необходимость ожидания окна 95–90% для baseline
-        requireWindow95to90 = (currentSOC > 95)
-        state = .calibrating
-        baselineStartAt = nil
-        if requireWindow95to90 {
-            currentStep = "Waiting for 95–90% SOC window (current: \(currentSOC)%)"
-        } else if currentSOC >= 90 {
-            currentStep = "Baseline at rest (2–3 min) in 95–90% window…"
+        // Определяем стартовую стратегию в зависимости от текущего SOC
+        if currentSOC < 85 {
+            // Начинаем сразу с пульс-тестов на 80%
+            state = .pulseTesting(targetSOC: 80)
+            currentStep = i18n.t("quick.test.starting.current.level")
+            requireWindow95to90 = false
+            baselineStartAt = nil
+            progress = 0.2 // Пропускаем калибровку
         } else {
-            currentStep = "Baseline at rest (2–3 min)…"
+            // Стандартная процедура с калибровкой в покое
+            requireWindow95to90 = (currentSOC > 95)
+            state = .calibrating
+            baselineStartAt = nil
+            if requireWindow95to90 {
+                currentStep = "Waiting for 95–90% SOC window (current: \(currentSOC)%)"
+            } else if currentSOC >= 90 {
+                currentStep = "Baseline at rest (2–3 min) in 95–90% window…"
+            } else {
+                currentStep = "Baseline at rest (2–3 min)…"
+            }
         }
     }
     
@@ -362,10 +374,12 @@ final class QuickHealthTest: ObservableObject {
             let targetIndex = testTargetSOCs.firstIndex(of: targetSOC) ?? 0
             
             if currentSOC > targetSOC {
-                // Time to wait for battery to discharge to target
+                // Time to wait for battery to discharge to target with light load applied
                 let socDiff = Double(currentSOC - targetSOC)
                 updateDischargeRate(currentSOC: currentSOC, elapsedTime: elapsedTime)
-                remainingTime += (socDiff / averageDischargeRatePercentPerMinute) * 60
+                // Use higher discharge rate when light load is applied for waiting
+                let activeDischargeRate = max(averageDischargeRatePercentPerMinute, dischargeRateWithLightLoad)
+                remainingTime += (socDiff / activeDischargeRate) * 60
             }
             
             // Add time for pulse tests at this and remaining SOC levels
@@ -408,16 +422,21 @@ final class QuickHealthTest: ObservableObject {
     
     private func estimateTimeForAllPulseTests(fromSOC: Int) -> TimeInterval {
         var totalTime: TimeInterval = 0
+        var currentSOC = fromSOC
         
         for (_, targetSOC) in testTargetSOCs.enumerated() {
-            if fromSOC > targetSOC {
-                // Time to discharge to this SOC level
-                let socDiff = Double(fromSOC - targetSOC)
-                totalTime += (socDiff / averageDischargeRatePercentPerMinute) * 60
+            if currentSOC > targetSOC {
+                // Time to discharge to this SOC level with light load applied
+                let socDiff = Double(currentSOC - targetSOC)
+                totalTime += (socDiff / dischargeRateWithLightLoad) * 60
+                currentSOC = targetSOC
             }
             
             // Time for pulse tests at this level
             totalTime += estimateTimeForPulseTestsAtLevel()
+            
+            // Natural discharge during pulse tests (approximately 1-2% per test level)
+            currentSOC -= 2
         }
         
         return totalTime
@@ -518,7 +537,20 @@ final class QuickHealthTest: ObservableObject {
         
         // Ждем пока батарея разрядится до целевого SOC с активной разрядкой
         if currentSOC > targetSOC {
-            currentStep = String(format: NSLocalizedString("quick.test.waiting.soc", comment: ""), targetSOC, currentSOC)
+            let socDiff = Double(currentSOC - targetSOC)
+            let estimatedMinutes = Int(socDiff / dischargeRateWithLightLoad)
+            let timeText = estimatedMinutes < 60 ? 
+                (i18n.language == .ru ? "\(estimatedMinutes) мин" : "\(estimatedMinutes) min") : 
+                (i18n.language == .ru ? "\(estimatedMinutes/60):\(String(format: "%02d", estimatedMinutes%60)) ч" : "\(estimatedMinutes/60):\(String(format: "%02d", estimatedMinutes%60)) h")
+            currentStep = String(format: i18n.t("quick.test.waiting.soc.detailed"), targetSOC, currentSOC, timeText)
+            
+            // Update progress for this waiting phase
+            let startSOC = samples.first?.percentage ?? currentSOC
+            let totalSOCDiff = Double(startSOC - targetSOC) // Total SOC to discharge from start
+            let waitingProgress = totalSOCDiff > 0 ? (totalSOCDiff - socDiff) / totalSOCDiff : 0
+            let baseProgress = 0.2 + Double(currentTargetIndex) * 0.15
+            progress = baseProgress + (0.1 * waitingProgress) // 10% of each phase for waiting
+            
             // Apply light load to accelerate discharge to target SOC
             applyLoad(.light)
             return
@@ -558,7 +590,7 @@ final class QuickHealthTest: ObservableObject {
         
         func runNextPulse() {
             guard pulseIndex < sequence.count else {
-                currentStep = String(format: NSLocalizedString("quick.test.completed.soc", comment: ""), socLevel)
+                currentStep = String(format: i18n.t("quick.test.completed.soc"), socLevel)
                 completion()
                 return
             }
@@ -567,7 +599,7 @@ final class QuickHealthTest: ObservableObject {
             currentPulseIndex = pulseIndex
             
             // Update detailed status
-            currentStep = String(format: NSLocalizedString("quick.test.pulse.progress", comment: ""), pulseIndex + 1, sequence.count, NSLocalizedString("load.level.\(loadName)", comment: ""), socLevel)
+            currentStep = String(format: i18n.t("quick.test.pulse.progress"), pulseIndex + 1, sequence.count, i18n.t("load.level.\(loadName)"), socLevel)
             
             let pulseStartIndex = samples.count - 1
             
@@ -578,7 +610,7 @@ final class QuickHealthTest: ObservableObject {
             let pulseDuration = presetPulseDuration
             DispatchQueue.main.asyncAfter(deadline: .now() + pulseDuration) {
                 self.applyLoad(.off)
-                self.currentStep = String(format: NSLocalizedString("quick.test.resting", comment: ""), NSLocalizedString("load.level.\(loadName)", comment: ""), Int(self.restDurationSec))
+                self.currentStep = String(format: self.i18n.t("quick.test.resting"), self.i18n.t("load.level.\(loadName)"), Int(self.restDurationSec))
                 
                 // Измеряем DCIR
                 if let dcirPoint = DCIRCalculator.estimateDCIR(
