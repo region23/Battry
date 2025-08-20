@@ -71,104 +71,110 @@ struct ChartsPanel: View {
             // Уменьшаем число точек для плавной отрисовки
             let readings = history.downsample(data(), maxPoints: 800)
 
-            // Двухколоночный layout: фильтры слева, индекс здоровья справа
-            HStack(alignment: .top, spacing: 12) {
-                // Левая колонка: фильтры и управление
-                VStack(alignment: .leading, spacing: 8) {
-                    // Период времени
-                    HStack(spacing: 6) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color.accentColor)
-                        ForEach(availableTimeframes) { timeframe in
-                            PeriodButton(
-                                title: timeframe.localizedTitle(using: i18n),
-                                isSelected: self.timeframe == timeframe
-                            ) {
-                                self.timeframe = timeframe
-                            }
-                        }
-                        Spacer()
-                    }
-
-                    // Метрики фильтры
-                    VStack(alignment: .leading, spacing: 6) {
+            // HStack layout с пропорциональными размерами: 2/3 для фильтров, 1/3 для индекса
+            GeometryReader { geometry in
+                HStack(alignment: .top, spacing: 12) {
+                    // Левый блок: фильтры и управление (2/3 ширины)
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Период времени
                         HStack(spacing: 6) {
-                            Image(systemName: "chart.line.uptrend.xyaxis")
+                            Image(systemName: "calendar")
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(Color.accentColor)
-                            Text(i18n.language == .ru ? "Метрики графика" : "Chart Metrics")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            ForEach(availableTimeframes) { timeframe in
+                                PeriodButton(
+                                    title: timeframe.localizedTitle(using: i18n),
+                                    isSelected: self.timeframe == timeframe
+                                ) {
+                                    self.timeframe = timeframe
+                                }
+                            }
                             Spacer()
                         }
-                        
-                        // Первый ряд фильтров
-                        HStack(spacing: 6) {
-                            MetricToggleButton(
-                                title: i18n.t("trends.series.charge"),
-                                color: .blue,
-                                isSelected: showPercent
-                            ) { showPercent.toggle() }
 
-                            MetricToggleButton(
-                                title: i18n.t("trends.series.temperature"),
-                                color: .red,
-                                isSelected: showTemp
-                            ) { showTemp.toggle() }
-
-                            MetricToggleButton(
-                                title: i18n.t("trends.series.voltage"),
-                                color: .green,
-                                isSelected: showVolt
-                            ) { showVolt.toggle() }
+                        // Метрики фильтры
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chart.line.uptrend.xyaxis")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(Color.accentColor)
+                                Text(i18n.language == .ru ? "Метрики графика" : "Chart Metrics")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                            }
                             
-                            Spacer()
-                        }
-                        
-                        // Второй ряд фильтров
-                        HStack(spacing: 6) {
-                            MetricToggleButton(
-                                title: i18n.t("trends.series.power"),
-                                color: .orange,
-                                isSelected: showPower
-                            ) { showPower.toggle() }
+                            // Первый ряд фильтров
+                            HStack(spacing: 6) {
+                                MetricToggleButton(
+                                    title: i18n.t("trends.series.charge"),
+                                    color: .blue,
+                                    isSelected: showPercent
+                                ) { showPercent.toggle() }
 
-                            MetricToggleButton(
-                                title: i18n.t("trends.series.health.score"),
-                                color: .purple,
-                                isSelected: showHealthScore
-                            ) { showHealthScore.toggle() }
+                                MetricToggleButton(
+                                    title: i18n.t("trends.series.temperature"),
+                                    color: .red,
+                                    isSelected: showTemp
+                                ) { showTemp.toggle() }
 
-                            MetricToggleButton(
-                                title: "OCV",
-                                color: .teal,
-                                isSelected: showOCV
-                            ) { showOCV.toggle() }
-
-                            MetricToggleButton(
-                                title: i18n.t("dcir.resistance"),
-                                color: .pink,
-                                isSelected: showDCIR
-                            ) { showDCIR.toggle() }
+                                MetricToggleButton(
+                                    title: i18n.t("trends.series.voltage"),
+                                    color: .green,
+                                    isSelected: showVolt
+                                ) { showVolt.toggle() }
+                                
+                                Spacer()
+                            }
                             
-                            Spacer()
+                            // Второй ряд фильтров
+                            HStack(spacing: 6) {
+                                MetricToggleButton(
+                                    title: i18n.t("trends.series.power"),
+                                    color: .orange,
+                                    isSelected: showPower
+                                ) { showPower.toggle() }
+
+                                MetricToggleButton(
+                                    title: i18n.t("trends.series.health.score"),
+                                    color: .purple,
+                                    isSelected: showHealthScore
+                                ) { showHealthScore.toggle() }
+
+                                MetricToggleButton(
+                                    title: "OCV",
+                                    color: .teal,
+                                    isSelected: showOCV
+                                ) { showOCV.toggle() }
+
+                                MetricToggleButton(
+                                    title: i18n.t("dcir.resistance"),
+                                    color: .pink,
+                                    isSelected: showDCIR
+                                ) { showDCIR.toggle() }
+                                
+                                Spacer()
+                            }
                         }
                     }
-                }
-                .padding(8)
-                .background(
-                    .thinMaterial,
-                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                )
-                .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(
+                        .thinMaterial,
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+                    .frame(width: (geometry.size.width - 12) * 2/3)
 
-                // Правая колонка: индекс здоровья
-                if !readings.isEmpty {
-                    BatteryHealthInfoPanel(readings: readings, snapshot: snapshot)
-                        .frame(maxWidth: .infinity)
+                    // Правый блок: индекс здоровья (1/3 ширины)
+                    if !readings.isEmpty {
+                        BatteryHealthInfoPanel(readings: readings, snapshot: snapshot)
+                            .frame(width: (geometry.size.width - 12) * 1/3)
+                    } else {
+                        Color.clear
+                            .frame(width: (geometry.size.width - 12) * 1/3)
+                    }
                 }
             }
+            .frame(height: 120)
             .onAppear {
                 if sessionAvailable && timeframe == .h24 {
                     timeframe = .session
