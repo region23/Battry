@@ -1123,6 +1123,26 @@ extension CalibrationPanel {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 32, alignment: .top)
                 
+                // Friendly note about baseline conditions if not ideal
+                if let status = quickHealthTest.baselineWindowStatus, status != .ideal {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "lightbulb")
+                            .foregroundStyle(.yellow)
+                        Text({ () -> String in
+                            switch status {
+                            case .outside:
+                                return i18n.language == .ru ? "Короткая начальная калибровка прошла не при идеальном уровне заряда. Для максимально точных результатов лучше начинать тест при 95–90%." : "The short initial calibration ran outside the ideal charge range. For best accuracy, try to start around 95–90% next time."
+                            case .skipped:
+                                return i18n.language == .ru ? "Начальная калибровка была пропущена из‑за уровня заряда. Результат корректен, но точность чуть ниже. В следующий раз начните при 90–95%." : "The initial calibration was skipped due to charge level. Results are still valid, but a bit less precise. Next time, start around 90–95%."
+                            case .ideal:
+                                return ""
+                            }
+                        }())
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                
                 // Состояние теста
                 switch quickHealthTest.state {
                 case .idle:

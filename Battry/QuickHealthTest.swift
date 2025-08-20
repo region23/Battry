@@ -99,6 +99,9 @@ final class QuickHealthTest: ObservableObject {
     @Published private(set) var progress: Double = 0.0
     @Published private(set) var estimatedTimeRemaining: TimeInterval?
     @Published private(set) var lastResult: QuickHealthResult?
+    /// Статус того, как была выполнена начальная калибровка (baseline)
+    enum BaselineWindowStatus: Equatable { case ideal, outside, skipped }
+    @Published private(set) var baselineWindowStatus: BaselineWindowStatus? = nil
     
     /// Live quality control during CP phases (0-100)
     var liveControlQuality: Double {
@@ -151,8 +154,8 @@ final class QuickHealthTest: ObservableObject {
     private var testStartTime: Date?
     private var currentPulseIndex = 0
     private var totalPulsesPerSOC: Int { pulseSequence.count }
-    private var averageDischargeRatePercentPerMinute: Double = 0.5 // estimated default
-    private var dischargeRateWithLightLoad: Double = 1.5 // estimated discharge rate with light CPU load (% per minute)
+    private var averageDischargeRatePercentPerMinute: Double = 0.5 // estimated default (will adapt via EMA)
+    private var dischargeRateWithLightLoad: Double = 0.9 // conservative default for wait-time estimates (% per minute)
     
     /// Возвращает последовательность пульсов на основе выбранного пресета
     private var pulseSequence: [(LoadLevel, String)] {
@@ -292,6 +295,7 @@ final class QuickHealthTest: ObservableObject {
         cpIntervals.removeAll()
         energyWindowTargetSOC = nil
         cpPhase = 0
+        baselineWindowStatus = nil
         
         // Initialize progress tracking
         testStartTime = Date()
@@ -306,6 +310,7 @@ final class QuickHealthTest: ObservableObject {
             requireWindow95to90 = false
             baselineStartAt = nil
             progress = 0.0 // Начинаем с 0%, без калибровки
+            baselineWindowStatus = .skipped
         } else {
             // Стандартная процедура с калибровкой в покое
             requireWindow95to90 = (currentSOC > 95)
@@ -489,9 +494,11 @@ final class QuickHealthTest: ObservableObject {
                 } else if soc >= 90 { // вошли в окно — стартуем baseline
                     baselineStartAt = Date()
                     currentStep = "Baseline at rest (2–3 min) in 95–90% window…"
+                    baselineWindowStatus = .ideal
                 } else { // прошли ниже 90% до начала — запускаем baseline сразу
                     baselineStartAt = Date()
                     currentStep = "Baseline at rest (2–3 min)…"
+                    baselineWindowStatus = .outside
                 }
             }
 
@@ -500,8 +507,10 @@ final class QuickHealthTest: ObservableObject {
                 if soc >= 90 {
                     baselineStartAt = Date()
                     currentStep = "Baseline at rest (2–3 min) in 95–90% window…"
+                    baselineWindowStatus = .ideal
                 } else {
                     // Нет окна — пропускаем baseline
+                    baselineWindowStatus = .skipped
                     state = .pulseTesting(targetSOC: testTargetSOCs[0])
                     break
                 }
@@ -621,7 +630,7 @@ final class QuickHealthTest: ObservableObject {
                 if let dcirPoint = DCIRCalculator.estimateDCIR(
                     samples: self.samples,
                     pulseStartIndex: pulseStartIndex,
-                    windowSeconds: 3.0
+                    windowSeconds: 5.0
                 ) {
                     self.dcirMeasurements.append(dcirPoint)
                 }
@@ -865,7 +874,9 @@ final class QuickHealthTest: ObservableObject {
     /// Возвращает статистику микро‑дропов по SOC диапазонам
     private func computeMicroDropStats(samples: [BatteryReading]) -> (totalCount: Int, countAbove20: Int, countBelow20: Int, totalRatePerHour: Double, rateAbove20PerHour: Double, rateBelow20PerHour: Double) {
         guard samples.count >= 2 else { return (0,0,0,0,0,0) }
-        // Подсчитаем длительности по диапазонам SOC
+        // Сглаживаем SOC экспоненциальным EMA, чтобы уменьшить ложные срабатывания из-за квантования
+        let smoothed = smoothedSOCSeries(samples: samples, tauSec: 15)
+        // Подсчитаем длительности по диапазонам SOC на основе сглаженного SOC
         var durationAbove20: Double = 0 // hours
         var durationBelow20: Double = 0 // hours
         for i in 1..<samples.count {
@@ -873,26 +884,27 @@ final class QuickHealthTest: ObservableObject {
             let curr = samples[i]
             let dt = curr.timestamp.timeIntervalSince(prev.timestamp) / 3600.0
             guard dt > 0, !prev.isCharging && !curr.isCharging else { continue }
-            if prev.percentage >= 20 { durationAbove20 += dt } else { durationBelow20 += dt }
+            if smoothed[i-1] >= 20.0 { durationAbove20 += dt } else { durationBelow20 += dt }
         }
-        // События со скользящим окном ≤120 c
+        // События со скользящим окном ≤120 c на основе сглаженного SOC
         var total = 0
         var above20 = 0
         var below20 = 0
         var i = 0
         while i < samples.count {
-            let start = samples[i]
-            if start.isCharging { i += 1; continue }
+            if samples[i].isCharging { i += 1; continue }
+            let startTime = samples[i].timestamp
+            let startSOC = smoothed[i]
             var j = i + 1
             var found = false
             while j < samples.count {
-                let dt = samples[j].timestamp.timeIntervalSince(start.timestamp)
+                let dt = samples[j].timestamp.timeIntervalSince(startTime)
                 if dt > 120 { break }
                 if !samples[j].isCharging {
-                    let drop = start.percentage - samples[j].percentage
-                    if drop >= 2 {
+                    let drop = startSOC - smoothed[j]
+                    if drop >= 2.0 {
                         total += 1
-                        if start.percentage >= 20 { above20 += 1 } else { below20 += 1 }
+                        if startSOC >= 20.0 { above20 += 1 } else { below20 += 1 }
                         found = true
                         break
                     }
@@ -909,23 +921,40 @@ final class QuickHealthTest: ObservableObject {
     }
     private func hasMicroDropsAboveSOC(samples: [BatteryReading], thresholdPct: Int, windowSec: Double, socMin: Int) -> Bool {
         guard samples.count >= 2 else { return false }
+        let smoothed = smoothedSOCSeries(samples: samples, tauSec: 15)
         var i = 0
         while i < samples.count {
-            let start = samples[i]
-            if start.isCharging || start.percentage < socMin { i += 1; continue }
+            if samples[i].isCharging || smoothed[i] < Double(socMin) { i += 1; continue }
+            let startTime = samples[i].timestamp
+            let startSOC = smoothed[i]
             var j = i + 1
             while j < samples.count {
-                let dt = samples[j].timestamp.timeIntervalSince(start.timestamp)
+                let dt = samples[j].timestamp.timeIntervalSince(startTime)
                 if dt > windowSec { break }
                 if !samples[j].isCharging {
-                    let drop = start.percentage - samples[j].percentage
-                    if drop >= thresholdPct { return true }
+                    let drop = startSOC - smoothed[j]
+                    if drop >= Double(thresholdPct) { return true }
                 }
                 j += 1
             }
             i += 1
         }
         return false
+    }
+
+    /// Возвращает сглаженную серию SOC (EMA) для уменьшения влияния квантования
+    private func smoothedSOCSeries(samples: [BatteryReading], tauSec: Double = 15.0) -> [Double] {
+        guard !samples.isEmpty else { return [] }
+        var result: [Double] = Array(repeating: 0.0, count: samples.count)
+        var ema = Double(samples[0].percentage)
+        result[0] = ema
+        for i in 1..<samples.count {
+            let dt = max(0.0, samples[i].timestamp.timeIntervalSince(samples[i-1].timestamp))
+            let alpha = 1.0 - exp(-dt / max(1.0, tauSec))
+            ema = (1.0 - alpha) * ema + alpha * Double(samples[i].percentage)
+            result[i] = ema
+        }
+        return result
     }
     
     private func calculateStabilityScore(microDrops: Int, samples: [BatteryReading]) -> Double {

@@ -92,8 +92,10 @@ struct DCIRCalculator {
             return nil
         }
         
-        // Вычисляем внутреннее сопротивление по закону Ома: R = ΔV / ΔI
-        let resistanceOhm = deltaVoltageV / deltaCurrentA
+        // Вычисляем внутреннее сопротивление по закону Ома
+        // В macOS ток разряда отрицательный, поэтому используем модуль изменений,
+        // чтобы получить положительное сопротивление: R = |ΔV| / |ΔI|
+        let resistanceOhm = abs(deltaVoltageV) / abs(deltaCurrentA)
         let resistanceMohm = resistanceOhm * 1000.0
         
         // Убеждаемся, что сопротивление разумное (не отрицательное и не слишком большое)
