@@ -861,153 +861,150 @@ struct MenuContent: View {
             
             // Блок 2: Состояние и производительность - оценки здоровья и прогнозы
             CardSection(title: i18n.language == .ru ? "Состояние и производительность" : "Health & Performance", icon: "heart.fill") {
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8)
-                ], spacing: 8) {
-                    // Первый ряд: Health Score, SOH Energy
-                    EnhancedStatCard(
-                        title: i18n.t("health.score"),
-                        value: getHealthScoreDisplayValue(),
-                        icon: "heart.fill",
-                        accentColor: isHealthScoreCollecting() ? .secondary : 
-                                   (getHealthStatus().color == "green" ? .green : 
-                                   getHealthStatus().color == "orange" ? .orange : 
-                                   getHealthStatus().color == "red" ? .red : .blue),
-                        healthStatus: isHealthScoreCollecting() ? nil : getHealthStatus(),
-                        isCollectingData: isHealthScoreCollecting()
-                    )
-                    .help(isHealthScoreCollecting() ? i18n.t("health.score.collecting.hint") : i18n.language == .ru ? "Общая оценка состояния батареи на основе всех метрик" : "Overall battery health score based on all metrics")
-                    
-                    EnhancedStatCard(
-                        title: i18n.t("soh.energy"),
-                        value: getSOHEnergy(),
-                        icon: "bolt.circle.fill",
-                        accentColor: .green,
-                        healthStatus: nil,
-                        isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
-                    )
-                    .help(i18n.language == .ru ? "Реальная ёмкость батареи по сравнению с новой. Норма: >80%" : "Battery's real capacity compared to new. Normal: >80%")
-                    
-                    // Второй ряд: Время работы, Прогнозы времени
-                    EnhancedStatCard(
-                        title: i18n.t("runtime.estimated"),
-                        value: estimatedRuntimeText(),
-                        icon: "clock",
-                        accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
-                        isCollectingData: isCollectingRuntime()
-                    )
-                    .help(i18n.language == .ru ? 
-                        "Оценка времени работы от батареи при текущем уровне энергопотребления" : 
-                        "Estimated battery runtime at current power consumption level")
-                    
-                    // Карточка с прогнозами времени для типовых нагрузок
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(Color.accentColor)
-                            Text(i18n.t("power.presets"))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                        }
-                        HStack(spacing: 6) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "doc.text")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(getPowerPresetText(0.1)).font(.caption2).foregroundStyle(.secondary)
-                                Text(getRuntimeForCRate(0.1)).font(.caption2).fontWeight(.medium)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(.blue.opacity(0.1), in: Capsule())
-                            HStack(spacing: 3) {
-                                Image(systemName: "square.stack.3d.up")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(getPowerPresetText(0.2)).font(.caption2).foregroundStyle(.secondary)
-                                Text(getRuntimeForCRate(0.2)).font(.caption2).fontWeight(.medium)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(.orange.opacity(0.1), in: Capsule())
-                            HStack(spacing: 3) {
-                                Image(systemName: "gamecontroller")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Text(getPowerPresetText(0.3)).font(.caption2).foregroundStyle(.secondary)
-                                Text(getRuntimeForCRate(0.3)).font(.caption2).fontWeight(.medium)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(.red.opacity(0.1), in: Capsule())
-                        }
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 8) {
+                    // Первый ряд: Health Score, SOH Energy, Плавность заряда
+                    GridRow {
+                        EnhancedStatCard(
+                            title: i18n.t("health.score"),
+                            value: getHealthScoreDisplayValue(),
+                            icon: "heart.fill",
+                            accentColor: isHealthScoreCollecting() ? .secondary : 
+                                       (getHealthStatus().color == "green" ? .green : 
+                                       getHealthStatus().color == "orange" ? .orange : 
+                                       getHealthStatus().color == "red" ? .red : .blue),
+                            healthStatus: isHealthScoreCollecting() ? nil : getHealthStatus(),
+                            isCollectingData: isHealthScoreCollecting()
+                        )
+                        .help(isHealthScoreCollecting() ? i18n.t("health.score.collecting.hint") : i18n.language == .ru ? "Общая оценка состояния батареи на основе всех метрик" : "Overall battery health score based on all metrics")
+                        
+                        EnhancedStatCard(
+                            title: i18n.t("soh.energy"),
+                            value: getSOHEnergy(),
+                            icon: "bolt.circle.fill",
+                            accentColor: .green,
+                            healthStatus: nil,
+                            isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
+                        )
+                        .help(i18n.language == .ru ? "Реальная ёмкость батареи по сравнению с новой. Норма: >80%" : "Battery's real capacity compared to new. Normal: >80%")
+                        
+                        EnhancedStatCard(
+                            title: i18n.t("knee.index"),
+                            value: getKneeIndex(),
+                            icon: "chart.line.uptrend.xyaxis.circle",
+                            accentColor: .blue,
+                            healthStatus: nil,
+                            isCollectingData: analytics.lastAnalysis?.kneeIndex ?? 0 <= 0
+                        )
+                        .help(i18n.language == .ru ? "Насколько плавно разряжается батарея. 100 = идеально, <50 = проблемы" : "How smoothly the battery discharges. 100 = perfect, <50 = problems")
                     }
-                    .padding(8)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
-                    )
-                    .help(i18n.language == .ru ? 
-                        "Прогноз времени работы при типовых нагрузках: легкая (веб, документы), средняя (приложения), тяжелая (игры, видео)" : 
-                        "Runtime forecast for typical workloads: light (web, docs), medium (apps), heavy (games, video)")
                     
-                    // Третий ряд: DCIR, Микро-дропы
-                    EnhancedStatCard(
-                        title: i18n.t("dcir.resistance"),
-                        value: getDCIRValue(),
-                        icon: "waveform.path.ecg",
-                        accentColor: getDCIRHealthStatus()?.color == "green" ? .green : 
-                                   getDCIRHealthStatus()?.color == "orange" ? .orange : 
-                                   getDCIRHealthStatus()?.color == "red" ? .red : Color.accentColor,
-                        healthStatus: getDCIRHealthStatus(),
-                        isCollectingData: analytics.lastAnalysis?.dcirAt50Percent == nil
-                    )
-                    .help(i18n.language == .ru ? "Как быстро батарея реагирует на изменения нагрузки. Чем лучше, тем ниже значение" : "How quickly the battery responds to load changes. Lower values are better")
+                    // Второй ряд: Время работы, DCIR, Микро-дропы
+                    GridRow {
+                        EnhancedStatCard(
+                            title: i18n.t("runtime.estimated"),
+                            value: estimatedRuntimeText(),
+                            icon: "clock",
+                            accentColor: hasAnyDischargeData() ? (getEstimatedRuntime() < 3 ? .red : Color.accentColor) : .secondary,
+                            isCollectingData: isCollectingRuntime()
+                        )
+                        .help(i18n.language == .ru ? 
+                            "Оценка времени работы от батареи при текущем уровне энергопотребления" : 
+                            "Estimated battery runtime at current power consumption level")
+                        
+                        EnhancedStatCard(
+                            title: i18n.t("dcir.resistance"),
+                            value: getDCIRValue(),
+                            icon: "waveform.path.ecg",
+                            accentColor: getDCIRHealthStatus()?.color == "green" ? .green : 
+                                       getDCIRHealthStatus()?.color == "orange" ? .orange : 
+                                       getDCIRHealthStatus()?.color == "red" ? .red : Color.accentColor,
+                            healthStatus: getDCIRHealthStatus(),
+                            isCollectingData: analytics.lastAnalysis?.dcirAt50Percent == nil
+                        )
+                        .help(i18n.language == .ru ? "Как быстро батарея реагирует на изменения нагрузки. Чем лучше, тем ниже значение" : "How quickly the battery responds to load changes. Lower values are better")
+                        
+                        EnhancedStatCard(
+                            title: i18n.t("micro.drops"),
+                            value: getMicroDropsCount(),
+                            icon: "arrow.down.circle",
+                            accentColor: getMicroDropHealthStatus()?.color == "green" ? .green : 
+                                       getMicroDropHealthStatus()?.color == "orange" ? .orange : 
+                                       getMicroDropHealthStatus()?.color == "red" ? .red : Color.accentColor,
+                            healthStatus: getMicroDropHealthStatus(),
+                            isCollectingData: false
+                        )
+                        .help(getMicroDropsTooltip())
+                    }
                     
-                    EnhancedStatCard(
-                        title: i18n.t("micro.drops"),
-                        value: getMicroDropsCount(),
-                        icon: "arrow.down.circle",
-                        accentColor: getMicroDropHealthStatus()?.color == "green" ? .green : 
-                                   getMicroDropHealthStatus()?.color == "orange" ? .orange : 
-                                   getMicroDropHealthStatus()?.color == "red" ? .red : Color.accentColor,
-                        healthStatus: getMicroDropHealthStatus(),
-                        isCollectingData: false
-                    )
-                    .help(getMicroDropsTooltip())
+                    // Третий ряд: Энергоэффективность, Прогнозы времени (занимает 2 колонки)
+                    GridRow {
+                        EnhancedStatCard(
+                            title: i18n.t("energy.efficiency"),
+                            value: getEnergyEfficiency(),
+                            icon: "leaf.fill",
+                            accentColor: getEnergyEfficiencyColor(),
+                            isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
+                        )
+                        .help(i18n.language == .ru ? "Насколько эффективно батарея использует свою ёмкость. Норма: 85-100%" : "How efficiently the battery uses its capacity. Normal: 85-100%")
+                        
+                        // Карточка с прогнозами времени для типовых нагрузок - занимает 2 колонки
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color.accentColor)
+                                Text(i18n.t("power.presets"))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                            }
+                            HStack(spacing: 6) {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "doc.text")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text(getPowerPresetText(0.1)).font(.caption2).foregroundStyle(.secondary)
+                                    Text(getRuntimeForCRate(0.1)).font(.caption2).fontWeight(.medium)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(.blue.opacity(0.1), in: Capsule())
+                                HStack(spacing: 3) {
+                                    Image(systemName: "square.stack.3d.up")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text(getPowerPresetText(0.2)).font(.caption2).foregroundStyle(.secondary)
+                                    Text(getRuntimeForCRate(0.2)).font(.caption2).fontWeight(.medium)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(.orange.opacity(0.1), in: Capsule())
+                                HStack(spacing: 3) {
+                                    Image(systemName: "gamecontroller")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text(getPowerPresetText(0.3)).font(.caption2).foregroundStyle(.secondary)
+                                    Text(getRuntimeForCRate(0.3)).font(.caption2).fontWeight(.medium)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(.red.opacity(0.1), in: Capsule())
+                            }
+                        }
+                        .padding(8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.accentColor.opacity(0.1), lineWidth: 1)
+                        )
+                        .help(i18n.language == .ru ? 
+                            "Прогноз времени работы при типовых нагрузках: легкая (веб, документы), средняя (приложения), тяжелая (игры, видео)" : 
+                            "Runtime forecast for typical workloads: light (web, docs), medium (apps), heavy (games, video)")
+                        .gridCellColumns(2)
+                    }
                 }
             }
             
-            // Блок 3: Дополнительные экспертные метрики
-            CardSection(title: i18n.language == .ru ? "Дополнительные метрики" : "Advanced Metrics", icon: "chart.xyaxis.line") {
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 8),
-                    GridItem(.flexible(), spacing: 8)
-                ], spacing: 8) {
-                    EnhancedStatCard(
-                        title: i18n.t("energy.efficiency"),
-                        value: getEnergyEfficiency(),
-                        icon: "leaf.fill",
-                        accentColor: getEnergyEfficiencyColor(),
-                        isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
-                    )
-                    .help(i18n.language == .ru ? "Насколько эффективно батарея использует свою ёмкость. Норма: 85-100%" : "How efficiently the battery uses its capacity. Normal: 85-100%")
-                    
-                    EnhancedStatCard(
-                        title: i18n.t("knee.index"),
-                        value: getKneeIndex(),
-                        icon: "chart.line.uptrend.xyaxis.circle",
-                        accentColor: .blue,
-                        healthStatus: nil,
-                        isCollectingData: analytics.lastAnalysis?.kneeIndex ?? 0 <= 0
-                    )
-                    .help(i18n.language == .ru ? "Насколько плавно разряжается батарея. 100 = идеально, <50 = проблемы" : "How smoothly the battery discharges. 100 = perfect, <50 = problems")
-                }
-            }
         }
     }
     
