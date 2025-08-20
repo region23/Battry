@@ -239,15 +239,23 @@ struct PowerControlQualityIndicator: View {
             
             // Текст качества
             VStack(alignment: .leading, spacing: 2) {
-                Text(i18n.t("power.control.quality"))
+                Text(i18n.language == .ru ? "Стабильность мощности" : "Power stability")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 
                 if isActive {
-                    Text("\(Int(quality))%")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundStyle(statusColor)
+                    HStack(spacing: 4) {
+                        Text("\(Int(quality))%")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(statusColor)
+                        Text(i18n.language == .ru ? "— \(statusLabelRU)" : "— \(statusLabelEN)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(i18n.language == .ru ? "Чем выше, тем точнее измерения." : "Higher is more accurate measurements.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 } else {
                     Text("—")
                         .font(.caption)
@@ -260,29 +268,42 @@ struct PowerControlQualityIndicator: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(statusColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+        .help(helpText)
     }
     
     private var statusIcon: String {
-        if !isActive {
-            return "minus.circle"
-        } else if quality >= 80 {
-            return "checkmark.circle"
-        } else if quality >= 60 {
-            return "exclamationmark.triangle"
-        } else {
-            return "xmark.circle"
-        }
+        if !isActive { return "minus.circle" }
+        if quality >= 90 { return "checkmark.circle" }
+        if quality >= 70 { return "checkmark.seal" }
+        if quality >= 50 { return "exclamationmark.triangle" }
+        return "xmark.circle"
     }
     
     private var statusColor: Color {
-        if !isActive {
-            return .secondary
-        } else if quality >= 80 {
-            return .green
-        } else if quality >= 60 {
-            return .orange
+        if !isActive { return .secondary }
+        if quality >= 90 { return .green }
+        if quality >= 70 { return .blue }
+        if quality >= 50 { return .orange }
+        return .red
+    }
+
+    private var statusLabelRU: String {
+        if quality >= 90 { return "высокая" }
+        if quality >= 70 { return "нормальная" }
+        if quality >= 50 { return "средняя" }
+        return "низкая"
+    }
+    private var statusLabelEN: String {
+        if quality >= 90 { return "high" }
+        if quality >= 70 { return "normal" }
+        if quality >= 50 { return "fair" }
+        return "low"
+    }
+    private var helpText: String {
+        if i18n.language == .ru {
+            return "Насколько точно удаётся удерживать заданную мощность. Высокая стабильность даёт более точные измерения."
         } else {
-            return .red
+            return "How precisely the app holds the target power. Higher stability yields more accurate measurements."
         }
     }
 }
