@@ -327,5 +327,14 @@
 // Hard-coded strings
 "cpu.label" = "CPU";
 "original.label" = "Original";
+
+// Quick health test status messages
+"quick.test.pulse.progress" = "Pulse %d/%d (%@) @ %d%% SOC";
+"quick.test.resting" = "Resting after %@ pulse (%d sec)";
+"quick.test.completed.soc" = "Completed pulse tests @ %d%% SOC";
+"quick.test.waiting.soc" = "Waiting for battery to reach %d%% (current: %d%%)";
+"load.level.light" = "light";
+"load.level.medium" = "medium";
+"load.level.heavy" = "heavy";
 "temp.at.25c" = "@ 25°C";
 "test.temp" = "Test temp";

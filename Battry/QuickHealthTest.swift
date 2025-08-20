@@ -97,6 +97,7 @@ final class QuickHealthTest: ObservableObject {
     @Published private(set) var state: TestState = .idle
     @Published private(set) var currentStep: String = ""
     @Published private(set) var progress: Double = 0.0
+    @Published private(set) var estimatedTimeRemaining: TimeInterval?
     @Published private(set) var lastResult: QuickHealthResult?
     
     // MARK: - Private Properties
@@ -123,12 +124,41 @@ final class QuickHealthTest: ObservableObject {
     private let testTargetSOCs = [80, 60, 40, 20] // Уровни SOC для пульс-тестов
     private var currentTargetIndex = 0
     
+    // Progress tracking
+    private var testStartTime: Date?
+    private var currentPulseIndex = 0
+    private var totalPulsesPerSOC = 3 // light, medium, heavy
+    private var averageDischargeRatePercentPerMinute: Double = 0.5 // estimated default
+    
     // Настройки теста
     private let calibrationDurationSec: TimeInterval = 150 // 2.5 мин калибровка в покое
     private let pulseDurationSec: TimeInterval = 10 // 10 сек пульс нагрузки
     private let restDurationSec: TimeInterval = 25 // 25 сек отдых между пульсами
     // Конфигурируемая ширина энергетического окна в процентах SOC (по умолчанию 30% → окно 80→50)
     private let energyWindowSpanPct: Int = 30
+    
+    // MARK: - File Storage
+    
+    /// Путь к директории с данными Quick Health Test
+    private static var appSupportDir: URL {
+        let fm = FileManager.default
+        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let dir = base.appendingPathComponent("Battry", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    
+    /// Путь к файлу с историей результатов
+    private static var resultsHistoryURL: URL {
+        return appSupportDir.appendingPathComponent("quickhealth_results.json")
+    }
+    
+    /// Создает имя файла для отдельного результата теста
+    private static func resultFileName(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return "quickhealth_\(formatter.string(from: date)).json"
+    }
     
     // MARK: - Public Methods
     
@@ -150,6 +180,9 @@ final class QuickHealthTest: ObservableObject {
                 self?.handleBatteryUpdate(snapshot)
             }
             .store(in: &cancellables)
+        
+        // Загружаем последний результат из хранилища
+        initializeFromStorage()
     }
     
     /// Устанавливает пресет мощности для теста
@@ -203,6 +236,11 @@ final class QuickHealthTest: ObservableObject {
         energyWindowTargetSOC = nil
         cpPhase = 0
         
+        // Initialize progress tracking
+        testStartTime = Date()
+        currentPulseIndex = 0
+        estimatedTimeRemaining = nil
+        
         // Определяем необходимость ожидания окна 95–90% для baseline
         requireWindow95to90 = (currentSOC > 95)
         state = .calibrating
@@ -230,11 +268,120 @@ final class QuickHealthTest: ObservableObject {
         state = .idle
         currentStep = ""
         progress = 0.0
+        estimatedTimeRemaining = nil
+        
+        // Reset tracking variables
+        testStartTime = nil
+        currentPulseIndex = 0
         
         cancellables.removeAll()
     }
     
     // MARK: - Private Methods
+    
+    private func updateTimeEstimation(currentSOC: Int) {
+        guard let startTime = testStartTime else {
+            estimatedTimeRemaining = nil
+            return
+        }
+        
+        let elapsedTime = Date().timeIntervalSince(startTime)
+        
+        // Calculate remaining work based on current state
+        var remainingTime: TimeInterval = 0
+        
+        switch state {
+        case .calibrating:
+            if let baselineStart = baselineStartAt {
+                let remainingCalibration = max(0, calibrationDurationSec - Date().timeIntervalSince(baselineStart))
+                remainingTime += remainingCalibration
+            }
+            // Add time for all pulse tests and energy window
+            remainingTime += estimateTimeForAllPulseTests(fromSOC: currentSOC)
+            remainingTime += estimateTimeForEnergyWindow(fromSOC: currentSOC)
+            
+        case .pulseTesting(let targetSOC):
+            let targetIndex = testTargetSOCs.firstIndex(of: targetSOC) ?? 0
+            
+            if currentSOC > targetSOC {
+                // Time to wait for battery to discharge to target
+                let socDiff = Double(currentSOC - targetSOC)
+                updateDischargeRate(currentSOC: currentSOC, elapsedTime: elapsedTime)
+                remainingTime += (socDiff / averageDischargeRatePercentPerMinute) * 60
+            }
+            
+            // Add time for pulse tests at this and remaining SOC levels
+            remainingTime += estimateTimeForPulseTests(fromIndex: targetIndex)
+            remainingTime += estimateTimeForEnergyWindow(fromSOC: currentSOC)
+            
+        case .energyWindow:
+            if let targetSOC = energyWindowTargetSOC {
+                let socDiff = Double(currentSOC - targetSOC)
+                remainingTime += (socDiff / averageDischargeRatePercentPerMinute) * 60
+            }
+            // Add remaining pulse tests after energy window
+            remainingTime += estimateTimeForPulseTests(fromIndex: 1) // from 60% onwards
+            
+        case .analyzing:
+            remainingTime = 30 // analysis typically takes ~30 seconds
+            
+        default:
+            remainingTime = 0
+        }
+        
+        estimatedTimeRemaining = max(30, remainingTime) // minimum 30 seconds
+    }
+    
+    private func updateDischargeRate(currentSOC: Int, elapsedTime: TimeInterval) {
+        guard samples.count >= 2, elapsedTime > 60 else { return } // need at least 1 minute of data
+        
+        let recentSamples = samples.suffix(min(30, samples.count)) // last 30 samples
+        if let firstRecent = recentSamples.first, let lastRecent = recentSamples.last {
+            let timeDiff = lastRecent.timestamp.timeIntervalSince(firstRecent.timestamp) / 60.0 // minutes
+            let socDiff = Double(firstRecent.percentage - lastRecent.percentage)
+            
+            if timeDiff > 0 && socDiff > 0 {
+                let newRate = socDiff / timeDiff
+                // Smooth the rate with exponential moving average
+                averageDischargeRatePercentPerMinute = 0.3 * newRate + 0.7 * averageDischargeRatePercentPerMinute
+            }
+        }
+    }
+    
+    private func estimateTimeForAllPulseTests(fromSOC: Int) -> TimeInterval {
+        var totalTime: TimeInterval = 0
+        
+        for (_, targetSOC) in testTargetSOCs.enumerated() {
+            if fromSOC > targetSOC {
+                // Time to discharge to this SOC level
+                let socDiff = Double(fromSOC - targetSOC)
+                totalTime += (socDiff / averageDischargeRatePercentPerMinute) * 60
+            }
+            
+            // Time for pulse tests at this level
+            totalTime += estimateTimeForPulseTestsAtLevel()
+        }
+        
+        return totalTime
+    }
+    
+    private func estimateTimeForPulseTests(fromIndex: Int) -> TimeInterval {
+        let remainingLevels = max(0, testTargetSOCs.count - fromIndex)
+        return Double(remainingLevels) * estimateTimeForPulseTestsAtLevel()
+    }
+    
+    private func estimateTimeForPulseTestsAtLevel() -> TimeInterval {
+        // 3 pulses × (10 sec pulse + 25 sec rest) = 105 seconds
+        return Double(totalPulsesPerSOC) * (pulseDurationSec + restDurationSec)
+    }
+    
+    private func estimateTimeForEnergyWindow(fromSOC: Int) -> TimeInterval {
+        if fromSOC > 50 { // energy window is 80->50
+            let socDiff = Double(max(0, fromSOC - 50))
+            return (socDiff / averageDischargeRatePercentPerMinute) * 60
+        }
+        return 0
+    }
     
     private func handleBatteryUpdate(_ snapshot: BatterySnapshot) {
         let reading = BatteryReading(
@@ -249,6 +396,9 @@ final class QuickHealthTest: ObservableObject {
         )
         
         samples.append(reading)
+        
+        // Update time estimation
+        updateTimeEstimation(currentSOC: snapshot.percentage)
         
         // Обрабатываем состояние теста
         switch state {
@@ -310,7 +460,7 @@ final class QuickHealthTest: ObservableObject {
         
         // Ждем пока батарея разрядится до целевого SOC
         if currentSOC > targetSOC {
-            currentStep = "Waiting for battery to reach \(targetSOC)% (current: \(currentSOC)%)"
+            currentStep = String(format: NSLocalizedString("quick.test.waiting.soc", comment: ""), targetSOC, currentSOC)
             return
         }
         
@@ -337,19 +487,27 @@ final class QuickHealthTest: ObservableObject {
     }
     
     private func performPulseTests(at socLevel: Int, completion: @escaping () -> Void) {
-        currentStep = "Pulse testing at \(socLevel)% SOC"
+        currentPulseIndex = 0
         
         // Запускаем последовательность: light → medium → heavy → off
         var pulseIndex = 0
         let loadLevels: [LoadLevel] = [.light, .medium, .heavy]
+        let loadNames = ["light", "medium", "heavy"]
         
         func runNextPulse() {
             guard pulseIndex < loadLevels.count else {
+                currentStep = String(format: NSLocalizedString("quick.test.completed.soc", comment: ""), socLevel)
                 completion()
                 return
             }
             
             let loadLevel = loadLevels[pulseIndex]
+            let loadName = loadNames[pulseIndex]
+            currentPulseIndex = pulseIndex
+            
+            // Update detailed status
+            currentStep = String(format: NSLocalizedString("quick.test.pulse.progress", comment: ""), pulseIndex + 1, loadLevels.count, NSLocalizedString("load.level.\(loadName)", comment: ""), socLevel)
+            
             let pulseStartIndex = samples.count - 1
             
             // Включаем нагрузку
@@ -358,6 +516,7 @@ final class QuickHealthTest: ObservableObject {
             // Через 10 секунд выключаем нагрузку и измеряем DCIR
             DispatchQueue.main.asyncAfter(deadline: .now() + pulseDurationSec) {
                 self.applyLoad(.off)
+                self.currentStep = String(format: NSLocalizedString("quick.test.resting", comment: ""), NSLocalizedString("load.level.\(loadName)", comment: ""), Int(self.restDurationSec))
                 
                 // Измеряем DCIR
                 if let dcirPoint = DCIRCalculator.estimateDCIR(
@@ -367,6 +526,11 @@ final class QuickHealthTest: ObservableObject {
                 ) {
                     self.dcirMeasurements.append(dcirPoint)
                 }
+                
+                // Update progress within this SOC level
+                let socLevelProgress = Double(pulseIndex + 1) / Double(loadLevels.count)
+                let baseProgress = 0.2 + Double(self.currentTargetIndex) * 0.15
+                self.progress = baseProgress + (0.15 * socLevelProgress)
                 
                 // Отдыхаем 25 секунд перед следующим пульсом
                 DispatchQueue.main.asyncAfter(deadline: .now() + self.restDurationSec) {
@@ -427,6 +591,9 @@ final class QuickHealthTest: ObservableObject {
                 self.state = .completed(result: result)
                 self.currentStep = "Test completed"
                 self.progress = 1.0
+                
+                // Автоматически сохраняем результат
+                self.saveResult(result)
             }
         }
     }
@@ -799,5 +966,80 @@ final class QuickHealthTest: ObservableObject {
                 }
             }
         }
+    }
+    
+    // MARK: - Results Storage
+    
+    /// Сохраняет результат теста в JSON файлы
+    private func saveResult(_ result: QuickHealthResult) {
+        // Сохраняем отдельный файл для этого теста
+        let fileName = Self.resultFileName(for: result.startedAt)
+        let fileURL = Self.appSupportDir.appendingPathComponent(fileName)
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(result)
+            try data.write(to: fileURL)
+            print("Quick health test result saved to: \(fileURL.path)")
+        } catch {
+            print("Failed to save quick health test result: \(error)")
+        }
+        
+        // Обновляем историю результатов
+        updateResultsHistory(with: result)
+    }
+    
+    /// Обновляет файл с историей всех результатов
+    private func updateResultsHistory(with newResult: QuickHealthResult) {
+        var results = loadResults()
+        
+        // Добавляем новый результат
+        results.append(newResult)
+        
+        // Сортируем по дате (новые сначала)
+        results.sort { $0.startedAt > $1.startedAt }
+        
+        // Ограничиваем количество результатов (например, последние 50)
+        if results.count > 50 {
+            results = Array(results.prefix(50))
+        }
+        
+        // Сохраняем обновленную историю
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(results)
+            try data.write(to: Self.resultsHistoryURL)
+        } catch {
+            print("Failed to save quick health test results history: \(error)")
+        }
+    }
+    
+    /// Загружает историю всех результатов
+    func loadResults() -> [QuickHealthResult] {
+        guard FileManager.default.fileExists(atPath: Self.resultsHistoryURL.path) else {
+            return []
+        }
+        
+        do {
+            let data = try Data(contentsOf: Self.resultsHistoryURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode([QuickHealthResult].self, from: data)
+        } catch {
+            print("Failed to load quick health test results: \(error)")
+            return []
+        }
+    }
+    
+    /// Загружает последний результат
+    func loadLastResult() -> QuickHealthResult? {
+        return loadResults().first
+    }
+    
+    /// Инициализирует последний результат при старте
+    func initializeFromStorage() {
+        lastResult = loadLastResult()
     }
 }

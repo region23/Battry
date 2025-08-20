@@ -34,6 +34,7 @@ struct CalibrationPanel: View {
     }
     @State private var showHeavyProfileWarning: Bool = false
     @State private var showStopTestConfirm: Bool = false
+    @State private var showQuickTestStopConfirm: Bool = false
     @State private var isAdvancedExpanded: Bool = false
     @State private var cpSelectedPreset: PowerPreset = .medium
     @State private var quickTestSelectedPreset: PowerPreset = .medium
@@ -119,6 +120,25 @@ struct CalibrationPanel: View {
         .onAppear {
             // Включаем/выключаем GPU ветку в соответствии с настройкой
             loadGenerator.enableGPU(enableGPUBranch)
+        }
+        .alert(i18n.t("calibration.stop.title"), isPresented: $showStopTestConfirm) {
+            Button(i18n.t("calibration.stop.button"), role: .destructive) {
+                calibrator.stop()
+                if loadGenerator.isRunning {
+                    loadGenerator.stop(reason: .userStopped)
+                }
+            }
+            Button(i18n.t("calibration.continue"), role: .cancel) {}
+        } message: {
+            Text(i18n.t("calibration.stop.confirm"))
+        }
+        .alert(i18n.t("calibration.stop.title"), isPresented: $showQuickTestStopConfirm) {
+            Button(i18n.t("calibration.stop.button"), role: .destructive) {
+                quickHealthTest.stop()
+            }
+            Button(i18n.t("calibration.continue"), role: .cancel) {}
+        } message: {
+            Text(i18n.t("calibration.stop.confirm"))
         }
         
     }
@@ -375,49 +395,11 @@ extension CalibrationPanel {
                     loadGeneratorStatusView
                 }
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Button(i18n.t("cancel.test"), role: .destructive) {
-                        showStopTestConfirm = true
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-
-                    if showStopTestConfirm {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
-                                Text(i18n.t("calibration.stop.title"))
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                            }
-                            Text(i18n.t("calibration.stop.confirm"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            HStack(spacing: 8) {
-                                Button(i18n.t("calibration.stop.button"), role: .destructive) {
-                                    calibrator.stop()
-                                    if loadGenerator.isRunning {
-                                        loadGenerator.stop(reason: .userStopped)
-                                    }
-                                    // video load removed
-                                    showStopTestConfirm = false
-                                }
-                                .buttonStyle(.borderedProminent)
-                                Button(i18n.t("calibration.continue"), role: .cancel) {
-                                    showStopTestConfirm = false
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                        .padding(8)
-                        .background(
-                            .regularMaterial,
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        )
-                    }
+                Button(i18n.t("cancel.test"), role: .destructive) {
+                    showStopTestConfirm = true
                 }
+                .buttonStyle(.bordered)
+                .tint(.red)
             }
         }
     }
@@ -595,14 +577,27 @@ extension CalibrationPanel {
                 )
             }
             
+            // Показываем историю быстрых тестов (до 3 последних)
+            let quickResults = quickHealthTest.loadResults().prefix(3)
+            if !quickResults.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(Array(quickResults), id: \.startedAt) { result in
+                        quickTestResultCard(for: result)
+                    }
+                }
+            }
+            
+            // Показываем историю обычных тестов (до 3 последних)
             if !calibrator.recentResults.isEmpty {
                 VStack(spacing: 8) {
-                    ForEach(Array(calibrator.recentResults.reversed()).prefix(5), id: \.finishedAt) { result in
+                    ForEach(Array(calibrator.recentResults.reversed()).prefix(3), id: \.finishedAt) { result in
                         enhancedResultCard(for: result)
                     }
                 }
-            } else {
-                // Показываем подсказку когда нет результатов
+            }
+            
+            // Показываем подсказку только если нет вообще никаких результатов
+            if calibrator.recentResults.isEmpty && quickResults.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "doc.text")
                         .font(.system(size: 24))
@@ -1027,6 +1022,85 @@ extension CalibrationPanel {
             }
         }
     }
+    
+    private func quickTestResultCard(for result: QuickHealthTest.QuickHealthResult) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header with date and icon
+            HStack {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.green)
+                Text(i18n.t("quick.health.test"))
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Spacer()
+                Text(result.startedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            // Metrics row
+            HStack(spacing: 12) {
+                // Health Score
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(String(format: "%.0f", result.healthScore))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(result.healthScore >= 85 ? .green : result.healthScore >= 70 ? .orange : .red)
+                    Text(i18n.t("health"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Divider().frame(height: 16)
+                
+                // SOH Energy
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(String(format: "%.1f%%", result.sohEnergy))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    Text(i18n.t("soh.energy"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                if let dcir50 = result.dcirAt50Percent {
+                    Divider().frame(height: 16)
+                    
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(format: "%.0f", dcir50))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                        Text(i18n.language == .ru ? "мОм" : "mΩ")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Report button
+                Button {
+                    generateQuickHealthReport(result: result)
+                } label: {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.borderless)
+                .help(i18n.t("reports.open"))
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.green.opacity(0.15), lineWidth: 1)
+                )
+        )
+    }
 }
 
 // MARK: - Quick Health Test Section
@@ -1099,13 +1173,18 @@ extension CalibrationPanel {
                         Text(i18n.language == .ru ? "Калибровка в покое..." : "Baseline calibration...")
                             .font(.caption)
                             .fontWeight(.medium)
+                        if !quickHealthTest.currentStep.isEmpty {
+                            Text(quickHealthTest.currentStep)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                         Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
                     Spacer()
                     Button(i18n.t("stop")) {
-                        quickHealthTest.stop()
+                        showQuickTestStopConfirm = true
                     }
                     .buttonStyle(.bordered)
                     .foregroundStyle(.red)
@@ -1119,13 +1198,26 @@ extension CalibrationPanel {
                         Text(i18n.language == .ru ? "Пульс-тест @\(targetSOC)%" : "Pulse test @\(targetSOC)%")
                             .font(.caption)
                             .fontWeight(.medium)
-                        Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        if !quickHealthTest.currentStep.isEmpty {
+                            Text(quickHealthTest.currentStep)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        HStack {
+                            Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            if let timeRemaining = quickHealthTest.estimatedTimeRemaining {
+                                Text("• \(formatTimeRemaining(timeRemaining))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
                     Spacer()
                     Button(i18n.t("stop")) {
-                        quickHealthTest.stop()
+                        showQuickTestStopConfirm = true
                     }
                     .buttonStyle(.bordered)
                     .foregroundStyle(.red)
@@ -1139,14 +1231,27 @@ extension CalibrationPanel {
                         Text(i18n.language == .ru ? "Энергетическое окно 80→50%" : "Energy window 80→50%")
                             .font(.caption)
                             .fontWeight(.medium)
-                        Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        if !quickHealthTest.currentStep.isEmpty {
+                            Text(quickHealthTest.currentStep)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        HStack {
+                            Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            if let timeRemaining = quickHealthTest.estimatedTimeRemaining {
+                                Text("• \(formatTimeRemaining(timeRemaining))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
                     Spacer()
                     PowerControlQualityIndicator(quality: Double(quickHealthCPQuality), isActive: true)
                     Button(i18n.t("stop")) {
-                        quickHealthTest.stop()
+                        showQuickTestStopConfirm = true
                     }
                     .buttonStyle(.bordered)
                     .foregroundStyle(.red)
@@ -1278,5 +1383,16 @@ extension CalibrationPanel {
     private var quickHealthCPQuality: Int {
         // No direct binding to controller here; show placeholder 0..100 based on last analysis if available
         return Int(quickHealthTest.lastResult?.powerControlQuality ?? 0)
+    }
+    
+    private func formatTimeRemaining(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds / 60)
+        if minutes < 60 {
+            return i18n.language == .ru ? "\(minutes) мин" : "\(minutes) min"
+        } else {
+            let hours = minutes / 60
+            let remainingMin = minutes % 60
+            return i18n.language == .ru ? "\(hours):\(String(format: "%02d", remainingMin)) ч" : "\(hours):\(String(format: "%02d", remainingMin)) h"
+        }
     }
 }
