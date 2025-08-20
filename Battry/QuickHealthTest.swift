@@ -123,6 +123,8 @@ final class QuickHealthTest: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private let testTargetSOCs = [80, 60, 40, 20] // Уровни SOC для пульс-тестов
+    /// Токен активности, предотвращающий сон системы
+    private var sleepActivity: NSObjectProtocol?
     private var currentTargetIndex = 0
     private let alertManager = AlertManager.shared
     
@@ -237,6 +239,9 @@ final class QuickHealthTest: ObservableObject {
         // Включаем высокочастотный режим опроса (1 Гц)
         vm.enableTestMode()
         
+        // Предотвращаем сон системы во время теста
+        beginPreventingSleep()
+        
         // Инициализируем тест
         samples.removeAll()
         dcirMeasurements.removeAll()
@@ -271,6 +276,9 @@ final class QuickHealthTest: ObservableObject {
         
         // Останавливаем генераторы нагрузки
         loadGenerator?.stop(reason: .userStopped)
+        
+        // Разрешаем системе засыпать
+        endPreventingSleep()
         
         // Возвращаем обычный режим опроса
         batteryViewModel?.disableTestMode()
@@ -601,6 +609,9 @@ final class QuickHealthTest: ObservableObject {
                 self.state = .completed(result: result)
                 self.currentStep = "Test completed"
                 self.progress = 1.0
+                
+                // Разрешаем системе засыпать после завершения теста
+                self.endPreventingSleep()
                 
                 // Автоматически сохраняем результат
                 self.saveResult(result)
@@ -976,6 +987,24 @@ final class QuickHealthTest: ObservableObject {
                 }
             }
         }
+    }
+    
+    // MARK: - Sleep Prevention
+    
+    /// Начинает предотвращение сна системы
+    private func beginPreventingSleep() {
+        guard sleepActivity == nil else { return }
+        let options: ProcessInfo.ActivityOptions = [.idleSystemSleepDisabled, .idleDisplaySleepDisabled, .userInitiated]
+        let token = ProcessInfo.processInfo.beginActivity(options: options, reason: "Battry quick health test running")
+        sleepActivity = token as NSObjectProtocol
+    }
+    
+    /// Завершает предотвращение сна системы
+    private func endPreventingSleep() {
+        if let token = sleepActivity {
+            ProcessInfo.processInfo.endActivity(token)
+        }
+        sleepActivity = nil
     }
     
     // MARK: - Results Storage

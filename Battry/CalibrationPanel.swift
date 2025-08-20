@@ -1117,7 +1117,7 @@ extension CalibrationPanel {
             // Content section
             VStack(alignment: .leading, spacing: 10) {
                 
-                Text(i18n.language == .ru ? "Запатентованная методика: точный анализ за 30-40 минут" : "Patented methodology: accurate analysis in 30-40 minutes")
+                Text(i18n.language == .ru ? "Уникальная методика: точный анализ за 30-40 минут" : "Unique methodology: accurate analysis in 30-40 minutes")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

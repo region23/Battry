@@ -180,7 +180,7 @@ enum ReportGenerator {
         // Generate QuickHealthTest results section
         let quickHealthHTML: String = {
             guard let qhr = quickHealthResult else { return "" }
-            let title = lang == "ru" ? "Быстрый тест здоровья (запатентованная методика)" : "Quick Health Test (Patented Methodology)"
+            let title = lang == "ru" ? "Быстрый тест здоровья (уникальная методика)" : "Quick Health Test (Unique Methodology)"
             let durationText = String(format: "%.1f", qhr.durationMinutes)
             let sohEnergyText = String(format: "%.1f", qhr.sohEnergy)
             let avgPowerText = String(format: "%.1f", qhr.averagePower)
