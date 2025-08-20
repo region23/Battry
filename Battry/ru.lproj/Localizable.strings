@@ -366,6 +366,8 @@
 "quick.test.waiting.soc" = "Ожидание разряда до %d%% (сейчас: %d%%)";
 "quick.test.waiting.soc.detailed" = "Разряжаем до %d%% (сейчас: %d%%) — ~%@";
 "quick.test.starting.current.level" = "Начинаем пульс-тесты на текущем уровне";
+"progress.label" = "Готово";
+"time.remaining.total" = "Осталось";
 "load.level.light" = "лёгкого";
 "load.level.medium" = "среднего";
 "load.level.heavy" = "тяжёлого";

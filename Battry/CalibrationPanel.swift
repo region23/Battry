@@ -1199,11 +1199,11 @@ extension CalibrationPanel {
                                 .lineLimit(2)
                         }
                         HStack {
-                            Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
+                            Text("\(i18n.t("progress.label")): \(String(format: "%.0f%%", quickHealthTest.progress * 100))")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                             if let timeRemaining = quickHealthTest.estimatedTimeRemaining {
-                                Text("• \(formatTimeRemaining(timeRemaining))")
+                                Text("• \(i18n.t("time.remaining.total")): \(formatTimeRemaining(timeRemaining))")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
                             }
@@ -1232,11 +1232,11 @@ extension CalibrationPanel {
                                 .lineLimit(2)
                         }
                         HStack {
-                            Text(String(format: "%.0f%%", quickHealthTest.progress * 100))
+                            Text("\(i18n.t("progress.label")): \(String(format: "%.0f%%", quickHealthTest.progress * 100))")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                             if let timeRemaining = quickHealthTest.estimatedTimeRemaining {
-                                Text("• \(formatTimeRemaining(timeRemaining))")
+                                Text("• \(i18n.t("time.remaining.total")): \(formatTimeRemaining(timeRemaining))")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
                             }

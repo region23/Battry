@@ -305,7 +305,7 @@ final class QuickHealthTest: ObservableObject {
             currentStep = i18n.t("quick.test.starting.current.level")
             requireWindow95to90 = false
             baselineStartAt = nil
-            progress = 0.2 // Пропускаем калибровку
+            progress = 0.0 // Начинаем с 0%, без калибровки
         } else {
             // Стандартная процедура с калибровкой в покое
             requireWindow95to90 = (currentSOC > 95)
@@ -548,7 +548,9 @@ final class QuickHealthTest: ObservableObject {
             let startSOC = samples.first?.percentage ?? currentSOC
             let totalSOCDiff = Double(startSOC - targetSOC) // Total SOC to discharge from start
             let waitingProgress = totalSOCDiff > 0 ? (totalSOCDiff - socDiff) / totalSOCDiff : 0
-            let baseProgress = 0.2 + Double(currentTargetIndex) * 0.15
+            // Skip calibration progress if test started at lower SOC
+            let calibrationOffset = (startSOC < 85) ? 0.0 : 0.2
+            let baseProgress = calibrationOffset + Double(currentTargetIndex) * 0.15
             progress = baseProgress + (0.1 * waitingProgress) // 10% of each phase for waiting
             
             // Apply light load to accelerate discharge to target SOC
@@ -573,7 +575,10 @@ final class QuickHealthTest: ObservableObject {
             if self.currentTargetIndex < self.testTargetSOCs.count {
                 let nextTargetSOC = self.testTargetSOCs[self.currentTargetIndex]
                 self.state = .pulseTesting(targetSOC: nextTargetSOC)
-                self.progress = 0.3 + Double(self.currentTargetIndex) * 0.15
+                // Skip calibration progress if test started at lower SOC
+                let startSOC = self.samples.first?.percentage ?? 88
+                let calibrationOffset = (startSOC < 85) ? 0.0 : 0.2
+                self.progress = calibrationOffset + 0.15 + Double(self.currentTargetIndex) * 0.15
             } else {
                 // Пульсы завершены — переходим к анализу
                 self.analyzeResults()
@@ -623,7 +628,10 @@ final class QuickHealthTest: ObservableObject {
                 
                 // Update progress within this SOC level
                 let socLevelProgress = Double(pulseIndex + 1) / Double(sequence.count)
-                let baseProgress = 0.2 + Double(self.currentTargetIndex) * 0.15
+                // Skip calibration progress if test started at lower SOC
+                let startSOC = self.samples.first?.percentage ?? 88
+                let calibrationOffset = (startSOC < 85) ? 0.0 : 0.2
+                let baseProgress = calibrationOffset + Double(self.currentTargetIndex) * 0.15
                 self.progress = baseProgress + (0.15 * socLevelProgress)
                 
                 // Отдыхаем 25 секунд перед следующим пульсом
