@@ -9,6 +9,10 @@ struct BattryApp: App {
     init() {
         // Проверяем и завершаем другие экземпляры приложения при запуске
         terminateOtherInstances()
+        
+        // Настраиваем видимость иконки в доке
+        let showInDock = UserDefaults.standard.bool(forKey: "settings.showIconInDock")
+        NSApplication.shared.setActivationPolicy(showInDock ? .regular : .accessory)
     }
     /// ViewModel с текущим состоянием батареи
     @StateObject private var battery = BatteryViewModel()
@@ -35,7 +39,9 @@ struct BattryApp: App {
     @StateObject private var quickHealthTest = QuickHealthTest()
     
     /// Настройка отображения процента в меню баре
-    @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
+    @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = true
+    /// Настройка отображения иконки в доке
+    @AppStorage("settings.showIconInDock") private var showIconInDock: Bool = false
 
     var body: some Scene {
         // Основное окно приложения - используем handlesExternalEvents для единственности

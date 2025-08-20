@@ -8,7 +8,8 @@ struct SettingsPanel: View {
     @ObservedObject var i18n: Localization = .shared
     @State private var showClearDataConfirm: Bool = false
     @State private var isTemperatureExpanded: Bool = false
-    @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
+    @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = true
+    @AppStorage("settings.showIconInDock") private var showIconInDock: Bool = false
 
     var body: some View {
         ScrollView {
@@ -56,6 +57,24 @@ struct SettingsPanel: View {
                                 }
                             }
                             .help(i18n.t("settings.show.percentage.description"))
+                            
+                            ModernSettingsRow {
+                                HStack {
+                                    Image(systemName: "dock.rectangle")
+                                        .foregroundStyle(.blue)
+                                        .frame(width: 18)
+                                    Text(i18n.t("settings.show.dock.icon"))
+                                        .font(.system(.body, weight: .medium))
+                                    Spacer()
+                                    Toggle("", isOn: $showIconInDock)
+                                        .labelsHidden()
+                                        .tint(.blue)
+                                        .onChange(of: showIconInDock) { _, newValue in
+                                            updateDockIconVisibility(newValue)
+                                        }
+                                }
+                            }
+                            .help(i18n.t("settings.show.dock.icon.description"))
                         }
                     }
                 }
@@ -239,6 +258,12 @@ struct SettingsPanel: View {
         if mb < 1024 { return String(format: "%.1f MB", mb) }
         let gb = mb / 1024
         return String(format: "%.2f GB", gb)
+    }
+    
+    private func updateDockIconVisibility(_ show: Bool) {
+        DispatchQueue.main.async {
+            NSApp.setActivationPolicy(show ? .regular : .accessory)
+        }
     }
 }
 

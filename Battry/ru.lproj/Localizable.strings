@@ -286,6 +286,8 @@
 // Настройка отображения процента в меню баре
 "settings.show.percentage" = "Показывать процент в меню баре";
 "settings.show.percentage.description" = "Отображать процент заряда рядом с иконкой";
+"settings.show.dock.icon" = "Показывать иконку в доке";
+"settings.show.dock.icon.description" = "Отображать иконку приложения в панели Dock";
 "settings.data.open.folder" = "Открыть папку с данными";
 "settings.data.open.folder.description" = "Открыть папку со всеми собранными файлами данных";
 
