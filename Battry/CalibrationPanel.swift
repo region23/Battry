@@ -1222,7 +1222,7 @@ extension CalibrationPanel {
                     ProgressView()
                         .scaleEffect(0.8)
                     VStack(alignment: .leading) {
-                        Text(i18n.language == .ru ? "Энергетическое окно 80→50%" : "Energy window 80→50%")
+                        Text(i18n.language == .ru ? "Энергетическое окно 80→65%" : "Energy window 80→65%")
                             .font(.caption)
                             .fontWeight(.medium)
                         if !quickHealthTest.currentStep.isEmpty {
@@ -1375,8 +1375,12 @@ extension CalibrationPanel {
     
     
     private var quickHealthCPQuality: Int {
-        // No direct binding to controller here; show placeholder 0..100 based on last analysis if available
-        return Int(quickHealthTest.lastResult?.powerControlQuality ?? 0)
+        // Show live quality during energy window phase, otherwise from last result
+        if quickHealthTest.state == .energyWindow {
+            return Int(quickHealthTest.liveControlQuality)
+        } else {
+            return Int(quickHealthTest.lastResult?.powerControlQuality ?? 0)
+        }
     }
     
     private func formatTimeRemaining(_ seconds: TimeInterval) -> String {

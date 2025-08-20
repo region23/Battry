@@ -23,10 +23,10 @@ struct InlinePowerPresetSelector: View {
                     .fontWeight(.medium)
             }
             
-            // Пресеты в один ряд
-            HStack(spacing: 8) {
+            // Компактные пресеты в стиле капсул как в обзоре
+            HStack(spacing: 6) {
                 ForEach(PowerPreset.allCases) { preset in
-                    inlinePresetButton(for: preset)
+                    compactPresetButton(for: preset)
                 }
             }
         }
@@ -52,13 +52,19 @@ struct InlinePowerPresetSelector: View {
                         .foregroundStyle(isSelected ? .white : .primary)
                 }
                 
-                // Вторая строка: Название пресета
-                Text(i18n.t(preset.localizationKey))
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .foregroundStyle(isSelected ? .white.opacity(0.9) : .secondary)
+                // Вторая строка: Название пресета + время
+                VStack(spacing: 1) {
+                    Text(i18n.t(preset.localizationKey))
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .foregroundStyle(isSelected ? .white.opacity(0.9) : .secondary)
+                    
+                    Text("~\(QuickHealthTest.estimatedTestTime(for: preset)) мин")
+                        .font(.caption2)
+                        .foregroundStyle(isSelected ? .white.opacity(0.7) : .secondary.opacity(0.7))
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
@@ -75,6 +81,44 @@ struct InlinePowerPresetSelector: View {
                     )
             )
             .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(preset.description)
+    }
+    
+    @ViewBuilder
+    private func compactPresetButton(for preset: PowerPreset) -> some View {
+        let isSelected = selectedPreset == preset
+        let targetPower = targetPowers[preset] ?? 5.0
+        
+        Button {
+            selectedPreset = preset
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: preset.icon)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text("\(String(format: "%.0f", targetPower))W")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text("~\(QuickHealthTest.estimatedTestTime(for: preset))м")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                isSelected ? Color.accentColor.opacity(0.2) : preset.backgroundColor,
+                in: Capsule()
+            )
+            .overlay(
+                Capsule()
+                    .stroke(
+                        isSelected ? Color.accentColor : Color.clear,
+                        lineWidth: 1.5
+                    )
+            )
         }
         .buttonStyle(.plain)
         .help(preset.description)

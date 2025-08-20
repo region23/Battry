@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Пресеты мощности на основе рекомендаций профессора для стандартизации тестов
 /// Использует C-rate (отношение тока разряда к номинальной емкости)
@@ -21,9 +22,9 @@ enum PowerPreset: String, CaseIterable, Identifiable {
     /// Описание пресета для UI
     var description: String {
         switch self {
-        case .light: return "Web browsing, reading"
-        case .medium: return "Office work, development"
-        case .heavy: return "Gaming, video editing"
+        case .light: return "Quick test (web browsing, reading) - 2 pulses per SOC level"
+        case .medium: return "Standard test (office work, development) - 3 pulses per SOC level"
+        case .heavy: return "Intensive test (gaming, video editing) - 2 longer pulses per SOC level"
         }
     }
     
@@ -36,12 +37,21 @@ enum PowerPreset: String, CaseIterable, Identifiable {
         }
     }
     
-    /// Иконка для UI
+    /// Иконка для UI (соответствует дизайну из обзора)
     var icon: String {
         switch self {
-        case .light: return "doc.text"
-        case .medium: return "laptopcomputer"
-        case .heavy: return "desktopcomputer"
+        case .light: return "doc.text"             // Веб, документы
+        case .medium: return "square.stack.3d.up"  // Приложения 
+        case .heavy: return "gamecontroller"       // Игры, видео
+        }
+    }
+    
+    /// Цвет фона для UI (соответствует дизайну из обзора)
+    var backgroundColor: Color {
+        switch self {
+        case .light: return .blue.opacity(0.1)
+        case .medium: return .orange.opacity(0.1) 
+        case .heavy: return .red.opacity(0.1)
         }
     }
 }

@@ -100,6 +100,24 @@ final class QuickHealthTest: ObservableObject {
     @Published private(set) var estimatedTimeRemaining: TimeInterval?
     @Published private(set) var lastResult: QuickHealthResult?
     
+    /// Live quality control during CP phases (0-100)
+    var liveControlQuality: Double {
+        guard state == .energyWindow else { return 0 }
+        return constantPowerController.controlQuality
+    }
+    
+    /// Возвращает ожидаемое время теста для заданного пресета (в минутах)
+    static func estimatedTestTime(for preset: PowerPreset) -> Int {
+        switch preset {
+        case .light:
+            return 25  // 2 пульса × 4 SOC + энергетическое окно + калибровка
+        case .medium:
+            return 32  // 3 пульса × 4 SOC + энергетическое окно + калибровка  
+        case .heavy:
+            return 40  // 2 пульса × 4 SOC (15 сек каждый) + энергетическое окно + калибровка
+        }
+    }
+    
     // MARK: - Private Properties
     
     private var samples: [BatteryReading] = []
@@ -131,15 +149,37 @@ final class QuickHealthTest: ObservableObject {
     // Progress tracking
     private var testStartTime: Date?
     private var currentPulseIndex = 0
-    private var totalPulsesPerSOC = 3 // light, medium, heavy
+    private var totalPulsesPerSOC: Int { pulseSequence.count }
     private var averageDischargeRatePercentPerMinute: Double = 0.5 // estimated default
+    
+    /// Возвращает последовательность пульсов на основе выбранного пресета
+    private var pulseSequence: [(LoadLevel, String)] {
+        switch selectedPowerPreset {
+        case .light:
+            return [(.light, "light"), (.medium, "medium")]
+        case .medium:
+            return [(.light, "light"), (.medium, "medium"), (.heavy, "heavy")]
+        case .heavy:
+            return [(.medium, "medium"), (.heavy, "heavy")]
+        }
+    }
+    
+    /// Возвращает длительность пульса на основе пресета
+    private var presetPulseDuration: TimeInterval {
+        switch selectedPowerPreset {
+        case .heavy:
+            return 15.0 // Увеличенная длительность для более точных DCIR измерений
+        case .light, .medium:
+            return pulseDurationSec
+        }
+    }
     
     // Настройки теста
     private let calibrationDurationSec: TimeInterval = 150 // 2.5 мин калибровка в покое
     private let pulseDurationSec: TimeInterval = 10 // 10 сек пульс нагрузки
     private let restDurationSec: TimeInterval = 25 // 25 сек отдых между пульсами
-    // Конфигурируемая ширина энергетического окна в процентах SOC (по умолчанию 30% → окно 80→50)
-    private let energyWindowSpanPct: Int = 30
+    // Конфигурируемая ширина энергетического окна в процентах SOC (по умолчанию 15% → окно 80→65)
+    private let energyWindowSpanPct: Int = 15
     
     // MARK: - File Storage
     
@@ -389,13 +429,13 @@ final class QuickHealthTest: ObservableObject {
     }
     
     private func estimateTimeForPulseTestsAtLevel() -> TimeInterval {
-        // 3 pulses × (10 sec pulse + 25 sec rest) = 105 seconds
-        return Double(totalPulsesPerSOC) * (pulseDurationSec + restDurationSec)
+        // Динамическое количество пульсов × (длительность пульса + отдых)
+        return Double(totalPulsesPerSOC) * (presetPulseDuration + restDurationSec)
     }
     
     private func estimateTimeForEnergyWindow(fromSOC: Int) -> TimeInterval {
-        if fromSOC > 50 { // energy window is 80->50
-            let socDiff = Double(max(0, fromSOC - 50))
+        if fromSOC > 65 { // energy window is 80->65 (15%)
+            let socDiff = Double(max(0, fromSOC - 65))
             return (socDiff / averageDischargeRatePercentPerMinute) * 60
         }
         return 0
@@ -476,11 +516,16 @@ final class QuickHealthTest: ObservableObject {
     private func handlePulseTestState(targetSOC: Int, snapshot: BatterySnapshot) {
         let currentSOC = snapshot.percentage
         
-        // Ждем пока батарея разрядится до целевого SOC
+        // Ждем пока батарея разрядится до целевого SOC с активной разрядкой
         if currentSOC > targetSOC {
             currentStep = String(format: NSLocalizedString("quick.test.waiting.soc", comment: ""), targetSOC, currentSOC)
+            // Apply light load to accelerate discharge to target SOC
+            applyLoad(.light)
             return
         }
+        
+        // Stop waiting discharge load when we reach the target
+        applyLoad(.off)
         
         // Выполняем серию пульс-тестов на этом уровне SOC
         performPulseTests(at: targetSOC) {
@@ -507,32 +552,31 @@ final class QuickHealthTest: ObservableObject {
     private func performPulseTests(at socLevel: Int, completion: @escaping () -> Void) {
         currentPulseIndex = 0
         
-        // Запускаем последовательность: light → medium → heavy → off
+        // Используем последовательность пульсов на основе выбранного пресета
         var pulseIndex = 0
-        let loadLevels: [LoadLevel] = [.light, .medium, .heavy]
-        let loadNames = ["light", "medium", "heavy"]
+        let sequence = pulseSequence
         
         func runNextPulse() {
-            guard pulseIndex < loadLevels.count else {
+            guard pulseIndex < sequence.count else {
                 currentStep = String(format: NSLocalizedString("quick.test.completed.soc", comment: ""), socLevel)
                 completion()
                 return
             }
             
-            let loadLevel = loadLevels[pulseIndex]
-            let loadName = loadNames[pulseIndex]
+            let (loadLevel, loadName) = sequence[pulseIndex]
             currentPulseIndex = pulseIndex
             
             // Update detailed status
-            currentStep = String(format: NSLocalizedString("quick.test.pulse.progress", comment: ""), pulseIndex + 1, loadLevels.count, NSLocalizedString("load.level.\(loadName)", comment: ""), socLevel)
+            currentStep = String(format: NSLocalizedString("quick.test.pulse.progress", comment: ""), pulseIndex + 1, sequence.count, NSLocalizedString("load.level.\(loadName)", comment: ""), socLevel)
             
             let pulseStartIndex = samples.count - 1
             
             // Включаем нагрузку
             applyLoad(loadLevel)
             
-            // Через 10 секунд выключаем нагрузку и измеряем DCIR
-            DispatchQueue.main.asyncAfter(deadline: .now() + pulseDurationSec) {
+            // Используем длительность пульса на основе пресета
+            let pulseDuration = presetPulseDuration
+            DispatchQueue.main.asyncAfter(deadline: .now() + pulseDuration) {
                 self.applyLoad(.off)
                 self.currentStep = String(format: NSLocalizedString("quick.test.resting", comment: ""), NSLocalizedString("load.level.\(loadName)", comment: ""), Int(self.restDurationSec))
                 
@@ -546,7 +590,7 @@ final class QuickHealthTest: ObservableObject {
                 }
                 
                 // Update progress within this SOC level
-                let socLevelProgress = Double(pulseIndex + 1) / Double(loadLevels.count)
+                let socLevelProgress = Double(pulseIndex + 1) / Double(sequence.count)
                 let baseProgress = 0.2 + Double(self.currentTargetIndex) * 0.15
                 self.progress = baseProgress + (0.15 * socLevelProgress)
                 
@@ -930,13 +974,9 @@ final class QuickHealthTest: ObservableObject {
         if recommendation.intensity < 0.05 {
             loadGenerator.stop(reason: .userStopped)
         } else {
-            // LoadGenerator пока не поддерживает точное управление интенсивностью
-            // Используем временное управление для имитации точной интенсивности
-            applyTemporalControl(
-                profile: recommendation.profile, 
-                dutyCycle: recommendation.dutyCycle,
-                loadGenerator: loadGenerator
-            )
+            // For CP discharge, use continuous load without temporal cycling
+            // Let the PI controller handle fine-tuning through profile selection
+            loadGenerator.start(profile: recommendation.profile)
         }
     }
     
@@ -959,35 +999,6 @@ final class QuickHealthTest: ObservableObject {
         }
     }
     
-    /// Временное управление для имитации точной интенсивности
-    private func applyTemporalControl(profile: LoadProfile, dutyCycle: Double, loadGenerator: LoadGenerator) {
-        // Используем цикл 10 секунд для точного duty cycle
-        let cycleLength: TimeInterval = 10.0
-        let onTime = cycleLength * dutyCycle
-        let offTime = cycleLength * (1.0 - dutyCycle)
-        
-        // Включаем нагрузку
-        loadGenerator.start(profile: profile)
-        
-        // Планируем временное выключение только если duty cycle < 0.9
-        if dutyCycle < 0.9 && offTime > 0.5 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + onTime) { [weak self] in
-                guard let self = self, 
-                      case .energyWindow = self.state else { return }
-                
-                loadGenerator.stop(reason: .userStopped)
-                
-                // Планируем повторное включение
-                DispatchQueue.main.asyncAfter(deadline: .now() + offTime) { [weak self] in
-                    guard let self = self,
-                          case .energyWindow = self.state else { return }
-                    
-                    // Повторяем цикл
-                    self.applyTemporalControl(profile: profile, dutyCycle: dutyCycle, loadGenerator: loadGenerator)
-                }
-            }
-        }
-    }
     
     // MARK: - Sleep Prevention
     
