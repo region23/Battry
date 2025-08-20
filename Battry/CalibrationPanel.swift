@@ -702,27 +702,58 @@ extension CalibrationPanel {
 extension CalibrationPanel {
     
     private var processIndicator: some View {
-        let steps = [
-            ProcessStep(title: i18n.t("process.step.prepare")),
-            ProcessStep(title: i18n.t("process.step.charge")),
-            ProcessStep(title: i18n.t("process.step.test")),
-            ProcessStep(title: i18n.t("process.step.results"))
-        ]
-        
-        let currentStep: Int = {
-            switch calibrator.state {
-            case .idle:
-                return 0
-            case .waitingFull:
-                return 1
-            case .running, .paused:
-                return 2
-            case .completed:
-                return 3
-            }
-        }()
-        
-        return ProcessStepIndicator(steps: steps, currentStep: currentStep)
+        // Контекстный индикатор: быстрый тест vs полный тест
+        if quickHealthTest.state.isActive {
+            // Шаги для быстрого теста
+            let steps = [
+                ProcessStep(title: i18n.language == .ru ? "Подготовка" : "Prepare"),
+                ProcessStep(title: i18n.language == .ru ? "Калибровка" : "Calibrate"),
+                ProcessStep(title: i18n.language == .ru ? "Пульсы" : "Pulses"),
+                ProcessStep(title: i18n.language == .ru ? "Пост. мощность" : "Const. power"),
+                ProcessStep(title: i18n.language == .ru ? "Анализ" : "Analyze"),
+                ProcessStep(title: i18n.language == .ru ? "Результаты" : "Results")
+            ]
+            let currentStep: Int = {
+                switch quickHealthTest.state {
+                case .idle:
+                    return 0
+                case .calibrating:
+                    return 1
+                case .pulseTesting:
+                    return 2
+                case .energyWindow:
+                    return 3
+                case .analyzing:
+                    return 4
+                case .completed:
+                    return 5
+                case .error:
+                    return 4
+                }
+            }()
+            return ProcessStepIndicator(steps: steps, currentStep: currentStep)
+        } else {
+            // Шаги для полного теста
+            let steps = [
+                ProcessStep(title: i18n.t("process.step.prepare")),
+                ProcessStep(title: i18n.t("process.step.charge")),
+                ProcessStep(title: i18n.t("process.step.test")),
+                ProcessStep(title: i18n.t("process.step.results"))
+            ]
+            let currentStep: Int = {
+                switch calibrator.state {
+                case .idle:
+                    return 0
+                case .waitingFull:
+                    return 1
+                case .running, .paused:
+                    return 2
+                case .completed:
+                    return 3
+                }
+            }()
+            return ProcessStepIndicator(steps: steps, currentStep: currentStep)
+        }
     }
     
     private var advancedSettingsSection: some View {
