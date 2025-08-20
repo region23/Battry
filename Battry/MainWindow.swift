@@ -11,6 +11,7 @@ struct MainWindow: View {
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var windowState: WindowState
+    @ObservedObject var quickHealthTest: QuickHealthTest
     
     var body: some View {
         MenuContent(
@@ -22,7 +23,8 @@ struct MainWindow: View {
             safetyGuard: safetyGuard,
             updateChecker: updateChecker,
             initialPanel: windowState.activePanel,
-            windowState: windowState
+            windowState: windowState,
+            quickHealthTest: quickHealthTest
         )
         .frame(width: 720, height: 500)
         .navigationTitle("Battry")

@@ -30,6 +30,7 @@ struct MenuContent: View {
     
     // Опционально принимаем windowState для синхронизации
     private let windowState: WindowState?
+    @ObservedObject var quickHealthTest: QuickHealthTest
     
     /// Инициализатор с возможностью задать начальную панель
     init(
@@ -41,7 +42,8 @@ struct MenuContent: View {
         safetyGuard: LoadSafetyGuard,
         updateChecker: UpdateChecker,
         initialPanel: Panel = .overview,
-        windowState: WindowState? = nil
+        windowState: WindowState? = nil,
+        quickHealthTest: QuickHealthTest
     ) {
         self.battery = battery
         self.history = history
@@ -51,6 +53,7 @@ struct MenuContent: View {
         self.safetyGuard = safetyGuard
         self.updateChecker = updateChecker
         self.windowState = windowState
+        self.quickHealthTest = quickHealthTest
         self._panel = State(initialValue: initialPanel)
     }
     
@@ -160,7 +163,8 @@ struct MenuContent: View {
                         analytics: analytics, 
                         snapshot: battery.state,
                         loadGenerator: loadGenerator,
-                        safetyGuard: safetyGuard
+                        safetyGuard: safetyGuard,
+                        quickHealthTest: quickHealthTest
                     )
                     case .settings: SettingsPanel(history: history, calibrator: calibrator)
                     case .about: AboutPanel(updateChecker: updateChecker)

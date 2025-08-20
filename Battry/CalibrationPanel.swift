@@ -13,9 +13,7 @@ struct CalibrationPanel: View {
     // Video load removed
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
-    
-    // Быстрый тест здоровья (экспертный протокол)
-    @StateObject private var quickHealthTest = QuickHealthTest()
+    @ObservedObject var quickHealthTest: QuickHealthTest
     
     // Используем настройки из CalibrationEngine вместо локального state
     private var selectedProfile: LoadProfile {
@@ -119,13 +117,6 @@ struct CalibrationPanel: View {
             }
         }
         .onAppear {
-            // Инициализируем QuickHealthTest с зависимостями
-            if !quickHealthTest.state.isActive {
-                quickHealthTest.bind(
-                    batteryViewModel: battery,
-                    loadGenerator: loadGenerator
-                )
-            }
             // Включаем/выключаем GPU ветку в соответствии с настройкой
             loadGenerator.enableGPU(enableGPUBranch)
         }

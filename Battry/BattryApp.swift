@@ -31,6 +31,8 @@ struct BattryApp: App {
     @StateObject private var i18n = Localization.shared
     /// Состояние главного окна
     @StateObject private var windowState = WindowState()
+    /// Быстрый тест здоровья (экспертный протокол)
+    @StateObject private var quickHealthTest = QuickHealthTest()
     
     /// Настройка отображения процента в меню баре
     @AppStorage("settings.showPercentageInMenuBar") private var showPercentageInMenuBar: Bool = false
@@ -46,7 +48,8 @@ struct BattryApp: App {
                 loadGenerator: loadGenerator,
                 safetyGuard: safetyGuard,
                 updateChecker: updateChecker,
-                windowState: windowState
+                windowState: windowState,
+                quickHealthTest: quickHealthTest
             )
         }
         .windowResizability(.contentSize)
@@ -111,6 +114,12 @@ struct BattryApp: App {
         
         // Связываем генератор нагрузки с охранником безопасности
         safetyGuard.startMonitoring(batteryPublisher: battery.publisher)
+        
+        // Инициализируем QuickHealthTest с зависимостями
+        quickHealthTest.bind(
+            batteryViewModel: battery,
+            loadGenerator: loadGenerator
+        )
     }
     
     
