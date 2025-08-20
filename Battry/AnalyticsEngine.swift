@@ -79,23 +79,20 @@ final class AnalyticsEngine: ObservableObject {
     /// Флаг "идёт сессия" (для реактивного UI)
     @Published private(set) var sessionActive = false
     /// Последний вычисленный анализ
-    @Published private(set) var lastAnalysis: BatteryAnalysis?
+    private(set) var lastAnalysis: BatteryAnalysis?
+    /// Время последнего анализа для определения актуальности
+    private var lastAnalysisTimestamp: Date?
+    /// Время запуска приложения для отслеживания сбора данных
+    private let appStartTime = Date()
 
-    let objectWillChange = PassthroughSubject<Void, Never>()
-    
-    // Make the objectWillChange publisher available to the ObservableObject protocol
-    var willChange: AnyPublisher<Void, Never> {
-        objectWillChange.eraseToAnyPublisher()
-    }
 
     /// Устанавливает статус активности сессии и оповещает подписчиков
     func setSessionActive(_ active: Bool) {
         sessionActive = active
-        objectWillChange.send()
     }
 
     /// Оценивает средний разряд (%/ч) на интервале без зарядки
-    func estimateDischargePerHour(history: [BatteryReading]) -> Double {
+    static func estimateDischargePerHour(history: [BatteryReading]) -> Double {
         let discharging = history.filter { !$0.isCharging }
         guard discharging.count >= 2,
               let first = discharging.first,
@@ -109,21 +106,21 @@ final class AnalyticsEngine: ObservableObject {
     
     /// Оценивает средний разряд (%/ч) за последний час
     func estimateDischargePerHour1h(history: [BatteryReading]) -> Double {
-        return estimateDischargePerHour(history: history.filter { 
+        return Self.estimateDischargePerHour(history: history.filter { 
             $0.timestamp >= Date().addingTimeInterval(-3600) 
         })
     }
     
     /// Оценивает средний разряд (%/ч) за последние 24 часа
     func estimateDischargePerHour24h(history: [BatteryReading]) -> Double {
-        return estimateDischargePerHour(history: history.filter { 
+        return Self.estimateDischargePerHour(history: history.filter { 
             $0.timestamp >= Date().addingTimeInterval(-24 * 3600) 
         })
     }
     
     /// Оценивает средний разряд (%/ч) за последние 7 дней
     func estimateDischargePerHour7d(history: [BatteryReading]) -> Double {
-        return estimateDischargePerHour(history: history.filter { 
+        return Self.estimateDischargePerHour(history: history.filter { 
             $0.timestamp >= Date().addingTimeInterval(-7 * 24 * 3600) 
         })
     }
@@ -165,7 +162,7 @@ final class AnalyticsEngine: ObservableObject {
     }
 
     /// Простая медианная фильтрация последовательности процентов (окно 3)
-    private func medianFilter3(_ values: [Int]) -> [Int] {
+    private static func medianFilter3(_ values: [Int]) -> [Int] {
         guard values.count >= 3 else { return values }
         var out = values
         for i in 1..<(values.count-1) {
@@ -177,12 +174,12 @@ final class AnalyticsEngine: ObservableObject {
     }
 
     /// Линейная регрессия по точкам без зарядки для оценки тренда разряда (со сглаживанием)
-    private func regressionDischargePerHour(history: [BatteryReading]) -> Double {
+    private static func regressionDischargePerHour(history: [BatteryReading]) -> Double {
         let pointsRaw = history.filter { !$0.isCharging }
         let points: [BatteryReading]
         if pointsRaw.count >= 3 {
             // применим легкое сглаживание по процентам
-            let smoothedPct = medianFilter3(pointsRaw.map { $0.percentage })
+            let smoothedPct = Self.medianFilter3(pointsRaw.map { $0.percentage })
             points = zip(pointsRaw.indices, pointsRaw).map { (idx, r) in
                 var rr = r
                 rr.percentage = smoothedPct[idx]
@@ -211,10 +208,10 @@ final class AnalyticsEngine: ObservableObject {
     }
 
     /// Подсчёт микро‑просадок: падение ≥2% за ≤120 секунд без зарядки (скользящее окно)
-    private func countMicroDrops(history: [BatteryReading]) -> Int {
+    private static func countMicroDrops(history: [BatteryReading]) -> Int {
         guard history.count >= 2 else { return 0 }
         // Небольшое сглаживание процентов для устойчивости
-        let smoothedPct = medianFilter3(history.map { $0.percentage })
+        let smoothedPct = Self.medianFilter3(history.map { $0.percentage })
         var cnt = 0
         var i = 0
         while i < history.count {
@@ -245,10 +242,17 @@ final class AnalyticsEngine: ObservableObject {
 
     /// Строит итоговую аналитику по истории и текущему снимку
     func analyze(history: [BatteryReading], snapshot: BatterySnapshot) -> BatteryAnalysis {
+        let result = Self.performAnalysis(history: history, snapshot: snapshot)
+        lastAnalysis = result
+        return result
+    }
+    
+    /// Статический метод анализа, не изменяющий состояние объекта
+    static func performAnalysis(history: [BatteryReading], snapshot: BatterySnapshot) -> BatteryAnalysis {
         var result = BatteryAnalysis()
 
-        result.avgDischargePerHour = estimateDischargePerHour(history: history)
-        result.trendDischargePerHour = regressionDischargePerHour(history: history)
+        result.avgDischargePerHour = Self.estimateDischargePerHour(history: history)
+        result.trendDischargePerHour = Self.regressionDischargePerHour(history: history)
 
         if result.trendDischargePerHour > 0 {
             result.estimatedRuntimeFrom100To0Hours = 100.0 / result.trendDischargePerHour
@@ -268,11 +272,11 @@ final class AnalyticsEngine: ObservableObject {
         }
         
         // Микро‑просадки
-        let micro = countMicroDrops(history: history)
+        let micro = Self.countMicroDrops(history: history)
         result.microDropEvents = micro
         
         // Пытаемся получить DCIR из истории (если есть пульс-тесты)
-        let dcirPoints = extractDCIRFromHistory(history: history)
+        let dcirPoints = Self.extractDCIRFromHistory(history: history)
         if !dcirPoints.isEmpty {
             let dcirAnalysis = DCIRCalculator.analyzeDCIR(dcirPoints: dcirPoints)
             result.dcirAt50Percent = dcirAnalysis.dcirAt50Percent
@@ -297,7 +301,7 @@ final class AnalyticsEngine: ObservableObject {
         let dropsPerHour = Double(micro) / durationHours
         let stabilityScore = max(0, min(100, 100 - dropsPerHour * 25))
         let temperatureQuality = TemperatureNormalizer.temperatureQuality(avgTemperature)
-        result.healthScore = Int(calculateCompositeHealthScore(
+        result.healthScore = Int(Self.calculateCompositeHealthScore(
             sohEnergy: result.sohEnergy,
             sohCapacity: Double(100 - Int(snapshot.wearPercent)),
             dcirAt50: result.dcirAt50Percent,
@@ -317,7 +321,7 @@ final class AnalyticsEngine: ObservableObject {
         result.anomalies = anomalies
 
         // Рекомендация на основе композитного скора с пресетами мощности
-        let powerRecommendations = generatePowerPresetRecommendations(
+        let powerRecommendations = Self.generatePowerPresetRecommendations(
             healthScore: result.healthScore,
             sohEnergy: result.sohEnergy,
             averagePower: result.averagePower,
@@ -348,8 +352,6 @@ final class AnalyticsEngine: ObservableObject {
             result.temperatureNormalizationQuality = tempNormalization.normalizationQuality
         }
 
-        lastAnalysis = result
-        objectWillChange.send()
         return result
     }
     
@@ -411,7 +413,7 @@ final class AnalyticsEngine: ObservableObject {
     
     /// Вычисляет композитный health score по формуле эксперта
     /// Формула: 40% SOH_energy + 25% DCIR + 20% SOH_capacity + 10% стабильность + 5% температура
-    private func calculateCompositeHealthScore(
+    private static func calculateCompositeHealthScore(
         sohEnergy: Double,
         sohCapacity: Double,
         dcirAt50: Double?,
@@ -441,7 +443,7 @@ final class AnalyticsEngine: ObservableObject {
     
     /// Извлекает DCIR точки из истории (простейшая реализация)
     /// В реальности это будет работать только если в истории есть данные от пульс-тестов
-    private func extractDCIRFromHistory(history: [BatteryReading]) -> [DCIRCalculator.DCIRPoint] {
+    private static func extractDCIRFromHistory(history: [BatteryReading]) -> [DCIRCalculator.DCIRPoint] {
         guard history.count >= 6 else { return [] }
         var points: [DCIRCalculator.DCIRPoint] = []
         // Поиск резких ступеней нагрузки по мощности за короткое время
@@ -483,24 +485,22 @@ final class AnalyticsEngine: ObservableObject {
     
     /// Получает актуальный Health Score для UI (0-100)
     func getHealthScore(history: [BatteryReading], snapshot: BatterySnapshot) -> Int {
-        // Если есть кешированный анализ, используем его
-        if let cached = lastAnalysis {
+        let now = Date()
+        
+        // Проверяем актуальность кешированного анализа (не старше 30 секунд)
+        let isAnalysisStale = lastAnalysisTimestamp == nil || 
+                             now.timeIntervalSince(lastAnalysisTimestamp!) > 30
+        
+        // Если кеш актуален, используем его
+        if let cached = lastAnalysis, !isAnalysisStale {
             return cached.healthScore
         }
         
-        // Иначе быстрый расчет только Health Score без полного анализа
-        let sohCapacity = Double(100 - Int(snapshot.wearPercent))
-        let temperatureQuality = TemperatureNormalizer.temperatureQuality(snapshot.temperature)
-        let simpleScore = calculateCompositeHealthScore(
-            sohEnergy: snapshot.designCapacity > 0 ? Double(snapshot.maxCapacity) / Double(snapshot.designCapacity) * 100 : 100,
-            sohCapacity: sohCapacity,
-            dcirAt50: nil,
-            dcirAt20: nil,
-            stabilityScore: 100,
-            temperatureQuality: temperatureQuality
-        )
+        // Выполняем полный анализ для получения точного индекса
+        let analysis = analyze(history: history, snapshot: snapshot)
+        lastAnalysisTimestamp = now
         
-        return Int(simpleScore)
+        return analysis.healthScore
     }
     
     /// Получает статус здоровья на основе Health Score
@@ -511,6 +511,27 @@ final class AnalyticsEngine: ObservableObject {
         case 55..<70: return .acceptable
         default: return .poor
         }
+    }
+    
+    /// Проверяет, завершен ли сбор данных для точного анализа (10 минут)
+    func isDataCollectionComplete() -> Bool {
+        let elapsedTime = Date().timeIntervalSince(appStartTime)
+        return elapsedTime >= 10 * 60 // 10 минут
+    }
+    
+    /// Возвращает прогресс сбора данных (0.0 - 1.0)
+    func getDataCollectionProgress() -> Double {
+        let elapsedTime = Date().timeIntervalSince(appStartTime)
+        let requiredTime: Double = 10 * 60 // 10 минут
+        return min(1.0, elapsedTime / requiredTime)
+    }
+    
+    /// Возвращает оставшееся время сбора данных в минутах
+    func getRemainingDataCollectionTime() -> Int {
+        let elapsedTime = Date().timeIntervalSince(appStartTime)
+        let requiredTime: Double = 10 * 60 // 10 минут
+        let remainingTime = max(0, requiredTime - elapsedTime)
+        return Int(ceil(remainingTime / 60)) // в минутах, округление вверх
     }
     
     /// Получает среднюю мощность за последние 15 минут
@@ -525,7 +546,7 @@ final class AnalyticsEngine: ObservableObject {
     }
     
     /// Генерирует рекомендации по пресетам мощности согласно рекомендациям профессора
-    private func generatePowerPresetRecommendations(
+    private static func generatePowerPresetRecommendations(
         healthScore: Int,
         sohEnergy: Double,
         averagePower: Double,

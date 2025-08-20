@@ -18,6 +18,7 @@ final class UpdateChecker: ObservableObject {
     @Published var isDismissed = false
     
     private let repoURL = "https://api.github.com/repos/region23/Battry/releases/latest"
+    private let alertManager = AlertManager.shared
     private let checkInterval: TimeInterval = 24 * 60 * 60 // 24 часа
     private let i18n = Localization.shared
     
@@ -79,7 +80,7 @@ final class UpdateChecker: ObservableObject {
             }
             
         } catch {
-            print("Update check error: \(error)")
+            alertManager.showUpdateError(error)
             
             // Более понятные сообщения об ошибках для пользователя
             let errorMessage: String

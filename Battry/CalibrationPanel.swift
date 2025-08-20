@@ -14,6 +14,7 @@ struct CalibrationPanel: View {
     @ObservedObject var safetyGuard: LoadSafetyGuard
     @ObservedObject var i18n: Localization = .shared
     @ObservedObject var quickHealthTest: QuickHealthTest
+    @ObservedObject var alertManager: AlertManager = AlertManager.shared
     
     // Используем настройки из CalibrationEngine вместо локального state
     private var selectedProfile: LoadProfile {
@@ -32,13 +33,15 @@ struct CalibrationPanel: View {
         get { calibrator.loadGeneratorSettings.autoStart }
         nonmutating set { calibrator.loadGeneratorSettings.autoStart = newValue }
     }
-    @State private var showHeavyProfileWarning: Bool = false
+    // Remove showHeavyProfileWarning - will use AlertManager
     @State private var showStopTestConfirm: Bool = false
     @State private var showQuickTestStopConfirm: Bool = false
     @State private var isAdvancedExpanded: Bool = false
     @State private var cpSelectedPreset: PowerPreset = .medium
     @State private var quickTestSelectedPreset: PowerPreset = .medium
     @AppStorage("settings.enableGPUBranch") private var enableGPUBranch: Bool = false
+    @State private var hasShownAutoResetAlert = false
+    @State private var hasShownTemperatureAlert = false
     
 
     var body: some View {
@@ -46,31 +49,6 @@ struct CalibrationPanel: View {
             // Process indicator for all states
             processIndicator
             
-            // Сообщение о сбросе сессии из‑за большого разрыва между сэмплами
-            if calibrator.autoResetDueToGap {
-                StatusCard(
-                    title: i18n.t("calibration.auto.reset.title"),
-                    subtitle: nil,
-                    icon: "exclamationmark.triangle",
-                    iconColor: .orange,
-                    content: i18n.t("analysis.auto.reset")
-                )
-                Button(i18n.t("got.it")) { 
-                    calibrator.acknowledgeAutoResetNotice() 
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            
-            // Предупреждение о высокой температуре
-            if safetyGuard.hasTemperatureWarning {
-                StatusCard(
-                    title: i18n.t("temperature.warning.title"),
-                    subtitle: nil,
-                    icon: "thermometer",
-                    iconColor: .orange,
-                    content: String(format: i18n.t("temperature.warning.text"), safetyGuard.settings.warningTemperature)
-                )
-            }
             
             // Основная карточка состояния
             switch calibrator.state {
@@ -120,6 +98,37 @@ struct CalibrationPanel: View {
         .onAppear {
             // Включаем/выключаем GPU ветку в соответствии с настройкой
             loadGenerator.enableGPU(enableGPUBranch)
+            
+            // Check for warnings that need to show modal alerts
+            if calibrator.autoResetDueToGap && !hasShownAutoResetAlert {
+                alertManager.showAutoResetNotification {
+                    calibrator.acknowledgeAutoResetNotice()
+                }
+                hasShownAutoResetAlert = true
+            }
+            
+            if safetyGuard.hasTemperatureWarning && !hasShownTemperatureAlert {
+                alertManager.showTemperatureWarning(temperature: safetyGuard.settings.warningTemperature)
+                hasShownTemperatureAlert = true
+            }
+        }
+        .onChange(of: calibrator.autoResetDueToGap) { _, newValue in
+            if newValue && !hasShownAutoResetAlert {
+                alertManager.showAutoResetNotification {
+                    calibrator.acknowledgeAutoResetNotice()
+                }
+                hasShownAutoResetAlert = true
+            } else if !newValue {
+                hasShownAutoResetAlert = false
+            }
+        }
+        .onChange(of: safetyGuard.hasTemperatureWarning) { _, newValue in
+            if newValue && !hasShownTemperatureAlert {
+                alertManager.showTemperatureWarning(temperature: safetyGuard.settings.warningTemperature)
+                hasShownTemperatureAlert = true
+            } else if !newValue {
+                hasShownTemperatureAlert = false
+            }
         }
         .alert(i18n.t("calibration.stop.title"), isPresented: $showStopTestConfirm) {
             Button(i18n.t("calibration.stop.button"), role: .destructive) {
@@ -140,6 +149,7 @@ struct CalibrationPanel: View {
         } message: {
             Text(i18n.t("calibration.stop.confirm"))
         }
+        .withAlerts()
         
     }
 
@@ -220,13 +230,16 @@ struct CalibrationPanel: View {
                 // Открываем обновленный отчет
                 NSWorkspace.shared.open(reportURL)
             } catch {
-                print("Failed to regenerate report: \(error)")
+                alertManager.showReportError(error)
                 
                 // Если не удалось перезаписать, пытаемся открыть существующий файл
                 NSWorkspace.shared.open(reportURL)
             }
         } else {
-            print("Failed to generate HTML content for report")
+            alertManager.showError(
+                title: i18n.t("error.report.title"),
+                message: i18n.t("error.report.message") + " " + "Failed to generate HTML content"
+            )
             
             // Если не удалось сгенерировать, пытаемся открыть существующий файл
             NSWorkspace.shared.open(URL(fileURLWithPath: originalPath))
@@ -769,7 +782,9 @@ extension CalibrationPanel {
                             ForEach([LoadProfile.light, LoadProfile.medium, LoadProfile.heavy], id: \.localizationKey) { profile in
                                 Button {
                                     if profile.localizationKey == LoadProfile.heavy.localizationKey {
-                                        showHeavyProfileWarning = true
+                                        alertManager.showHeavyProfileWarning {
+                                            selectedProfile = .heavy
+                                        }
                                     } else {
                                         selectedProfile = profile
                                     }
@@ -787,38 +802,6 @@ extension CalibrationPanel {
                                 }
                                 .buttonStyle(.plain)
                             }
-                        }
-
-                        if showHeavyProfileWarning {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "bolt.fill")
-                                        .foregroundStyle(Color.accentColor)
-                                    Text(i18n.t("heavy.profile.warning.title"))
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                }
-                                Text(i18n.t("heavy.profile.warning.message"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                HStack(spacing: 8) {
-                                    Button(i18n.t("heavy.profile.warning.continue"), role: .destructive) {
-                                        selectedProfile = .heavy
-                                        showHeavyProfileWarning = false
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    Button(i18n.t("heavy.profile.warning.cancel"), role: .cancel) {
-                                        showHeavyProfileWarning = false
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                            }
-                            .padding(8)
-                            .background(
-                                .regularMaterial,
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            )
                         }
                         
                         Toggle(i18n.t("load.generator.auto.start"), isOn: Binding(
@@ -1298,7 +1281,7 @@ extension CalibrationPanel {
                             Text(String(format: "%.1f%%", result.sohEnergy))
                                 .font(.caption)
                                 .fontWeight(.bold)
-                            Text(i18n.language == .ru ? "SOH" : "SOH")
+                            Text(i18n.t("soh.energy"))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }

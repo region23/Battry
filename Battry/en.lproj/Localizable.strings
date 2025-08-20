@@ -271,6 +271,18 @@
 "heavy.profile.warning.continue" = "Use Heavy Profile";
 "heavy.profile.warning.cancel" = "Cancel";
 
+// Error dialogs
+"error.report.title" = "Report Generation Error";
+"error.report.message" = "Failed to generate HTML report:";
+"error.save.title" = "Save Error";
+"error.save.message" = "Failed to save %@:";
+"error.load.title" = "Load Error";
+"error.load.message" = "Failed to load %@:";
+"error.update.title" = "Update Check Error";
+"error.update.message" = "Failed to check for updates:";
+"error.gpu.title" = "GPU Error";
+"error.gpu.message" = "Failed to initialize GPU compute pipeline:";
+
 // Menu bar percentage setting
 "settings.show.percentage" = "Show percentage in menu bar";
 "settings.show.percentage.description" = "Display battery percentage next to icon";
@@ -288,6 +300,9 @@
 "knee.index" = "Voltage Curve Quality";
 "quick.health.test" = "Quick Health Test";
 "health.score.composite" = "Composite Health Score";
+"health.score.collecting" = "Collecting data...";
+"health.score.collecting.hint" = "Accurate analysis requires ~10 minutes";
+"health.score.time.remaining" = "Remaining: %d min";
 
 "power.preset.selection" = "Power Preset";
 "constant.power.mode" = "Constant Power Mode";
@@ -297,12 +312,12 @@
 "temperature.normalization" = "Temperature Normalized";
 "cp.discharge" = "CP Discharge";
 
-// Expert metrics (according to professor recommendations)
-"expert.metrics" = "Expert Metrics";
-"soh.energy" = "SOH Energy";
-"dcir.resistance" = "DCIR @50%";
-"micro.drops" = "Micro-drops";
-"knee.index" = "Knee Index";
+// Battery status metrics (user-friendly names)
+"expert.metrics" = "Battery Status";
+"soh.energy" = "Real Capacity";
+"dcir.resistance" = "Responsiveness";
+"micro.drops" = "Charge Stability";
+"knee.index" = "Discharge Smoothness";
 "average.power.15min" = "Power (15 min)";
 "power.presets" = "Runtime estimates";
 "load.generator.enable.gpu" = "Enable GPU branch";
@@ -321,6 +336,18 @@
 // Missing localization keys
 "power.consumption.trend" = "Power Consumption Trend";
 "energy.efficiency" = "Energy Efficiency";
+
+// DCIR status descriptions
+"dcir.status.excellent" = "Excellent";
+"dcir.status.good" = "Good";
+"dcir.status.warning" = "Warning";
+"dcir.status.poor" = "Poor";
+
+// Micro-drops status descriptions
+"micro.drops.status.excellent" = "Excellent";
+"micro.drops.status.good" = "Good";
+"micro.drops.status.warning" = "Warning";
+"micro.drops.status.problem" = "Problem";
 "average.power" = "Average Power";
 "reports.open" = "Open Reports";
 

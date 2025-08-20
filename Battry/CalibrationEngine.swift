@@ -1,6 +1,20 @@
 import Foundation
 import Combine
 
+enum FileError: Error, LocalizedError {
+    case fileNotFound
+    case parseError
+    
+    var errorDescription: String? {
+        switch self {
+        case .fileNotFound:
+            return "File not found"
+        case .parseError:
+            return "Failed to parse file"
+        }
+    }
+}
+
 /// Настройки генератора нагрузки для сессии калибровки
 struct LoadGeneratorSessionSettings {
     var isEnabled: Bool = false
@@ -63,6 +77,7 @@ final class CalibrationEngine: ObservableObject {
     private var cancellable: AnyCancellable?
     private var samples: [BatteryReading] = []
     private weak var batteryViewModel: BatteryViewModel?
+    private let alertManager = AlertManager.shared
     /// Порог завершения теста по проценту (до 5%)
     private let endThresholdPercent: Int = 5
     /// Максимально допустимый разрыв между сэмплами, чтобы продолжить (сек)
@@ -282,14 +297,13 @@ final class CalibrationEngine: ObservableObject {
                 constantPowerController.stop()
 
                 // Считаем аналитику и генерируем отчёт
-                let analytics = AnalyticsEngine()
                 let sessionHistory: [BatteryReading]
                 if let hs = historyStore {
                     sessionHistory = hs.between(from: start, to: end)
                 } else {
                     sessionHistory = samples
                 }
-                let analysis = analytics.analyze(history: sessionHistory, snapshot: snapshot)
+                let analysis = AnalyticsEngine.performAnalysis(history: sessionHistory, snapshot: snapshot)
                 if let htmlContent = ReportGenerator.generateHTMLContent(result: analysis,
                                                                          snapshot: snapshot,
                                                                          history: sessionHistory,
@@ -305,7 +319,7 @@ final class CalibrationEngine: ObservableObject {
                         try htmlContent.write(to: reportURL, atomically: true, encoding: .utf8)
                         res.reportPath = reportURL.path
                     } catch {
-                        print("Failed to save report: \(error)")
+                        alertManager.showReportError(error)
                     }
                 }
 
@@ -645,7 +659,7 @@ final class CalibrationEngine: ObservableObject {
             print("CalibrationEngine: Saved test data to \(filename)")
             return fileURL.path
         } catch {
-            print("CalibrationEngine: Failed to save test data: \(error)")
+            alertManager.showSaveError(error, operation: "test data")
             return nil
         }
     }
@@ -662,13 +676,13 @@ final class CalibrationEngine: ObservableObject {
     func loadTestData(from path: String) -> TestData? {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
               let testData = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            print("CalibrationEngine: Failed to load test data from \(path)")
+            alertManager.showLoadError(FileError.fileNotFound, operation: "test data")
             return nil
         }
         
         // Загружаем samples
         guard let samplesArray = testData["samples"] as? [[String: Any]] else {
-            print("CalibrationEngine: Failed to parse samples from test data")
+            alertManager.showLoadError(FileError.parseError, operation: "test samples")
             return nil
         }
         
@@ -682,13 +696,13 @@ final class CalibrationEngine: ObservableObject {
         // Загружаем calibration result
         guard let resultDict = testData["calibration_result"] as? [String: Any],
               let calibrationResult: CalibrationResult = decode(resultDict) else {
-            print("CalibrationEngine: Failed to parse calibration result from test data")
+            alertManager.showLoadError(FileError.parseError, operation: "calibration result")
             return nil
         }
         
         // Загружаем final snapshot
         guard let snapshotDict = testData["final_snapshot"] as? [String: Any] else {
-            print("CalibrationEngine: Failed to parse final snapshot from test data")
+            alertManager.showLoadError(FileError.parseError, operation: "final snapshot")
             return nil
         }
         

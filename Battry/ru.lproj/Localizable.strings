@@ -271,6 +271,18 @@
 "heavy.profile.warning.continue" = "Использовать тяжёлый профиль";
 "heavy.profile.warning.cancel" = "Отмена";
 
+// Диалоги ошибок
+"error.report.title" = "Ошибка генерации отчёта";
+"error.report.message" = "Не удалось создать HTML отчёт:";
+"error.save.title" = "Ошибка сохранения";
+"error.save.message" = "Не удалось сохранить %@:";
+"error.load.title" = "Ошибка загрузки";
+"error.load.message" = "Не удалось загрузить %@:";
+"error.update.title" = "Ошибка проверки обновлений";
+"error.update.message" = "Не удалось проверить обновления:";
+"error.gpu.title" = "Ошибка GPU";
+"error.gpu.message" = "Не удалось инициализировать вычислительный конвейер GPU:";
+
 // Настройка отображения процента в меню баре
 "settings.show.percentage" = "Показывать процент в меню баре";
 "settings.show.percentage.description" = "Отображать процент заряда рядом с иконкой";
@@ -288,6 +300,9 @@
 "knee.index" = "Качество вольт-кривой";
 "quick.health.test" = "Быстрый тест здоровья";
 "health.score.composite" = "Композитный индекс здоровья";
+"health.score.collecting" = "Сбор данных...";
+"health.score.collecting.hint" = "Для точного анализа требуется ~10 минут";
+"health.score.time.remaining" = "Осталось: %d мин";
 
 "power.preset.selection" = "Пресет мощности";
 "constant.power.mode" = "Режим постоянной мощности";
@@ -297,12 +312,12 @@
 "temperature.normalization" = "Температурно нормализовано";
 "cp.discharge" = "CP разряд";
 
-// Expert metrics (according to professor recommendations)
-"expert.metrics" = "Экспертные метрики";
-"soh.energy" = "SOH по энергии";
-"dcir.resistance" = "DCIR @50%";
-"micro.drops" = "Микро-просадки";
-"knee.index" = "Индекс колена";
+// Battery status metrics (user-friendly names)
+"expert.metrics" = "Состояние батареи";
+"soh.energy" = "Реальная ёмкость";
+"dcir.resistance" = "Быстродействие";
+"micro.drops" = "Стабильность заряда";
+"knee.index" = "Плавность разряда";
 "average.power.15min" = "Мощность (15 мин)";
 "power.presets" = "Прогнозы времени";
 "load.generator.enable.gpu" = "Включить GPU ветку";
@@ -321,6 +336,18 @@
 // Отсутствующие ключи локализации
 "power.consumption.trend" = "Тренд потребления энергии";
 "energy.efficiency" = "Энергоэффективность";
+
+// DCIR status descriptions
+"dcir.status.excellent" = "Отлично";
+"dcir.status.good" = "Хорошо";
+"dcir.status.warning" = "Внимание";
+"dcir.status.poor" = "Плохо";
+
+// Micro-drops status descriptions
+"micro.drops.status.excellent" = "Отлично";
+"micro.drops.status.good" = "Хорошо";
+"micro.drops.status.warning" = "Внимание";
+"micro.drops.status.problem" = "Проблема";
 "average.power" = "Средняя мощность";
 "reports.open" = "Открыть отчёты";
 

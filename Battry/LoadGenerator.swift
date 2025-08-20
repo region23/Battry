@@ -2,6 +2,17 @@ import Foundation
 import Combine
 import Metal
 
+enum GPUError: Error, LocalizedError {
+    case initializationFailed
+    
+    var errorDescription: String? {
+        switch self {
+        case .initializationFailed:
+            return "Failed to initialize GPU compute pipeline"
+        }
+    }
+}
+
 /// Профили нагрузки для генератора CPU
 enum LoadProfile {
     case light
@@ -83,6 +94,7 @@ final class LoadGenerator: ObservableObject {
     private var workTimers: [DispatchSourceTimer] = []
     private var sleepActivity: NSObjectProtocol?
     private var gpuEnabled: Bool = false
+    private let alertManager = AlertManager.shared
     private var gpuTimer: DispatchSourceTimer?
     private var gpuEngine: GPUComputeEngine?
     // Последние применённые параметры для возможности динамического изменения duty
@@ -230,7 +242,13 @@ final class LoadGenerator: ObservableObject {
 
     private func startGPULoad(params: LoadParameters) {
         guard gpuTimer == nil else { return }
-        if gpuEngine == nil { gpuEngine = GPUComputeEngine() }
+        if gpuEngine == nil { 
+            gpuEngine = GPUComputeEngine()
+            if gpuEngine == nil {
+                alertManager.showGPUError(GPUError.initializationFailed)
+                return
+            }
+        }
         guard let engine = gpuEngine else { return }
         let periodMs = params.periodMs
         let duty = params.dutyCycle
@@ -278,7 +296,7 @@ final class GPUComputeEngine {
             let count = 1 << 20 // ~1M floats (~4MB)
             self.buffer = device.makeBuffer(length: count * MemoryLayout<Float>.size, options: .storageModeShared)
         } catch {
-            print("GPUComputeEngine: Failed to build pipeline: \(error)")
+            // Error will be handled by LoadGenerator when gpuEngine is nil
             return nil
         }
     }

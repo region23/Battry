@@ -123,6 +123,7 @@ final class QuickHealthTest: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let testTargetSOCs = [80, 60, 40, 20] // Уровни SOC для пульс-тестов
     private var currentTargetIndex = 0
+    private let alertManager = AlertManager.shared
     
     // Progress tracking
     private var testStartTime: Date?
@@ -983,7 +984,7 @@ final class QuickHealthTest: ObservableObject {
             try data.write(to: fileURL)
             print("Quick health test result saved to: \(fileURL.path)")
         } catch {
-            print("Failed to save quick health test result: \(error)")
+            alertManager.showSaveError(error, operation: "quick health test result")
         }
         
         // Обновляем историю результатов
@@ -1012,7 +1013,7 @@ final class QuickHealthTest: ObservableObject {
             let data = try encoder.encode(results)
             try data.write(to: Self.resultsHistoryURL)
         } catch {
-            print("Failed to save quick health test results history: \(error)")
+            alertManager.showSaveError(error, operation: "quick health test history")
         }
     }
     
@@ -1028,7 +1029,7 @@ final class QuickHealthTest: ObservableObject {
             decoder.dateDecodingStrategy = .iso8601
             return try decoder.decode([QuickHealthResult].self, from: data)
         } catch {
-            print("Failed to load quick health test results: \(error)")
+            alertManager.showLoadError(error, operation: "quick health test results")
             return []
         }
     }

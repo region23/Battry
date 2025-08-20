@@ -147,7 +147,7 @@ struct ChartsPanel: View {
                             ) { showOCV.toggle() }
 
                             MetricToggleButton(
-                                title: "DCIR",
+                                title: i18n.t("dcir.resistance"),
                                 color: .pink,
                                 isSelected: showDCIR
                             ) { showDCIR.toggle() }
@@ -345,7 +345,7 @@ struct ChartsPanel: View {
         if showOCV { parts.append("OCV") }
         if showPower { parts.append("W") }
         if showHealthScore { parts.append("Health") }
-        if showDCIR { parts.append("DCIR") }
+        if showDCIR { parts.append(i18n.t("dcir.resistance")) }
         if showDrain { parts.append("%/h") }
         var s = parts.joined(separator: ", ")
         var extras: [String] = []
@@ -564,7 +564,6 @@ struct ChartsPanel: View {
             case .d30: return 12 * 3600   // 12 часов
             }
         }()
-        let engine = AnalyticsEngine()
         var series: [(Date, Double)] = []
         // Ограничим число точек для производительности
         let maxPoints = 200
@@ -575,7 +574,7 @@ struct ChartsPanel: View {
             // Берем окно данных до текущей точки
             let window = raw.filter { $0.timestamp >= start && $0.timestamp <= t }
             guard window.count >= 4 else { continue }
-            let analysis = engine.analyze(history: window, snapshot: snapshot)
+            let analysis = AnalyticsEngine.performAnalysis(history: window, snapshot: snapshot)
             series.append((t, Double(analysis.healthScore)))
         }
         return series
@@ -618,8 +617,8 @@ struct ChartsPanel: View {
         guard raw.count >= 2 else { return [] }
         
         // В AnalyticsEngine DCIR из истории может быть извлечён. Попытаемся рассчитать на лету
-        let engine = AnalyticsEngine()
-        let _ = engine.analyze(history: raw, snapshot: snapshot).dcirAt50Percent != nil ? engine : nil
+        let analysis = AnalyticsEngine.performAnalysis(history: raw, snapshot: snapshot)
+        let _ = analysis.dcirAt50Percent != nil ? analysis : nil
         // Если в кеше уже посчитано в рамках healthScoreSeries — используем простую на лету оценку
         // Упростим: вычислим DCIR по ступеням мощности (быстрая эвристика)
         var plotted: [(Date, Double)] = []
@@ -734,12 +733,10 @@ struct BatteryHealthInfoPanel: View {
     let snapshot: BatterySnapshot
     @ObservedObject private var i18n = Localization.shared
     
-    private var analytics: AnalyticsEngine {
-        AnalyticsEngine()
-    }
+    // Удалено - используем статические методы
     
     private var analysis: BatteryAnalysis {
-        analytics.analyze(history: readings, snapshot: snapshot)
+        AnalyticsEngine.performAnalysis(history: readings, snapshot: snapshot)
     }
     
     private var healthColor: Color {
@@ -796,7 +793,7 @@ struct BatteryHealthInfoPanel: View {
                     
                     // Микро-дропы справа
                     HealthMetricRow(
-                        title: i18n.t("micro.drops.count").replacingOccurrences(of: "%d", with: ""),
+                        title: i18n.t("micro.drops"),
                         value: "\(analysis.microDropEvents)",
                         color: analysis.microDropEvents == 0 ? .green : analysis.microDropEvents <= 2 ? .orange : .red
                     )
@@ -805,7 +802,7 @@ struct BatteryHealthInfoPanel: View {
                 // Остальные метрики в две колонки
                 HStack(spacing: 16) {
                     HealthMetricRow(
-                        title: "SOH:",
+                        title: "\(i18n.t("soh.energy")):",
                         value: String(format: "%.0f%%", analysis.sohEnergy),
                         color: analysis.sohEnergy >= 85 ? .green : analysis.sohEnergy >= 70 ? .orange : .red
                     )

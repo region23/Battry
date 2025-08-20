@@ -31,6 +31,7 @@ struct MenuContent: View {
     // Опционально принимаем windowState для синхронизации
     private let windowState: WindowState?
     @ObservedObject var quickHealthTest: QuickHealthTest
+    @ObservedObject var alertManager: AlertManager = AlertManager.shared
     
     /// Инициализатор с возможностью задать начальную панель
     init(
@@ -248,6 +249,7 @@ struct MenuContent: View {
                 panel = newPanel
             }
         }
+        .withAlerts()
     }
 
     private var header: some View {
@@ -449,13 +451,10 @@ struct MenuContent: View {
             return i18n.t("collecting.stats")
         }
         
-        let efficiency = (sohEnergy / sohCapacity) * 100
+        // Ограничиваем эффективность максимумом 100%
+        let efficiency = min((sohEnergy / sohCapacity) * 100, 100)
         
-        if i18n.language == .ru {
-            return String(format: "%.0f%%", efficiency)
-        } else {
-            return String(format: "%.0f%%", efficiency)
-        }
+        return String(format: "%.0f%%", efficiency)
     }
     
     /// Цвет для метрики эффективности энергии
@@ -469,7 +468,8 @@ struct MenuContent: View {
             return .secondary
         }
         
-        let efficiency = (sohEnergy / sohCapacity) * 100
+        // Ограничиваем эффективность максимумом 100%
+        let efficiency = min((sohEnergy / sohCapacity) * 100, 100)
         
         if efficiency >= 95 {
             return .green
@@ -535,6 +535,25 @@ struct MenuContent: View {
     
     private func getHealthStatus() -> HealthStatus {
         return analytics.getHealthStatusFromScore(getHealthScore())
+    }
+    
+    /// Возвращает текст для отображения вместо Health Score во время сбора данных
+    private func getHealthScoreDisplayValue() -> String {
+        if !analytics.isDataCollectionComplete() {
+            let remainingTime = analytics.getRemainingDataCollectionTime()
+            if remainingTime > 0 {
+                return String(format: i18n.t("health.score.time.remaining"), remainingTime)
+            } else {
+                return i18n.t("health.score.collecting")
+            }
+        } else {
+            return "\(getHealthScore())/100"
+        }
+    }
+    
+    /// Проверяет, идет ли сбор данных для Health Score
+    private func isHealthScoreCollecting() -> Bool {
+        return !analytics.isDataCollectionComplete()
     }
     
     private func getHealthConditionText() -> String {
@@ -621,10 +640,19 @@ struct MenuContent: View {
     }
     
     private func getDCIRValue() -> String {
-        // Получаем DCIR из последнего анализа
+        // Получаем DCIR статус вместо числового значения
         if let analysis = analytics.lastAnalysis,
            let dcir50 = analysis.dcirAt50Percent, dcir50 > 0 {
-            return String(format: "%.0f мОм", dcir50)
+            // Оценка DCIR согласно рекомендациям профессора
+            if dcir50 <= 120 {
+                return i18n.t("dcir.status.excellent")
+            } else if dcir50 <= 200 {
+                return i18n.t("dcir.status.good")
+            } else if dcir50 <= 300 {
+                return i18n.t("dcir.status.warning")
+            } else {
+                return i18n.t("dcir.status.poor")
+            }
         }
         return i18n.t("collecting.stats")
     }
@@ -648,10 +676,18 @@ struct MenuContent: View {
     private func getMicroDrops() -> String {
         if let analysis = analytics.lastAnalysis {
             let microDrops = analysis.microDropEvents
-            return "\(microDrops)"
+            // Отображаем статус вместо числа
+            if microDrops == 0 {
+                return i18n.t("micro.drops.status.excellent")
+            } else if microDrops <= 2 {
+                return i18n.t("micro.drops.status.good")
+            } else if microDrops <= 5 {
+                return i18n.t("micro.drops.status.warning")
+            } else {
+                return i18n.t("micro.drops.status.problem")
+            }
         }
-        // Возвращаем 0 вместо "копим статистику" для корректного отображения размера
-        return "0"
+        return i18n.t("micro.drops.status.excellent")
     }
     
     private func getMicroDropHealthStatus() -> HealthStatus? {
@@ -700,13 +736,16 @@ struct MenuContent: View {
                     // Первый ряд: Health Score, Время работы, Средняя мощность
                     EnhancedStatCard(
                         title: i18n.t("health.score"),
-                        value: "\(getHealthScore())/100",
+                        value: getHealthScoreDisplayValue(),
                         icon: "heart.fill",
-                        accentColor: getHealthStatus().color == "green" ? .green : 
+                        accentColor: isHealthScoreCollecting() ? .secondary : 
+                                   (getHealthStatus().color == "green" ? .green : 
                                    getHealthStatus().color == "orange" ? .orange : 
-                                   getHealthStatus().color == "red" ? .red : .blue,
-                        healthStatus: getHealthStatus()
+                                   getHealthStatus().color == "red" ? .red : .blue),
+                        healthStatus: isHealthScoreCollecting() ? nil : getHealthStatus(),
+                        isCollectingData: isHealthScoreCollecting()
                     )
+                    .help(isHealthScoreCollecting() ? i18n.t("health.score.collecting.hint") : "")
                     EnhancedStatCard(
                         title: i18n.t("runtime.estimated"),
                         value: estimatedRuntimeText(),
@@ -805,7 +844,7 @@ struct MenuContent: View {
                         healthStatus: nil,
                         isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
                     )
-                    .help(i18n.language == .ru ? "Реальная энергоотдача батареи (рекомендация эксперта)" : "Actual battery energy delivery (expert recommendation)")
+                    .help(i18n.language == .ru ? "Реальная ёмкость батареи по сравнению с новой. Норма: >80%" : "Battery's real capacity compared to new. Normal: >80%")
                     EnhancedStatCard(
                         title: i18n.t("dcir.resistance"),
                         value: getDCIRValue(),
@@ -816,7 +855,7 @@ struct MenuContent: View {
                         healthStatus: getDCIRHealthStatus(),
                         isCollectingData: analytics.lastAnalysis?.dcirAt50Percent == nil
                     )
-                    .help(i18n.language == .ru ? "Внутреннее сопротивление при 50% заряда" : "Internal resistance at 50% charge")
+                    .help(i18n.language == .ru ? "Как быстро батарея реагирует на изменения нагрузки. Чем лучше, тем ниже значение" : "How quickly the battery responds to load changes. Lower values are better")
                     EnhancedStatCard(
                         title: i18n.t("energy.efficiency"),
                         value: getEnergyEfficiency(),
@@ -824,7 +863,7 @@ struct MenuContent: View {
                         accentColor: getEnergyEfficiencyColor(),
                         isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
                     )
-                    .help(i18n.language == .ru ? "Эффективность использования энергии батареи" : "Battery energy usage efficiency")
+                    .help(i18n.language == .ru ? "Насколько эффективно батарея использует свою ёмкость. Норма: 85-100%" : "How efficiently the battery uses its capacity. Normal: 85-100%")
                     
                     // Второй ряд: Микро-дропы, Knee Index
                     EnhancedStatCard(
@@ -837,7 +876,7 @@ struct MenuContent: View {
                         healthStatus: getMicroDropHealthStatus(),
                         isCollectingData: false
                     )
-                    .help(i18n.language == .ru ? "Резкие падения ≥2% за ≤120 сек" : "Sudden drops ≥2% within ≤120 sec")
+                    .help(i18n.language == .ru ? "Резкие скачки заряда. 0 = отлично, >5 = проблема" : "Sudden charge drops. 0 = excellent, >5 = problem")
                     EnhancedStatCard(
                         title: i18n.t("knee.index"),
                         value: getKneeIndex(),
@@ -846,7 +885,7 @@ struct MenuContent: View {
                         healthStatus: nil,
                         isCollectingData: analytics.lastAnalysis?.kneeIndex ?? 0 <= 0
                     )
-                    .help(i18n.language == .ru ? "Индекс качества OCV кривой" : "OCV curve quality index")
+                    .help(i18n.language == .ru ? "Насколько плавно разряжается батарея. 100 = идеально, <50 = проблемы" : "How smoothly the battery discharges. 100 = perfect, <50 = problems")
                 }
             }
             }
