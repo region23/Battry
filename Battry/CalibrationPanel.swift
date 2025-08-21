@@ -262,12 +262,12 @@ struct CalibrationPanel: View {
 
 extension CalibrationPanel {
     private var fullBatteryTestSection: some View {
-        CardSection(title: i18n.language == .ru ? "Полный тест батареи" : "Full Battery Test", icon: "battery.25") {
+        CardSection(title: i18n.t("full.battery.test"), icon: "battery.25") {
             VStack(alignment: .leading, spacing: 10) {
                 // Добавляем отступ для выравнивания с левым блоком
 
                 
-                Text(i18n.language == .ru ? "Стандартизированный разряд при постоянной мощности до 5% с прогнозируемым временем." : "Standardized constant-power discharge down to 5% with reproducible runtime.")
+                Text(i18n.t("full.test.description"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(minHeight: 32, alignment: .top)
@@ -285,11 +285,11 @@ extension CalibrationPanel {
                 
                 // Status messages
                 if snapshot.percentage < 98 {
-                    Text(i18n.language == .ru ? "Требуется ≥98% и питание отключено" : "Requires ≥98% and unplugged")
+                    Text(i18n.t("requires.98.percent"))
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 } else if snapshot.isCharging || snapshot.powerSource == .ac {
-                    Text(i18n.language == .ru ? "Отключите питание" : "Disconnect power")
+                    Text(i18n.t("disconnect.power"))
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 }
@@ -300,7 +300,7 @@ extension CalibrationPanel {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "play.circle.fill")
-                        Text(i18n.language == .ru ? "Запустить полный тест" : "Start Full Test")
+                        Text(i18n.t("start.full.test"))
                         let nominalV = 11.1
                         let targetW = PowerCalculator.targetPower(for: cpSelectedPreset, designCapacityMah: snapshot.designCapacity, nominalVoltage: nominalV)
                         Text(String(format: "(%.1fW)", targetW))
@@ -548,7 +548,7 @@ extension CalibrationPanel {
                             .font(.caption)
                             .fontWeight(.medium)
                         Spacer()
-                        Text(String(format: "%.1f %@", quick.durationMinutes, i18n.language == .ru ? "мин" : "min"))
+                        Text(String(format: "%.1f %@", quick.durationMinutes, i18n.t("time.unit.min")))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -577,13 +577,13 @@ extension CalibrationPanel {
                                 Text(String(format: "%.0f", dcir50))
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                Text(i18n.language == .ru ? "мОм" : "mΩ")
+                                Text(i18n.t("resistance.unit.mohm"))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
                         }
                         Spacer()
-                        Button(i18n.language == .ru ? "Отчёт" : "Report") {
+                        Button(i18n.t("report.button")) {
                             generateQuickHealthReport(result: quick)
                         }
                         .buttonStyle(.bordered)
@@ -706,12 +706,12 @@ extension CalibrationPanel {
         if quickHealthTest.state.isActive {
             // Шаги для быстрого теста
             let steps = [
-                ProcessStep(title: i18n.language == .ru ? "Подготовка" : "Prepare"),
-                ProcessStep(title: i18n.language == .ru ? "Калибровка" : "Calibrate"),
-                ProcessStep(title: i18n.language == .ru ? "Пульсы" : "Pulses"),
-                ProcessStep(title: i18n.language == .ru ? "Пост. мощность" : "Const. power"),
-                ProcessStep(title: i18n.language == .ru ? "Анализ" : "Analyze"),
-                ProcessStep(title: i18n.language == .ru ? "Результаты" : "Results")
+                ProcessStep(title: i18n.t("test.step.prepare")),
+                ProcessStep(title: i18n.t("test.step.calibrate")),
+                ProcessStep(title: i18n.t("test.step.pulses")),
+                ProcessStep(title: i18n.t("test.step.const.power")),
+                ProcessStep(title: i18n.t("test.step.analyze")),
+                ProcessStep(title: i18n.t("test.step.results"))
             ]
             let currentStep: Int = {
                 switch quickHealthTest.state {
@@ -1148,7 +1148,7 @@ extension CalibrationPanel {
             // Content section
             VStack(alignment: .leading, spacing: 10) {
                 
-                Text(i18n.language == .ru ? "Уникальная методика: точный анализ за 30-40 минут" : "Unique methodology: accurate analysis in 30-40 minutes")
+                Text(i18n.t("quick.test.methodology"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1162,9 +1162,9 @@ extension CalibrationPanel {
                         Text({ () -> String in
                             switch status {
                             case .outside:
-                                return i18n.language == .ru ? "Короткая начальная калибровка прошла не при идеальном уровне заряда. Для максимально точных результатов лучше начинать тест при 95–90%." : "The short initial calibration ran outside the ideal charge range. For best accuracy, try to start around 95–90% next time."
+                                return i18n.t("calibration.warning.suboptimal")
                             case .skipped:
-                                return i18n.language == .ru ? "Начальная калибровка была пропущена из‑за уровня заряда. Результат корректен, но точность чуть ниже. В следующий раз начните при 90–95%." : "The initial calibration was skipped due to charge level. Results are still valid, but a bit less precise. Next time, start around 90–95%."
+                                return i18n.t("calibration.warning.skipped")
                             case .ideal:
                                 return ""
                             }
@@ -1187,11 +1187,11 @@ extension CalibrationPanel {
                     
                     // Status messages
                     if snapshot.percentage < 80 {
-                        Text(i18n.language == .ru ? "Требуется ≥80%" : "Requires ≥80%")
+                        Text(i18n.t("requires.80.percent"))
                             .font(.caption2)
                             .foregroundStyle(.orange)
                     } else if snapshot.isCharging || snapshot.powerSource == .ac {
-                        Text(i18n.language == .ru ? "Отключите питание" : "Disconnect power")
+                        Text(i18n.t("disconnect.power"))
                             .font(.caption2)
                             .foregroundStyle(.orange)
                     }
@@ -1202,7 +1202,7 @@ extension CalibrationPanel {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "play.circle.fill")
-                            Text(i18n.language == .ru ? "Запустить быстрый тест" : "Start Quick Test")
+                            Text(i18n.t("start.quick.test"))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
@@ -1215,7 +1215,7 @@ extension CalibrationPanel {
                     ProgressView()
                         .scaleEffect(0.8)
                     VStack(alignment: .leading) {
-                        Text(i18n.language == .ru ? "Калибровка в покое..." : "Baseline calibration...")
+                        Text(i18n.t("baseline.calibration"))
                             .font(.caption)
                             .fontWeight(.medium)
                         if !quickHealthTest.currentStep.isEmpty {
@@ -1240,7 +1240,7 @@ extension CalibrationPanel {
                     ProgressView()
                         .scaleEffect(0.8)
                     VStack(alignment: .leading) {
-                        Text(i18n.language == .ru ? "Пульс-тест @\(targetSOC)%" : "Pulse test @\(targetSOC)%")
+                        Text(String(format: i18n.t("pulse.test.at.soc"), targetSOC))
                             .font(.caption)
                             .fontWeight(.medium)
                         if !quickHealthTest.currentStep.isEmpty {
@@ -1273,7 +1273,7 @@ extension CalibrationPanel {
                     ProgressView()
                         .scaleEffect(0.8)
                     VStack(alignment: .leading) {
-                        Text(i18n.language == .ru ? "Энергетическое окно 80→65%" : "Energy window 80→65%")
+                        Text(i18n.t("energy.window.range"))
                             .font(.caption)
                             .fontWeight(.medium)
                         if !quickHealthTest.currentStep.isEmpty {
@@ -1306,7 +1306,7 @@ extension CalibrationPanel {
                 HStack {
                     ProgressView()
                         .scaleEffect(0.8)
-                    Text(i18n.language == .ru ? "Анализ результатов..." : "Analyzing results...")
+                    Text(i18n.t("analyzing.results"))
                         .font(.caption)
                         .fontWeight(.medium)
                     Spacer()
@@ -1317,11 +1317,11 @@ extension CalibrationPanel {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
-                        Text(i18n.language == .ru ? "Тест завершён" : "Test completed")
+                        Text(i18n.t("test.completed"))
                             .font(.caption)
                             .fontWeight(.medium)
                         Spacer()
-                        Text(String(format: "%.1f %@", result.durationMinutes, i18n.language == .ru ? "мин" : "min"))
+                        Text(String(format: "%.1f %@", result.durationMinutes, i18n.t("time.unit.min")))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -1333,7 +1333,7 @@ extension CalibrationPanel {
                                 .font(.caption)
                                 .fontWeight(.bold)
                                 .foregroundStyle(result.healthScore >= 85 ? .green : result.healthScore >= 70 ? .orange : .red)
-                            Text(i18n.language == .ru ? "Скор" : "Score")
+                            Text(i18n.t("score.label"))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -1354,7 +1354,7 @@ extension CalibrationPanel {
                                 Text(String(format: "%.0f", dcir50))
                                     .font(.caption)
                                     .fontWeight(.bold)
-                                Text(i18n.language == .ru ? "мОм" : "mΩ")
+                                Text(i18n.t("resistance.unit.mohm"))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -1362,7 +1362,7 @@ extension CalibrationPanel {
                         
                         Spacer()
                         
-                        Button(i18n.language == .ru ? "Отчёт" : "Report") {
+                        Button(i18n.t("report.button")) {
                             generateQuickHealthReport(result: result)
                         }
                         .buttonStyle(.bordered)
@@ -1378,7 +1378,7 @@ extension CalibrationPanel {
                         .font(.caption)
                         .foregroundStyle(.red)
                     Spacer()
-                    Button(i18n.language == .ru ? "Повторить" : "Retry") {
+                    Button(i18n.t("retry.button")) {
                         quickHealthTest.start()
                     }
                     .buttonStyle(.bordered)

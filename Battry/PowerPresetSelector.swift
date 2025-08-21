@@ -61,7 +61,7 @@ struct InlinePowerPresetSelector: View {
                         .minimumScaleFactor(0.8)
                         .foregroundStyle(isSelected ? .white.opacity(0.9) : .secondary)
                     
-                    Text("~\(QuickHealthTest.estimatedTestTime(for: preset)) мин")
+                    Text("~\(QuickHealthTest.estimatedTestTime(for: preset)) \(i18n.t("time.unit.min"))")
                         .font(.caption2)
                         .foregroundStyle(isSelected ? .white.opacity(0.7) : .secondary.opacity(0.7))
                 }
@@ -101,7 +101,7 @@ struct InlinePowerPresetSelector: View {
                 Text("\(String(format: "%.0f", targetPower))W")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                Text("~\(QuickHealthTest.estimatedTestTime(for: preset))м")
+                Text("~\(QuickHealthTest.estimatedTestTime(for: preset))\(i18n.t("time.unit.min.short"))")
                     .font(.caption2)
                     .fontWeight(.medium)
                     .foregroundStyle(.primary)
@@ -239,7 +239,7 @@ struct PowerControlQualityIndicator: View {
             
             // Текст качества
             VStack(alignment: .leading, spacing: 2) {
-                Text(i18n.language == .ru ? "Стабильность мощности" : "Power stability")
+                Text(i18n.t("power.stability"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 
@@ -249,15 +249,15 @@ struct PowerControlQualityIndicator: View {
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundStyle(statusColor)
-                        Text(i18n.language == .ru ? "— \(statusLabelRU)" : "— \(statusLabelEN)")
+                        Text("— \(statusLabel)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
-                    Text(i18n.language == .ru ? "Чем выше, тем точнее измерения." : "Higher is more accurate measurements.")
+                    Text(i18n.t("power.stability.description"))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 } else {
-                    Text("—")
+                    Text(i18n.t("dash"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -287,24 +287,14 @@ struct PowerControlQualityIndicator: View {
         return .red
     }
 
-    private var statusLabelRU: String {
-        if quality >= 90 { return "высокая" }
-        if quality >= 70 { return "нормальная" }
-        if quality >= 50 { return "средняя" }
-        return "низкая"
-    }
-    private var statusLabelEN: String {
-        if quality >= 90 { return "high" }
-        if quality >= 70 { return "normal" }
-        if quality >= 50 { return "fair" }
-        return "low"
+    private var statusLabel: String {
+        if quality >= 90 { return i18n.t("quality.high") }
+        if quality >= 70 { return i18n.t("quality.normal") }
+        if quality >= 50 { return i18n.t("quality.fair") }
+        return i18n.t("quality.low")
     }
     private var helpText: String {
-        if i18n.language == .ru {
-            return "Насколько точно удаётся удерживать заданную мощность. Высокая стабильность даёт более точные измерения."
-        } else {
-            return "How precisely the app holds the target power. Higher stability yields more accurate measurements."
-        }
+        return i18n.t("power.stability.help")
     }
 }
 

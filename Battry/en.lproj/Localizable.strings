@@ -371,3 +371,92 @@
 "load.level.heavy" = "heavy";
 "temp.at.25c" = "@ 25°C";
 "test.temp" = "Test temp";
+
+// Time units
+"time.unit.min" = "min";
+"time.unit.min.short" = "m";
+
+// Power stability
+"power.stability" = "Power stability";
+"power.stability.description" = "Higher is more accurate measurements.";
+"power.stability.help" = "How precisely the app holds the target power. Higher stability yields more accurate measurements.";
+
+// Quality levels
+"quality.high" = "high";
+"quality.normal" = "normal";
+"quality.fair" = "fair";
+"quality.low" = "low";
+
+// CalibrationPanel strings
+"full.battery.test" = "Full Battery Test";
+"full.test.description" = "Standardized constant-power discharge down to 5% with reproducible runtime.";
+"start.full.test" = "Start Full Test";
+"requires.98.percent" = "Requires ≥98% and unplugged";
+"disconnect.power" = "Disconnect power";
+"resistance.unit.mohm" = "mΩ";
+"report.button" = "Report";
+"test.step.prepare" = "Prepare";
+"test.step.calibrate" = "Calibrate";
+"test.step.pulses" = "Pulses";
+"test.step.const.power" = "Const. power";
+"test.step.analyze" = "Analyze";
+"test.step.results" = "Results";
+"quick.test.methodology" = "Unique methodology: accurate analysis in 30-40 minutes";
+"requires.80.percent" = "Requires ≥80%";
+"start.quick.test" = "Start Quick Test";
+"baseline.calibration" = "Baseline calibration...";
+"pulse.test.at.soc" = "Pulse test @%d%%";
+"energy.window.range" = "Energy window 80→65%";
+"analyzing.results" = "Analyzing results...";
+"test.completed" = "Test completed";
+"score.label" = "Score";
+"retry.button" = "Retry";
+"calibration.warning.suboptimal" = "The short initial calibration ran outside the ideal charge range. For best accuracy, try to start around 95–90% next time.";
+"calibration.warning.skipped" = "The initial calibration was skipped due to charge level. Results are still valid, but a bit less precise. Next time, start around 90–95%.";
+
+// MenuContent strings
+"battery.health.excellent" = "Excellent";
+"battery.health.good" = "Good";
+"battery.health.fair" = "Fair";
+"battery.health.needs.attention" = "Needs Attention";
+"battery.health.after.test" = "After Test";
+"micro.drops.none.description" = "No micro-drops detected. Battery shows stable operation under load. This is an excellent health indicator.";
+"micro.drops.few.description" = "Detected %d micro-drops. Normal level for a battery of this age. Continue monitoring.";
+"micro.drops.moderate.description" = "Detected %d micro-drops. Elevated count - monitor battery condition and avoid deep discharges.";
+"micro.drops.high.description" = "Detected %d micro-drops. High count indicates battery cell issues. Diagnostics recommended.";
+"micro.drops.explanation" = "Micro-drops are sudden charge drops (≥2% in ≤2 minutes) without charging. Fewer is better for battery health.";
+"battery.specifications" = "Battery Specifications";
+"battery.wear.help" = "Battery wear compared to new";
+"temperature.wear.help" = "Prolonged >40°C accelerates wear";
+"charge.cycles.title" = "Charge Cycles";
+"charge.cycles.help" = "Number of full charge-discharge cycles";
+"max.capacity.title" = "Max Capacity";
+"max.capacity.help" = "Current maximum battery capacity";
+"voltage.title" = "Voltage";
+"voltage.help" = "Current battery voltage";
+"power.consumption.help" = "Average power consumption over last 15 minutes";
+"health.performance" = "Health & Performance";
+"health.score.help" = "Overall battery health score based on all metrics";
+"real.capacity.help" = "Battery's real capacity compared to new. Normal: >80%";
+"discharge.smoothness.help" = "How smoothly the battery discharges. 100 = perfect, <50 = problems";
+
+// Workload types
+"workload.light" = "Light";
+"workload.medium" = "Medium";
+"workload.heavy" = "Heavy";
+
+// AnalyticsEngine strings
+"battery.replacement.not.required" = "Replacement not required";
+"anomaly.high.cycle.count" = "High cycle count (%d).";
+"anomaly.high.wear" = "High battery wear (%.0f%%).";
+"anomaly.high.power.consumption" = "High power consumption (%.1f W).";
+"anomaly.frequent.micro.drops" = "Frequent micro-drops detected (%d).";
+"anomaly.early.knee" = "Early OCV curve knee (%.0f%% SOC).";
+"recommendation.critical" = "Battery replacement required soon. %@";
+"recommendation.poor" = "Plan battery replacement. %@";
+"recommendation.acceptable" = "Condition is acceptable. %@";
+"recommendation.excellent" = "Battery in excellent condition. %@";
+"power.recommendations.excellent" = "Recommended loads: up to %.0f W (~%.1f h), up to %.0f W (~%.1f h), up to %.0f W (~%.1f h).";
+"power.recommendations.good" = "Avoid loads above %.0f W. Optimal: %.0f W (~%.1f h).";
+"power.recommendations.moderate" = "Limit load to %.0f W (~%.1f h). Heavy work may cause failures.";
+"power.recommendations.critical" = "Use only light tasks up to %.0f W. Frequent charging required.";

@@ -371,3 +371,92 @@
 "load.level.light" = "лёгкого";
 "load.level.medium" = "среднего";
 "load.level.heavy" = "тяжёлого";
+
+// Time units
+"time.unit.min" = "мин";
+"time.unit.min.short" = "м";
+
+// Power stability
+"power.stability" = "Стабильность мощности";
+"power.stability.description" = "Чем выше, тем точнее измерения.";
+"power.stability.help" = "Насколько точно удаётся удерживать заданную мощность. Высокая стабильность даёт более точные измерения.";
+
+// Quality levels
+"quality.high" = "высокая";
+"quality.normal" = "нормальная";
+"quality.fair" = "средняя";
+"quality.low" = "низкая";
+
+// CalibrationPanel strings
+"full.battery.test" = "Полный тест батареи";
+"full.test.description" = "Стандартизированный разряд при постоянной мощности до 5% с прогнозируемым временем.";
+"start.full.test" = "Запустить полный тест";
+"requires.98.percent" = "Требуется ≥98% и питание отключено";
+"disconnect.power" = "Отключите питание";
+"resistance.unit.mohm" = "мОм";
+"report.button" = "Отчёт";
+"test.step.prepare" = "Подготовка";
+"test.step.calibrate" = "Калибровка";
+"test.step.pulses" = "Пульсы";
+"test.step.const.power" = "Пост. мощность";
+"test.step.analyze" = "Анализ";
+"test.step.results" = "Результаты";
+"quick.test.methodology" = "Уникальная методика: точный анализ за 30-40 минут";
+"requires.80.percent" = "Требуется ≥80%";
+"start.quick.test" = "Запустить быстрый тест";
+"baseline.calibration" = "Калибровка в покое...";
+"pulse.test.at.soc" = "Пульс-тест @%d%%";
+"energy.window.range" = "Энергетическое окно 80→65%";
+"analyzing.results" = "Анализ результатов...";
+"test.completed" = "Тест завершён";
+"score.label" = "Скор";
+"retry.button" = "Повторить";
+"calibration.warning.suboptimal" = "Короткая начальная калибровка прошла не при идеальном уровне заряда. Для максимально точных результатов лучше начинать тест при 95–90%.";
+"calibration.warning.skipped" = "Начальная калибровка была пропущена из‑за уровня заряда. Результат корректен, но точность чуть ниже. В следующий раз начните при 90–95%.";
+
+// MenuContent strings
+"battery.health.excellent" = "Отличное";
+"battery.health.good" = "Хорошее";
+"battery.health.fair" = "Приемлемое";
+"battery.health.needs.attention" = "Требует внимания";
+"battery.health.after.test" = "После теста";
+"micro.drops.none.description" = "Микро-дропы не обнаружены. Батарея показывает стабильную работу под нагрузкой. Это отличный показатель здоровья.";
+"micro.drops.few.description" = "Обнаружено %d микро-дропа. Нормальный уровень для батареи такого возраста. Продолжайте мониторинг.";
+"micro.drops.moderate.description" = "Обнаружено %d микро-дропов. Повышенное количество - следите за состоянием батареи и избегайте глубоких разрядов.";
+"micro.drops.high.description" = "Обнаружено %d микро-дропов. Высокое количество указывает на проблемы с ячейками батареи. Рекомендуется диагностика.";
+"micro.drops.explanation" = "Микро-дропы - это резкие падения заряда (≥2% за ≤2 минуты) без зарядки. Чем меньше, тем лучше здоровье батареи.";
+"battery.specifications" = "Характеристики батареи";
+"battery.wear.help" = "Износ батареи относительно новой";
+"temperature.wear.help" = "Длительно >40°C ускоряет износ";
+"charge.cycles.title" = "Циклы зарядки";
+"charge.cycles.help" = "Количество полных циклов зарядки-разрядки";
+"max.capacity.title" = "Максимальная ёмкость";
+"max.capacity.help" = "Текущая максимальная ёмкость батареи";
+"voltage.title" = "Напряжение";
+"voltage.help" = "Текущее напряжение батареи";
+"power.consumption.help" = "Среднее потребление энергии за последние 15 минут";
+"health.performance" = "Состояние и производительность";
+"health.score.help" = "Общая оценка состояния батареи на основе всех метрик";
+"real.capacity.help" = "Реальная ёмкость батареи по сравнению с новой. Норма: >80%";
+"discharge.smoothness.help" = "Насколько плавно разряжается батарея. 100 = идеально, <50 = проблемы";
+
+// Workload types
+"workload.light" = "Лёгкая";
+"workload.medium" = "Средняя";
+"workload.heavy" = "Тяжёлая";
+
+// AnalyticsEngine strings
+"battery.replacement.not.required" = "Замена не требуется";
+"anomaly.high.cycle.count" = "Высокое число циклов (%d).";
+"anomaly.high.wear" = "Сильный износ аккумулятора (%.0f%%).";
+"anomaly.high.power.consumption" = "Высокое энергопотребление (%.1f Вт).";
+"anomaly.frequent.micro.drops" = "Замечены частые микро‑просадки заряда (%d).";
+"anomaly.early.knee" = "Раннее колено OCV кривой (%.0f%% SOC).";
+"recommendation.critical" = "Требуется замена батареи в ближайшее время. %@";
+"recommendation.poor" = "Планируйте замену батареи. %@";
+"recommendation.acceptable" = "Состояние приемлемое. %@";
+"recommendation.excellent" = "Батарея в отличном состоянии. %@";
+"power.recommendations.excellent" = "Рекомендуемые нагрузки: до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч).";
+"power.recommendations.good" = "Избегайте нагрузок выше %.0f Вт. Оптимально: %.0f Вт (~%.1f ч).";
+"power.recommendations.moderate" = "Ограничьте нагрузку до %.0f Вт (~%.1f ч). При тяжелой работе возможны сбои.";
+"power.recommendations.critical" = "Используйте только легкие задачи до %.0f Вт. Частые подзарядки обязательны.";

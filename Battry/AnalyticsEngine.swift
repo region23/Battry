@@ -45,7 +45,7 @@ struct BatteryAnalysis: Equatable {
     /// Интегральная оценка здоровья (0–100)
     var healthScore: Int = 100
     /// Итоговая рекомендация пользователю
-    var recommendation: String = "Замена не требуется"
+    var recommendation: String = ""
     /// Количество микро‑просадок (быстрых падений процента)
     var microDropEvents: Int = 0
     
@@ -76,6 +76,8 @@ struct BatteryAnalysis: Equatable {
 
 @MainActor
 final class AnalyticsEngine: ObservableObject {
+    /// Локализация для строк
+    private let i18n = Localization.shared
     /// Флаг "идёт сессия" (для реактивного UI)
     @Published private(set) var sessionActive = false
     /// Последний вычисленный анализ
@@ -313,11 +315,11 @@ final class AnalyticsEngine: ObservableObject {
         // Аномалии
         var anomalies: [String] = []
         let wear = snapshot.wearPercent
-        if snapshot.cycleCount > 800 { anomalies.append("Высокое число циклов (\(snapshot.cycleCount)).") }
-        if wear > 20 { anomalies.append(String(format: "Сильный износ аккумулятора (%.0f%%).", wear)) }
-        if result.averagePower > 25 { anomalies.append(String(format: "Высокое энергопотребление (%.1f Вт).", result.averagePower)) }
-        if micro >= 3 { anomalies.append("Замечены частые микро‑просадки заряда (\(micro)).") }
-        if let kneeSOC = result.kneeSOC, kneeSOC > 40 { anomalies.append("Раннее колено OCV кривой (\(String(format: "%.0f", kneeSOC))% SOC).") }
+        if snapshot.cycleCount > 800 { anomalies.append(String(format: i18n.t("anomaly.high.cycle.count"), snapshot.cycleCount)) }
+        if wear > 20 { anomalies.append(String(format: i18n.t("anomaly.high.wear"), wear)) }
+        if result.averagePower > 25 { anomalies.append(String(format: i18n.t("anomaly.high.power.consumption"), result.averagePower)) }
+        if micro >= 3 { anomalies.append(String(format: i18n.t("anomaly.frequent.micro.drops"), micro)) }
+        if let kneeSOC = result.kneeSOC, kneeSOC > 40 { anomalies.append(String(format: i18n.t("anomaly.early.knee"), kneeSOC)) }
         result.anomalies = anomalies
 
         // Рекомендация на основе композитного скора с пресетами мощности
@@ -330,13 +332,13 @@ final class AnalyticsEngine: ObservableObject {
         )
         
         if result.healthScore < 50 {
-            result.recommendation = "Требуется замена батареи в ближайшее время. \(powerRecommendations.critical)"
+            result.recommendation = String(format: i18n.t("recommendation.critical"), powerRecommendations.critical)
         } else if result.healthScore < 70 {
-            result.recommendation = "Планируйте замену батареи. \(powerRecommendations.moderate)"
+            result.recommendation = String(format: i18n.t("recommendation.poor"), powerRecommendations.moderate)
         } else if result.healthScore < 85 {
-            result.recommendation = "Состояние приемлемое. \(powerRecommendations.good)"
+            result.recommendation = String(format: i18n.t("recommendation.acceptable"), powerRecommendations.good)
         } else {
-            result.recommendation = "Батарея в отличном состоянии. \(powerRecommendations.excellent)"
+            result.recommendation = String(format: i18n.t("recommendation.excellent"), powerRecommendations.excellent)
         }
         result.averageTemperature = avgTemperature
         
@@ -577,19 +579,19 @@ final class AnalyticsEngine: ObservableObject {
         let runtimeHeavy = maxWh > 0 ? maxWh / heavy03C : 0
         
         let excellent = String(format: 
-            "Рекомендуемые нагрузки: до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч).", 
+            i18n.t("power.recommendations.excellent"), 
             light01C, runtimeLight, medium02C, runtimeMedium, heavy03C, runtimeHeavy)
             
         let good = String(format:
-            "Избегайте нагрузок выше %.0f Вт. Оптимально: %.0f Вт (~%.1f ч).", 
+            i18n.t("power.recommendations.good"), 
             medium02C, light01C, runtimeLight)
             
         let moderate = String(format:
-            "Ограничьте нагрузку до %.0f Вт (~%.1f ч). При тяжелой работе возможны сбои.", 
+            i18n.t("power.recommendations.moderate"), 
             light01C, runtimeLight)
             
         let critical = String(format:
-            "Используйте только легкие задачи до %.0f Вт. Частые подзарядки обязательны.", 
+            i18n.t("power.recommendations.critical"), 
             light01C * 0.7) // Еще более консервативный лимит
         
         return (excellent, good, moderate, critical)

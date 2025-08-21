@@ -559,11 +559,11 @@ struct MenuContent: View {
     private func getHealthConditionText() -> String {
         let status = getHealthStatus()
         switch status {
-        case .excellent: return i18n.language == .ru ? "Отличное" : "Excellent"
-        case .normal: return i18n.language == .ru ? "Хорошее" : "Good"
-        case .acceptable: return i18n.language == .ru ? "Приемлемое" : "Fair"
-        case .poor: return i18n.language == .ru ? "Требует внимания" : "Needs Attention"
-        case .afterTest: return i18n.language == .ru ? "После теста" : "After Test"
+        case .excellent: return i18n.t("battery.health.excellent")
+        case .normal: return i18n.t("battery.health.good")
+        case .acceptable: return i18n.t("battery.health.fair")
+        case .poor: return i18n.t("battery.health.needs.attention")
+        case .afterTest: return i18n.t("battery.health.after.test")
         }
     }
     
@@ -610,9 +610,9 @@ struct MenuContent: View {
         let designMah = battery.state.designCapacity
         guard designMah > 0, cRate > 0 else {
             if i18n.language == .ru {
-                return cRate == 0.1 ? "Лёгкая" : cRate == 0.2 ? "Средняя" : "Тяжёлая"
+                return cRate == 0.1 ? i18n.t("workload.light") : cRate == 0.2 ? i18n.t("workload.medium") : i18n.t("workload.heavy")
             } else {
-                return cRate == 0.1 ? "Light" : cRate == 0.2 ? "Medium" : "Heavy"
+                return cRate == 0.1 ? i18n.t("workload.light") : cRate == 0.2 ? i18n.t("workload.medium") : i18n.t("workload.heavy")
             }
         }
         
@@ -711,13 +711,13 @@ struct MenuContent: View {
             let microDrops = analysis.microDropEvents
             if i18n.language == .ru {
                 if microDrops == 0 {
-                    return "Микро-дропы не обнаружены. Батарея показывает стабильную работу под нагрузкой. Это отличный показатель здоровья."
+                    return i18n.t("micro.drops.none.description")
                 } else if microDrops <= 2 {
-                    return "Обнаружено \(microDrops) микро-дропа. Нормальный уровень для батареи такого возраста. Продолжайте мониторинг."
+                    return String(format: i18n.t("micro.drops.few.description"), microDrops)
                 } else if microDrops <= 5 {
-                    return "Обнаружено \(microDrops) микро-дропов. Повышенное количество - следите за состоянием батареи и избегайте глубоких разрядов."
+                    return String(format: i18n.t("micro.drops.moderate.description"), microDrops)
                 } else {
-                    return "Обнаружено \(microDrops) микро-дропов. Высокое количество указывает на проблемы с ячейками батареи. Рекомендуется диагностика."
+                    return String(format: i18n.t("micro.drops.high.description"), microDrops)
                 }
             } else {
                 if microDrops == 0 {
@@ -732,7 +732,7 @@ struct MenuContent: View {
             }
         }
         if i18n.language == .ru {
-            return "Микро-дропы - это резкие падения заряда (≥2% за ≤2 минуты) без зарядки. Чем меньше, тем лучше здоровье батареи."
+            return i18n.t("micro.drops.explanation")
         } else {
             return "Micro-drops are sudden charge drops (≥2% in ≤2 minutes) without charging. Lower numbers indicate better battery health."
         }
@@ -795,7 +795,7 @@ struct MenuContent: View {
     private var overview: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Блок 1: Характеристики батареи - физические параметры и базовые метрики
-            CardSection(title: i18n.language == .ru ? "Характеристики батареи" : "Battery Specifications", icon: "battery.100") {
+            CardSection(title: i18n.t("battery.specifications"), icon: "battery.100") {
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 8),
                     GridItem(.flexible(), spacing: 8),
@@ -811,7 +811,7 @@ struct MenuContent: View {
                         accentColor: battery.state.wearPercent < 20 ? .green : 
                                    battery.state.wearPercent < 40 ? .orange : .red
                     )
-                    .help(i18n.language == .ru ? "Износ батареи относительно новой" : "Battery wear compared to new")
+                    .help(i18n.t("battery.wear.help"))
                     
                     EnhancedStatCard(
                         title: i18n.t("temperature"),
@@ -820,33 +820,33 @@ struct MenuContent: View {
                         accentColor: battery.state.temperature > 40 ? .red : 
                                    battery.state.temperature > 35 ? .orange : Color.accentColor
                     )
-                    .help(i18n.language == .ru ? "Длительно >40°C ускоряет износ" : "Prolonged >40°C accelerates wear")
+                    .help(i18n.t("temperature.wear.help"))
                     
                     EnhancedStatCard(
-                        title: i18n.language == .ru ? "Циклы зарядки" : "Charge Cycles",
+                        title: i18n.t("charge.cycles.title"),
                         value: getCycleCount(),
                         icon: "arrow.clockwise",
                         accentColor: battery.state.cycleCount < 300 ? .green : 
                                    battery.state.cycleCount < 800 ? .orange : .red
                     )
-                    .help(i18n.language == .ru ? "Количество полных циклов зарядки-разрядки" : "Number of full charge-discharge cycles")
+                    .help(i18n.t("charge.cycles.help"))
                     
                     // Второй ряд: Максимальная ёмкость, Текущее напряжение, Средняя мощность
                     EnhancedStatCard(
-                        title: i18n.language == .ru ? "Максимальная ёмкость" : "Max Capacity",
+                        title: i18n.t("max.capacity.title"),
                         value: getMaxCapacity(),
                         icon: "battery.75",
                         accentColor: Color.accentColor
                     )
-                    .help(i18n.language == .ru ? "Текущая максимальная ёмкость батареи" : "Current maximum battery capacity")
+                    .help(i18n.t("max.capacity.help"))
                     
                     EnhancedStatCard(
-                        title: i18n.language == .ru ? "Напряжение" : "Voltage",
+                        title: i18n.t("voltage.title"),
                         value: getCurrentVoltage(),
                         icon: "bolt.horizontal",
                         accentColor: Color.accentColor
                     )
-                    .help(i18n.language == .ru ? "Текущее напряжение батареи" : "Current battery voltage")
+                    .help(i18n.t("voltage.help"))
                     
                     EnhancedStatCard(
                         title: i18n.t("average.power.15min"),
@@ -855,12 +855,12 @@ struct MenuContent: View {
                         accentColor: analytics.getAveragePowerLast15Min(history: history.items) > 15 ? .orange : Color.accentColor,
                         isCollectingData: analytics.getAveragePowerLast15Min(history: history.items) <= 0.1
                     )
-                    .help(i18n.language == .ru ? "Среднее потребление энергии за последние 15 минут" : "Average power consumption over last 15 minutes")
+                    .help(i18n.t("power.consumption.help"))
                 }
             }
             
             // Блок 2: Состояние и производительность - оценки здоровья и прогнозы
-            CardSection(title: i18n.language == .ru ? "Состояние и производительность" : "Health & Performance", icon: "heart.fill") {
+            CardSection(title: i18n.t("health.performance"), icon: "heart.fill") {
                 Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 8) {
                     // Первый ряд: Health Score, SOH Energy, Плавность заряда
                     GridRow {
@@ -875,7 +875,7 @@ struct MenuContent: View {
                             healthStatus: isHealthScoreCollecting() ? nil : getHealthStatus(),
                             isCollectingData: isHealthScoreCollecting()
                         )
-                        .help(isHealthScoreCollecting() ? i18n.t("health.score.collecting.hint") : i18n.language == .ru ? "Общая оценка состояния батареи на основе всех метрик" : "Overall battery health score based on all metrics")
+                        .help(isHealthScoreCollecting() ? i18n.t("health.score.collecting.hint") : i18n.t("health.score.help"))
                         
                         EnhancedStatCard(
                             title: i18n.t("soh.energy"),
@@ -885,7 +885,7 @@ struct MenuContent: View {
                             healthStatus: nil,
                             isCollectingData: analytics.lastAnalysis?.sohEnergy ?? 0 <= 0
                         )
-                        .help(i18n.language == .ru ? "Реальная ёмкость батареи по сравнению с новой. Норма: >80%" : "Battery's real capacity compared to new. Normal: >80%")
+                        .help(i18n.t("real.capacity.help"))
                         
                         EnhancedStatCard(
                             title: i18n.t("knee.index"),
@@ -895,7 +895,7 @@ struct MenuContent: View {
                             healthStatus: nil,
                             isCollectingData: analytics.lastAnalysis?.kneeIndex ?? 0 <= 0
                         )
-                        .help(i18n.language == .ru ? "Насколько плавно разряжается батарея. 100 = идеально, <50 = проблемы" : "How smoothly the battery discharges. 100 = perfect, <50 = problems")
+                        .help(i18n.t("discharge.smoothness.help"))
                     }
                     
                     // Второй ряд: Время работы, DCIR, Микро-дропы
