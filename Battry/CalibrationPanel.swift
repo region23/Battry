@@ -240,11 +240,21 @@ struct CalibrationPanel: View {
                 
                 // Открываем обновленный отчет
                 NSWorkspace.shared.open(reportURL)
+                
+                // После успешного открытия отчета сбрасываем завершенный тест к начальному состоянию
+                if case .completed = calibrator.state {
+                    calibrator.stop()
+                }
             } catch {
                 alertManager.showReportError(error)
                 
                 // Если не удалось перезаписать, пытаемся открыть существующий файл
                 NSWorkspace.shared.open(reportURL)
+                
+                // После открытия отчета сбрасываем завершенный тест к начальному состоянию
+                if case .completed = calibrator.state {
+                    calibrator.stop()
+                }
             }
         } else {
             alertManager.showError(
@@ -254,6 +264,11 @@ struct CalibrationPanel: View {
             
             // Если не удалось сгенерировать, пытаемся открыть существующий файл
             NSWorkspace.shared.open(URL(fileURLWithPath: originalPath))
+            
+            // После открытия отчета сбрасываем завершенный тест к начальному состоянию
+            if case .completed = calibrator.state {
+                calibrator.stop()
+            }
         }
     }
 }
@@ -601,11 +616,21 @@ extension CalibrationPanel {
                 )
             }
             
-            // Показываем историю быстрых тестов (до 3 последних)
-            let quickResults = quickHealthTest.loadResults().prefix(3)
-            if !quickResults.isEmpty {
+            // Показываем историю быстрых тестов (до 3 предыдущих, исключая последний если он уже показан выше)
+            let allQuickResults = quickHealthTest.loadResults()
+            let quickHistoryResults: [QuickHealthTest.QuickHealthResult] = {
+                if quickHealthTest.lastResult != nil && !allQuickResults.isEmpty {
+                    // Исключаем последний результат, если он уже показан выше
+                    return Array(allQuickResults.dropFirst().prefix(3))
+                } else {
+                    // Если нет lastResult, показываем первые 3 из истории
+                    return Array(allQuickResults.prefix(3))
+                }
+            }()
+            
+            if !quickHistoryResults.isEmpty {
                 VStack(spacing: 8) {
-                    ForEach(Array(quickResults), id: \.startedAt) { result in
+                    ForEach(Array(quickHistoryResults), id: \.startedAt) { result in
                         quickTestResultCard(for: result)
                     }
                 }
@@ -621,7 +646,7 @@ extension CalibrationPanel {
             }
             
             // Показываем подсказку только если нет вообще никаких результатов
-            if calibrator.recentResults.isEmpty && quickResults.isEmpty {
+            if calibrator.recentResults.isEmpty && quickHealthTest.lastResult == nil && quickHistoryResults.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "doc.text")
                         .font(.system(size: 24))
@@ -1421,6 +1446,8 @@ extension CalibrationPanel {
             quickHealthResult: result
         ) {
             NSWorkspace.shared.open(reportURL)
+            // После успешного открытия отчета сбрасываем тест к начальному состоянию
+            quickHealthTest.resetToIdle()
         }
     }
     

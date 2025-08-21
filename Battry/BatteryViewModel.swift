@@ -45,9 +45,17 @@ final class BatteryViewModel: ObservableObject {
     var timeRemainingText: String {
         let L = Localization.shared
         if let tte = state.timeToEmptyMin, state.powerSource == .battery {
+            // Валидация: отбрасываем нереальные значения > 24 часа (1440 минут)
+            if tte > 1440 {
+                return L.t("calculating") // показываем "Вычисляется..." вместо нереального времени
+            }
             return String(format: L.t("time.remaining"), format(minutes: tte))
         }
         if let ttf = state.timeToFullMin, state.isCharging {
+            // Валидация для зарядки: отбрасываем значения > 12 часов (720 минут)
+            if ttf > 720 {
+                return L.t("calculating")
+            }
             return String(format: L.t("time.to.full"), format(minutes: ttf))
         }
         return ""

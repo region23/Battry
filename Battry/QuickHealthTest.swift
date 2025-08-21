@@ -352,6 +352,21 @@ final class QuickHealthTest: ObservableObject {
         cancellables.removeAll()
     }
     
+    /// Сбрасывает завершенный тест к начальному состоянию без остановки активных процессов
+    func resetToIdle() {
+        // Используем только для завершенных тестов
+        guard case .completed = state else { return }
+        
+        state = .idle
+        currentStep = ""
+        progress = 0.0
+        estimatedTimeRemaining = nil
+        
+        // Reset tracking variables
+        testStartTime = nil
+        currentPulseIndex = 0
+    }
+    
     // MARK: - Private Methods
     
     private func updateTimeEstimation(currentSOC: Int) {
@@ -422,6 +437,19 @@ final class QuickHealthTest: ObservableObject {
                 // Smooth the rate with exponential moving average
                 averageDischargeRatePercentPerMinute = 0.3 * newRate + 0.7 * averageDischargeRatePercentPerMinute
             }
+        }
+        
+        // Адаптивная корректировка: если тест идет дольше 90 минут и SOC > 55%, ускоряем завершение
+        if elapsedTime > 90 * 60 && currentSOC > 55 {
+            // Принудительно завершаем energy window на текущем SOC вместо ожидания 50%
+            if case .energyWindow = state, let targetSOC = energyWindowTargetSOC, currentSOC < targetSOC + 10 {
+                analyzeResults()
+            }
+        }
+        
+        // Если тест идет дольше 120 минут, принудительно завершаем
+        if elapsedTime > 120 * 60 {
+            analyzeResults()
         }
     }
     
@@ -560,7 +588,7 @@ final class QuickHealthTest: ObservableObject {
             // Skip calibration progress if test started at lower SOC
             let calibrationOffset = (startSOC < 85) ? 0.0 : 0.2
             let baseProgress = calibrationOffset + Double(currentTargetIndex) * 0.15
-            progress = baseProgress + (0.1 * waitingProgress) // 10% of each phase for waiting
+            progress = max(progress, baseProgress + (0.1 * waitingProgress)) // 10% of each phase for waiting
             
             // Apply light load to accelerate discharge to target SOC
             applyLoad(.light)
@@ -587,7 +615,7 @@ final class QuickHealthTest: ObservableObject {
                 // Skip calibration progress if test started at lower SOC
                 let startSOC = self.samples.first?.percentage ?? 88
                 let calibrationOffset = (startSOC < 85) ? 0.0 : 0.2
-                self.progress = calibrationOffset + 0.15 + Double(self.currentTargetIndex) * 0.15
+                self.progress = max(self.progress, calibrationOffset + 0.15 + Double(self.currentTargetIndex) * 0.15)
             } else {
                 // Пульсы завершены — переходим к анализу
                 self.analyzeResults()
@@ -641,7 +669,7 @@ final class QuickHealthTest: ObservableObject {
                 let startSOC = self.samples.first?.percentage ?? 88
                 let calibrationOffset = (startSOC < 85) ? 0.0 : 0.2
                 let baseProgress = calibrationOffset + Double(self.currentTargetIndex) * 0.15
-                self.progress = baseProgress + (0.15 * socLevelProgress)
+                self.progress = max(self.progress, baseProgress + (0.15 * socLevelProgress))
                 
                 // Отдыхаем 25 секунд перед следующим пульсом
                 DispatchQueue.main.asyncAfter(deadline: .now() + self.restDurationSec) {
@@ -690,7 +718,7 @@ final class QuickHealthTest: ObservableObject {
     private func analyzeResults() {
         state = .analyzing
         currentStep = "Analyzing test results..."
-        progress = 0.95
+        progress = max(progress, 0.95)
         
         Task {
             let result = await Task { @MainActor in

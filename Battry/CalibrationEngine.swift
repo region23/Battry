@@ -325,9 +325,11 @@ final class CalibrationEngine: ObservableObject {
                                                                          history: sessionHistory,
                                                                          calibration: res,
                                                                          loadGeneratorMetadata: currentLoadMetadata) {
-                    // Сохраняем отчет во временную папку
-                    let timestamp = Int(Date().timeIntervalSince1970)
-                    let filename = "Battry_Report_\(timestamp).html"
+                    // Сохраняем отчет во временную папку с именем на основе даты начала теста
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+                    let dateString = formatter.string(from: res.startedAt)
+                    let filename = "Battry_Calibration_\(dateString).html"
                     let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
                     let reportURL = tempDir.appendingPathComponent(filename)
                     

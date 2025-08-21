@@ -23,6 +23,7 @@
 "discharge.per.hour.24h" = "Discharge (24h)";
 "discharge.per.hour.7d" = "Discharge (7d)";
 "collecting.stats" = "collecting data...";
+"calculating" = "calculating...";
 "analysis.intro" = "Battery life test (CP discharge 100%→5%): get reproducible runtime and a report.";
 "analysis.start" = "Start Battery Life Test";
 "analysis.waiting.full" = "Charge to 100% and unplug. Analysis will start automatically.";

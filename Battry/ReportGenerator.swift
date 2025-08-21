@@ -1128,8 +1128,19 @@ enum ReportGenerator {
             return nil
         }
         
-        let timestamp = Int(Date().timeIntervalSince1970)
-        let filename = "Battry_Report_\(timestamp).html"
+        // Генерируем имя файла на основе типа теста и даты
+        let filename: String
+        if let quickResult = quickHealthResult {
+            // Для быстрого теста используем дату начала теста
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+            let dateString = formatter.string(from: quickResult.startedAt)
+            filename = "Battry_QuickHealth_\(dateString).html"
+        } else {
+            // Для обычного теста используем текущее время (как было)
+            let timestamp = Int(Date().timeIntervalSince1970)
+            filename = "Battry_Report_\(timestamp).html"
+        }
         let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
         let reportURL = tempDir.appendingPathComponent(filename)
         

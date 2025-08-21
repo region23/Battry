@@ -289,6 +289,14 @@ final class AnalyticsEngine: ObservableObject {
             let ocvAnalysis = ocvAnalyzer.analyzeOCV(from: history)
             result.kneeIndex = ocvAnalysis.kneeIndex
             result.kneeSOC = ocvAnalysis.kneeSOC
+        } else {
+            // Fallback: пытаемся получить DCIR из более мягких переходов мощности
+            let fallbackDcirPoints = Self.extractDCIRFromHistoryLowThreshold(history: history)
+            if !fallbackDcirPoints.isEmpty {
+                let dcirAnalysis = DCIRCalculator.analyzeDCIR(dcirPoints: fallbackDcirPoints)
+                result.dcirAt50Percent = dcirAnalysis.dcirAt50Percent
+                result.dcirAt20Percent = dcirAnalysis.dcirAt20Percent
+            }
         }
         
         // Температурная нормализация (согласно рекомендациям профессора)
@@ -315,11 +323,11 @@ final class AnalyticsEngine: ObservableObject {
         // Аномалии
         var anomalies: [String] = []
         let wear = snapshot.wearPercent
-        if snapshot.cycleCount > 800 { anomalies.append(String(format: i18n.t("anomaly.high.cycle.count"), snapshot.cycleCount)) }
-        if wear > 20 { anomalies.append(String(format: i18n.t("anomaly.high.wear"), wear)) }
-        if result.averagePower > 25 { anomalies.append(String(format: i18n.t("anomaly.high.power.consumption"), result.averagePower)) }
-        if micro >= 3 { anomalies.append(String(format: i18n.t("anomaly.frequent.micro.drops"), micro)) }
-        if let kneeSOC = result.kneeSOC, kneeSOC > 40 { anomalies.append(String(format: i18n.t("anomaly.early.knee"), kneeSOC)) }
+        if snapshot.cycleCount > 800 { anomalies.append(String(format: String(localized: "anomaly.high.cycle.count"), snapshot.cycleCount)) }
+        if wear > 20 { anomalies.append(String(format: String(localized: "anomaly.high.wear"), wear)) }
+        if result.averagePower > 25 { anomalies.append(String(format: String(localized: "anomaly.high.power.consumption"), result.averagePower)) }
+        if micro >= 3 { anomalies.append(String(format: String(localized: "anomaly.frequent.micro.drops"), micro)) }
+        if let kneeSOC = result.kneeSOC, kneeSOC > 40 { anomalies.append(String(format: String(localized: "anomaly.early.knee"), kneeSOC)) }
         result.anomalies = anomalies
 
         // Рекомендация на основе композитного скора с пресетами мощности
@@ -332,13 +340,13 @@ final class AnalyticsEngine: ObservableObject {
         )
         
         if result.healthScore < 50 {
-            result.recommendation = String(format: i18n.t("recommendation.critical"), powerRecommendations.critical)
+            result.recommendation = String(format: String(localized: "recommendation.critical"), powerRecommendations.critical)
         } else if result.healthScore < 70 {
-            result.recommendation = String(format: i18n.t("recommendation.poor"), powerRecommendations.moderate)
+            result.recommendation = String(format: String(localized: "recommendation.poor"), powerRecommendations.moderate)
         } else if result.healthScore < 85 {
-            result.recommendation = String(format: i18n.t("recommendation.acceptable"), powerRecommendations.good)
+            result.recommendation = String(format: String(localized: "recommendation.acceptable"), powerRecommendations.good)
         } else {
-            result.recommendation = String(format: i18n.t("recommendation.excellent"), powerRecommendations.excellent)
+            result.recommendation = String(format: String(localized: "recommendation.excellent"), powerRecommendations.excellent)
         }
         result.averageTemperature = avgTemperature
         
@@ -483,6 +491,50 @@ final class AnalyticsEngine: ObservableObject {
         return points
     }
     
+    /// Альтернативная версия с пониженным порогом для случаев недостатка резких переходов
+    private static func extractDCIRFromHistoryLowThreshold(history: [BatteryReading]) -> [DCIRCalculator.DCIRPoint] {
+        guard history.count >= 6 else { return [] }
+        var points: [DCIRCalculator.DCIRPoint] = []
+        
+        // Пониженный порог - ищем изменения мощности от 1.5 Вт
+        for idx in 1..<history.count {
+            let prev = history[idx - 1]
+            let cur = history[idx]
+            // Пропускаем зарядку
+            if prev.isCharging || cur.isCharging { continue }
+            let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
+            if dt <= 0 || dt > 5.0 { continue } // расширенное временное окно
+            let pPrev = abs(prev.power)
+            let pCur = abs(cur.power)
+            let dP = pCur - pPrev
+            // Пониженный порог ступени мощности ~1.5 Вт
+            if abs(dP) >= 1.5 {
+                if let pt = DCIRCalculator.estimateDCIR(samples: history, pulseStartIndex: idx, windowSeconds: 4.0) {
+                    // Применяем более строгую фильтрацию по качеству для компенсации низкого порога
+                    if pt.quality > 50.0 && pt.resistanceMohm > 10 && pt.resistanceMohm < 1000 {
+                        points.append(pt)
+                    }
+                }
+            }
+        }
+        
+        // Фильтруем дубликаты
+        if points.count > 1 {
+            points.sort { $0.timestamp < $1.timestamp }
+            var filtered: [DCIRCalculator.DCIRPoint] = []
+            for p in points {
+                if let last = filtered.last {
+                    let closeInTime = p.timestamp.timeIntervalSince(last.timestamp) < 10.0
+                    let closeInSOC = abs(p.socPercent - last.socPercent) < 2.0
+                    if closeInTime && closeInSOC { continue }
+                }
+                filtered.append(p)
+            }
+            return filtered
+        }
+        return points
+    }
+    
     // MARK: - Public Health Score API
     
     /// Получает актуальный Health Score для UI (0-100)
@@ -579,19 +631,19 @@ final class AnalyticsEngine: ObservableObject {
         let runtimeHeavy = maxWh > 0 ? maxWh / heavy03C : 0
         
         let excellent = String(format: 
-            i18n.t("power.recommendations.excellent"), 
+            String(localized: "power.recommendations.excellent"), 
             light01C, runtimeLight, medium02C, runtimeMedium, heavy03C, runtimeHeavy)
             
         let good = String(format:
-            i18n.t("power.recommendations.good"), 
+            String(localized: "power.recommendations.good"), 
             medium02C, light01C, runtimeLight)
             
         let moderate = String(format:
-            i18n.t("power.recommendations.moderate"), 
+            String(localized: "power.recommendations.moderate"), 
             light01C, runtimeLight)
             
         let critical = String(format:
-            i18n.t("power.recommendations.critical"), 
+            String(localized: "power.recommendations.critical"), 
             light01C * 0.7) // Еще более консервативный лимит
         
         return (excellent, good, moderate, critical)
