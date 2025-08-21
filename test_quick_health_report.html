@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+  <title>Battry • Quick Battery Health Test</title>
+  <meta name="description" content="MacBook quick battery health test results">
+  <style>
+    /* CSS Custom Properties with Dark/Light Theme */
+    :root {
+      /* Light theme colors */
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8fafc;
+      --bg-card: #ffffff;
+      --text-primary: #1e293b;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --border-subtle: #e2e8f0;
+      --border-light: #f1f5f9;
+      --accent-primary: #0ea5e9;
+      --accent-secondary: #8b5cf6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-card: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border-subtle: #334155;
+        --border-light: #475569;
+        --accent-primary: #38bdf8;
+        --accent-secondary: #a78bfa;
+        --success: #34d399;
+        --warning: #fbbf24;
+        --danger: #f87171;
+      }
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 2px solid var(--border-subtle);
+    }
+    
+    .title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .subtitle {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+    
+    .test-info {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: 1rem;
+      margin-top: 1.5rem;
+    }
+    
+    .card {
+      background: var(--bg-card);
+      border-radius: 1rem;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+    
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.5rem;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .card-icon {
+      font-size: 2rem;
+    }
+    
+    .card-content {
+      padding: 1.5rem;
+    }
+    
+    .health-score {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      font-size: 2rem;
+      font-weight: 800;
+      color: white;
+    }
+    
+    .score-circle.excellent { background: var(--success); }
+    .score-circle.good { background: var(--warning); }
+    .score-circle.fair { background: #f97316; }
+    .score-circle.poor { background: var(--danger); }
+    
+    .score-details h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    
+    .metric-card {
+      background: var(--bg-secondary);
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      text-align: center;
+      border: 1px solid var(--border-light);
+    }
+    
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent-primary);
+      margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+    
+    .metric-sublabel {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+    
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+    
+    .label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    
+    .value {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    
+    .recommendation {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: white;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      margin-top: 2rem;
+      text-align: center;
+    }
+    
+    .footer {
+      text-align: center;
+      padding: 2rem 0;
+      border-top: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      margin-top: 3rem;
+    }
+    
+    .footer a {
+      color: var(--accent-primary);
+      text-decoration: none;
+    }
+    
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="title">Quick Health Test</h1>
+      <p class="subtitle">Professional Battery Health Diagnostics</p>
+      
+      <div class="test-info">
+        <strong>MacBookPro18,3</strong> • macOS Sequoia 15.1<br>
+        Test Date: Dec 21, 2024, 2:30 PM<br>
+        Duration: 25.3 min
+      </div>
+    </header>
+    
+    <!-- Health Score Overview -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">💚</div>
+        <h2>Overall Health Score</h2>
+      </div>
+      <div class="card-content">
+        <div class="health-score">
+          <div class="score-circle excellent">
+            <div>89</div>
+            <div style="font-size: 0.8rem;">/ 100</div>
+          </div>
+          <div class="score-details">
+            <h3>Excellent</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Battery health is excellent. No action required.</p>
+            <div class="detail-row">
+              <span class="label">Test Preset:</span>
+              <span class="value">medium (12.5W)</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">CP Control Quality:</span>
+              <span class="value">92%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Energy Analysis -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">⚡</div>
+        <h3>Energy Analysis</h3>
+      </div>
+      <div class="card-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">89.2%</div>
+            <div class="metric-label">SOH Energy</div>
+            <div class="metric-sublabel">Actual energy delivery</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">15.8</div>
+            <div class="metric-label">Energy 80→65%</div>
+            <div class="metric-sublabel">Wh</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">12.3</div>
+            <div class="metric-label">Average Power</div>
+            <div class="metric-sublabel">W</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">91.5</div>
+            <div class="metric-label">Normalized SOH</div>
+            <div class="metric-sublabel">Temperature adjusted</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- DCIR Analysis -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🔬</div>
+        <h3>Internal Resistance Analysis (DCIR)</h3>
+      </div>
+      <div class="card-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">125.3</div>
+            <div class="metric-label">DCIR @50% SOC</div>
+            <div class="metric-sublabel">mΩ</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">198.7</div>
+            <div class="metric-label">DCIR @20% SOC</div>
+            <div class="metric-sublabel">mΩ</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">85%</div>
+            <div class="metric-label">OCV Knee</div>
+            <div class="metric-sublabel">Index: 75</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Stability Analysis -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">📊</div>
+        <h3>Stability Analysis</h3>
+      </div>
+      <div class="card-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">3</div>
+            <div class="metric-label">Micro-drops (total)</div>
+            <div class="metric-sublabel">0.12 /h</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">2</div>
+            <div class="metric-label">≥20% SOC</div>
+            <div class="metric-sublabel">0.08 /h</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">1</div>
+            <div class="metric-label">&lt;20% SOC</div>
+            <div class="metric-sublabel">0.04 /h</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">95%</div>
+            <div class="metric-label">Overall Stability</div>
+            <div class="metric-sublabel">Stable</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Temperature Analysis -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🌡️</div>
+        <h3>Temperature Analysis</h3>
+      </div>
+      <div class="card-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">28.5°C</div>
+            <div class="metric-label">Average Temperature</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">88%</div>
+            <div class="metric-label">Conditions Quality</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Recommendation -->
+    <div class="recommendation">
+      <h3 style="margin-bottom: 1rem;">Recommendation</h3>
+      <p style="font-size: 1.1rem;">Battery health is excellent. No action required.</p>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Generated by <a href="https://github.com/region23/Battry" target="_blank">Battry</a> • macOS Battery Health Monitoring</p>
+    </footer>
+  </div>
+</body>
+</html>

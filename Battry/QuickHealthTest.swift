@@ -87,6 +87,9 @@ final class QuickHealthTest: ObservableObject {
         let healthScore: Double // 0-100
         let recommendation: String
         
+        // Путь к сгенерированному HTML отчету
+        var reportPath: String? = nil
+        
         var isHealthy: Bool { healthScore >= 70 }
         var needsAttention: Bool { healthScore < 70 && healthScore >= 50 }
         var critical: Bool { healthScore < 50 }
@@ -1117,7 +1120,7 @@ final class QuickHealthTest: ObservableObject {
     
     // MARK: - Results Storage
     
-    /// Сохраняет результат теста в JSON файлы
+    /// Сохраняет результат теста в JSON файлы и генерирует HTML отчет
     private func saveResult(_ result: QuickHealthResult) {
         // Сохраняем отдельный файл для этого теста
         let fileName = Self.resultFileName(for: result.startedAt)
@@ -1132,6 +1135,9 @@ final class QuickHealthTest: ObservableObject {
         } catch {
             alertManager.showSaveError(error, operation: "quick health test result")
         }
+        
+        // Генерируем HTML отчет
+        generateHTMLReport(for: result)
         
         // Обновляем историю результатов
         updateResultsHistory(with: result)
@@ -1188,5 +1194,72 @@ final class QuickHealthTest: ObservableObject {
     /// Инициализирует последний результат при старте
     func initializeFromStorage() {
         lastResult = loadLastResult()
+    }
+    
+    // MARK: - HTML Report Generation
+    
+    /// Генерирует HTML отчет для результата быстрого теста
+    private func generateHTMLReport(for result: QuickHealthResult) {
+        guard let batteryVM = batteryViewModel else {
+            print("QuickHealthTest: Cannot generate report - no battery view model available")
+            return
+        }
+        
+        // Создаем снимок батареи для отчета
+        let snapshot = batteryVM.state
+        
+        // Генерируем HTML отчет
+        guard let htmlContent = ReportGenerator.generateQuickHealthReport(
+            result: result,
+            batterySnapshot: snapshot
+        ) else {
+            alertManager.showError(
+                title: "Report Generation Failed",
+                message: "Failed to generate HTML report for quick health test"
+            )
+            return
+        }
+        
+        // Сохраняем отчет во временную папку с именем на основе даты начала теста
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let dateString = formatter.string(from: result.startedAt)
+        let filename = "Battry_QuickHealth_\(dateString).html"
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+        let reportURL = tempDir.appendingPathComponent(filename)
+        
+        do {
+            try htmlContent.write(to: reportURL, atomically: true, encoding: .utf8)
+            print("Quick health test HTML report saved to: \(reportURL.path)")
+            
+            // Обновляем результат с путем к отчету
+            if var updatedResult = lastResult {
+                updatedResult.reportPath = reportURL.path
+                lastResult = updatedResult
+                
+                // Переписываем JSON файл с обновленным путем к отчету
+                updateStoredResult(updatedResult)
+            }
+        } catch {
+            alertManager.showError(
+                title: "Report Save Failed",
+                message: "Failed to save HTML report: \(error.localizedDescription)"
+            )
+        }
+    }
+    
+    /// Обновляет сохраненный результат с путем к отчету
+    private func updateStoredResult(_ result: QuickHealthResult) {
+        let fileName = Self.resultFileName(for: result.startedAt)
+        let fileURL = Self.appSupportDir.appendingPathComponent(fileName)
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(result)
+            try data.write(to: fileURL)
+        } catch {
+            print("Failed to update stored result: \(error)")
+        }
     }
 }

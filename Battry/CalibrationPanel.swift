@@ -1133,12 +1133,12 @@ extension CalibrationPanel {
                 Button {
                     generateQuickHealthReport(result: result)
                 } label: {
-                    Image(systemName: "doc.text")
+                    Image(systemName: result.reportPath != nil ? "doc.text.fill" : "doc.text")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help(i18n.t("reports.open"))
+                .help(result.reportPath != nil ? i18n.t("reports.open") : "Generate Report")
             }
         }
         .padding(10)
@@ -1150,6 +1150,10 @@ extension CalibrationPanel {
                         .stroke(Color.green.opacity(0.15), lineWidth: 1)
                 )
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            generateQuickHealthReport(result: result)
+        }
     }
 }
 
@@ -1435,20 +1439,48 @@ extension CalibrationPanel {
     }
     
     private func generateQuickHealthReport(result: QuickHealthTest.QuickHealthResult) {
-        // Генерируем HTML отчёт с результатами QuickHealthTest
-        let analysis = analytics.analyze(history: history.items, snapshot: snapshot)
-        
-        if let reportURL = ReportGenerator.generateHTML(
-            result: analysis,
-            snapshot: snapshot,
-            history: history.items,
-            calibration: nil,
-            quickHealthResult: result
-        ) {
-            NSWorkspace.shared.open(reportURL)
-            // После успешного открытия отчета сбрасываем тест к начальному состоянию
-            quickHealthTest.resetToIdle()
+        // Проверяем, есть ли уже сохраненный отчет
+        if let existingReportPath = result.reportPath,
+           FileManager.default.fileExists(atPath: existingReportPath) {
+            // Открываем существующий отчет
+            openReportInBrowser(path: existingReportPath)
+            return
         }
+        
+        // Генерируем новый HTML отчёт с результатами QuickHealthTest
+        guard let htmlContent = ReportGenerator.generateQuickHealthReport(
+            result: result,
+            batterySnapshot: snapshot
+        ) else {
+            AlertManager.shared.showError(
+                title: "Report Generation Failed",
+                message: "Failed to generate HTML report for quick health test"
+            )
+            return
+        }
+        
+        // Сохраняем отчет во временную папку
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let dateString = formatter.string(from: result.startedAt)
+        let filename = "Battry_QuickHealth_\(dateString).html"
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
+        let reportURL = tempDir.appendingPathComponent(filename)
+        
+        do {
+            try htmlContent.write(to: reportURL, atomically: true, encoding: .utf8)
+            openReportInBrowser(path: reportURL.path)
+        } catch {
+            AlertManager.shared.showError(
+                title: "Report Save Failed",
+                message: "Failed to save HTML report: \(error.localizedDescription)"
+            )
+        }
+    }
+    
+    private func openReportInBrowser(path: String) {
+        let url = URL(fileURLWithPath: path)
+        NSWorkspace.shared.open(url)
     }
     
     

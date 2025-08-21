@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+  <title>Battry • Battery Calibration Report</title>
+  <meta name="description" content="Detailed MacBook battery calibration report">
+  <style>
+    /* CSS Custom Properties with Dark/Light Theme */
+    :root {
+      /* Light theme colors */
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8fafc;
+      --bg-card: #ffffff;
+      --text-primary: #1e293b;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --border-subtle: #e2e8f0;
+      --border-light: #f1f5f9;
+      --accent-primary: #0ea5e9;
+      --accent-secondary: #8b5cf6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-card: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border-subtle: #334155;
+        --border-light: #475569;
+        --accent-primary: #38bdf8;
+        --accent-secondary: #a78bfa;
+        --success: #34d399;
+        --warning: #fbbf24;
+        --danger: #f87171;
+      }
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 2px solid var(--border-subtle);
+    }
+    
+    .title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .subtitle {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+    
+    .test-info {
+      background: var(--bg-secondary);
+      padding: 1rem;
+      border-radius: 1rem;
+      margin-top: 1.5rem;
+    }
+    
+    .card {
+      background: var(--bg-card);
+      border-radius: 1rem;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+    
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.5rem;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    
+    .card-icon {
+      font-size: 2rem;
+    }
+    
+    .card-content {
+      padding: 1.5rem;
+    }
+    
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    
+    .metric-card {
+      background: var(--bg-secondary);
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      text-align: center;
+      border: 1px solid var(--border-light);
+    }
+    
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent-primary);
+      margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+    
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+    
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+    
+    .label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    
+    .value {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    
+    .footer {
+      text-align: center;
+      padding: 2rem 0;
+      border-top: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      margin-top: 3rem;
+    }
+    
+    .footer a {
+      color: var(--accent-primary);
+      text-decoration: none;
+    }
+    
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="title">Battery Calibration</h1>
+      <p class="subtitle">Complete Battery Runtime Test</p>
+      
+      <div class="test-info">
+        <strong>MacBookPro18,3</strong> • macOS Sequoia 15.1<br>
+        Test Period: Dec 20, 2024, 10:00 PM → Dec 21, 2024, 8:30 AM<br>
+        Duration: 10.5 h
+      </div>
+    </header>
+    
+    <!-- Calibration Results -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🔋</div>
+        <h2>Calibration Test Results</h2>
+      </div>
+      <div class="card-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">9.5</div>
+            <div class="metric-label">%/h discharge</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">10.5</div>
+            <div class="metric-label">h runtime</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">98 → 5%</div>
+            <div class="metric-label">SOC Range</div>
+          </div>
+        </div>
+        
+        <div class="detail-row">
+          <span class="label">Test Started:</span>
+          <span class="value">Dec 20, 2024, 10:00 PM</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Test Completed:</span>
+          <span class="value">Dec 21, 2024, 8:30 AM</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Total Duration:</span>
+          <span class="value">10.5 h</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Battery Health Summary -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">💚</div>
+        <h3>Battery Health</h3>
+      </div>
+      <div class="card-content">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">89</div>
+            <div class="metric-label">Health Score</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">11%</div>
+            <div class="metric-label">Wear</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">567</div>
+            <div class="metric-label">Cycles</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Discharge Analysis -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">📊</div>
+        <h3>Discharge Analysis</h3>
+      </div>
+      <div class="card-content">
+        <div class="detail-row">
+          <span class="label">Average Discharge Rate:</span>
+          <span class="value">9.5 %/h</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Discharge Rate Trend:</span>
+          <span class="value">9.2 %/h</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Estimated Runtime 100→0%:</span>
+          <span class="value">10.5 h</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Load Generator -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">⚙️</div>
+        <h3>Load Generator</h3>
+      </div>
+      <div class="card-content">
+        <div class="detail-row">
+          <span class="label">Profile:</span>
+          <span class="value">Medium</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Charts Section -->
+    <section class="charts-section">
+      <h2 style="text-align: center; margin-bottom: 2rem; color: var(--text-primary);">Discharge Charts</h2>
+      <div style="background: var(--bg-card); border-radius: 1rem; padding: 2rem; margin-bottom: 2rem; text-align: center; color: var(--text-muted);">
+        Battery Charge Level Chart (would be rendered here)
+      </div>
+      <div style="background: var(--bg-card); border-radius: 1rem; padding: 2rem; margin-bottom: 2rem; text-align: center; color: var(--text-muted);">
+        Discharge Rate Chart (would be rendered here)
+      </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Generated by <a href="https://github.com/region23/Battry" target="_blank">Battry</a> • macOS Battery Health Monitoring</p>
+    </footer>
+  </div>
+</body>
+</html>

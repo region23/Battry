@@ -45,13 +45,37 @@ enum ReportGenerator {
         }
     }
     
-    /// Создаёт HTML‑отчёт и сохраняет в постоянную директорию
+    /// Создаёт HTML‑отчёт и сохраняет в постоянную директорию (unified method)
     static func generateHTMLContent(result: BatteryAnalysis,
                                     snapshot: BatterySnapshot,
                                     history: [BatteryReading],
                                     calibration: CalibrationResult?,
                                     loadGeneratorMetadata: LoadGeneratorMetadata? = nil,
                                     quickHealthResult: QuickHealthTest.QuickHealthResult? = nil) -> String? {
+        
+        // Используем специализированные методы в зависимости от типа теста
+        if let quickResult = quickHealthResult {
+            // Быстрый тест здоровья - используем специализированный отчет
+            return generateQuickHealthReport(result: quickResult, batterySnapshot: snapshot)
+        } else if let calibResult = calibration {
+            // Полный тест калибровки - используем специализированный отчет
+            return generateCalibrationReport(
+                result: result,
+                snapshot: snapshot,
+                history: history,
+                calibration: calibResult,
+                loadGeneratorMetadata: loadGeneratorMetadata
+            )
+        } else {
+            // Обычный отчет без тестов - используем старую логику
+            return generateGenericReport(result: result, snapshot: snapshot, history: history)
+        }
+    }
+    
+    /// Создаёт обычный HTML‑отчёт без специальных тестов (legacy support)
+    private static func generateGenericReport(result: BatteryAnalysis,
+                                              snapshot: BatterySnapshot,
+                                              history: [BatteryReading]) -> String? {
         let df = DateFormatter()
         df.dateStyle = .medium
         df.timeStyle = .short
@@ -85,46 +109,7 @@ enum ReportGenerator {
             return ("danger", lang == "ru" ? "Требует внимания" : "Needs Attention")
         }()
         
-        // Generate calibration section
-        let calibrationHTML: String = {
-            guard let c = calibration else { return "" }
-            let startDateStr = df.string(from: c.startedAt)
-            let endDateStr = df.string(from: c.finishedAt)
-            let durationStr = String(format: "%.1f", c.durationHours)
-            let avgDischargeStr = String(format: "%.1f", c.avgDischargePerHour)
-            let runtimeStr = String(format: "%.1f", c.estimatedRuntimeFrom100To0Hours)
-            
-            return """
-            <div class="card calibration-card">
-              <div class="card-header">
-                <div class="card-icon">🔋</div>
-                <h3>\(lang == "ru" ? "Результаты тестирования" : "Calibration Test Results")</h3>
-              </div>
-              <div class="card-content">
-                <div class="test-details">
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Период тестирования:" : "Test Period:")</span>
-                    <span class="value">\(startDateStr) → \(endDateStr)</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Длительность:" : "Duration:")</span>
-                    <span class="value">\(durationStr) \(lang == "ru" ? "ч" : "h")</span>
-                  </div>
-                  <div class="metrics-grid">
-                    <div class="metric-card">
-                      <div class="metric-value">\(avgDischargeStr)</div>
-                      <div class="metric-label">\(lang == "ru" ? "%/ч разряд" : "%/h discharge")</div>
-                    </div>
-                    <div class="metric-card">
-                      <div class="metric-value">\(runtimeStr)</div>
-                      <div class="metric-label">\(lang == "ru" ? "ч автономность" : "h runtime")</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            """
-        }()
+        // No calibration section for generic reports
 
         // Prepare formatted values
         let wearText = String(format: "%.0f%%", snapshot.wearPercent)
@@ -145,146 +130,7 @@ enum ReportGenerator {
             """
         }()
         
-        // Generate load generator metadata section
-        let loadGeneratorHTML: String = {
-            guard let metadata = loadGeneratorMetadata, metadata.wasUsed else { return "" }
-            let title = lang == "ru" ? "Генератор нагрузки" : "Load Generator"
-            let profileText = metadata.profile ?? (lang == "ru" ? "Неизвестно" : "Unknown")
-            
-            var autoStopsHTML = ""
-            if !metadata.autoStopReasons.isEmpty {
-                let autoStopsTitle = lang == "ru" ? "Автостопы:" : "Auto-stops:"
-                let stopItems = metadata.autoStopReasons.map { "<li>\($0)</li>" }.joined()
-                autoStopsHTML = """
-                <div class="auto-stops">
-                  <h5>\(autoStopsTitle)</h5>
-                  <ul>\(stopItems)</ul>
-                </div>
-                """
-            }
-            
-            return """
-            <div class="load-generator-info">
-              <h4>\(title)</h4>
-              <div class="generator-details">
-                <div>
-                  <span class="label">\(lang == "ru" ? "Профиль:" : "Profile:")</span>
-                  <span class="value">\(profileText)</span>
-                </div>
-              </div>
-              \(autoStopsHTML)
-            </div>
-            """
-        }()
-        
-        // Generate QuickHealthTest results section
-        let quickHealthHTML: String = {
-            guard let qhr = quickHealthResult else { return "" }
-            let title = lang == "ru" ? "Быстрый тест здоровья (уникальная методика)" : "Quick Health Test (Unique Methodology)"
-            let durationText = String(format: "%.1f", qhr.durationMinutes)
-            let sohEnergyText = String(format: "%.1f", qhr.sohEnergy)
-            let avgPowerText = String(format: "%.1f", qhr.averagePower)
-            let targetPowerText = String(format: "%.1f", qhr.targetPower)
-            let dcir50Text = qhr.dcirAt50Percent.map { String(format: "%.1f", $0) } ?? "N/A"
-            let dcir20Text = qhr.dcirAt20Percent.map { String(format: "%.1f", $0) } ?? "N/A"
-            let kneeSOCText = qhr.kneeSOC.map { String(format: "%.0f", $0) } ?? "N/A"
-            let kneeIndexText = String(format: "%.0f", qhr.kneeIndex)
-            let qualityText = String(format: "%.0f", qhr.powerControlQuality)
-            
-            return """
-            <div class="card quick-health-card">
-              <div class="card-header">
-                <div class="card-icon">⚡</div>
-                <h3>\(title)</h3>
-              </div>
-              <div class="card-content">
-                <div class="test-details">
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Продолжительность:" : "Duration:")</span>
-                    <span class="value">\(durationText) \(lang == "ru" ? "мин" : "min")</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Пресет мощности:" : "Power Preset:")</span>
-                    <span class="value">\(qhr.powerPreset) (\(targetPowerText)W)</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Средняя мощность:" : "Average Power:")</span>
-                    <span class="value">\(avgPowerText)W</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Качество CP-контроля:" : "CP Control Quality:")</span>
-                    <span class="value">\(qualityText)%</span>
-                  </div>
-                </div>
-                
-                <div class="metrics-grid">
-                  <div class="metric-card">
-                    <div class="metric-value">\(sohEnergyText)%</div>
-                    <div class="metric-label">\(lang == "ru" ? "SOH по энергии" : "SOH Energy")</div>
-                  </div>
-                  <div class="metric-card">
-                    <div class="metric-value">\(dcir50Text)</div>
-                    <div class="metric-label">\(lang == "ru" ? "DCIR @50% (мОм)" : "DCIR @50% (mΩ)")</div>
-                  </div>
-                  <div class="metric-card">
-                    <div class="metric-value">\(dcir20Text)</div>
-                    <div class="metric-label">\(lang == "ru" ? "DCIR @20% (мОм)" : "DCIR @20% (mΩ)")</div>
-                  </div>
-                  <div class="metric-card">
-                    <div class="metric-value">\(kneeSOCText)%</div>
-                    <div class="metric-label">\(lang == "ru" ? "Колено OCV" : "OCV Knee")</div>
-                    <div class="metric-sublabel">\(lang == "ru" ? "Индекс: " : "Index: ")\(kneeIndexText)</div>
-                  </div>
-                  <div class="metric-card">
-                    <div class="metric-value">\(qhr.microDropCount)</div>
-                    <div class="metric-label">\(lang == "ru" ? "Микро-дропы" : "Micro-drops")</div>
-                    <div class="metric-sublabel">\(lang == "ru" ? "Стабильность: " : "Stability: ")\(String(format: "%.0f", qhr.stabilityScore))%</div>
-                  </div>
-                  <div class="metric-card">
-                    <div class="metric-value">\(String(format: "%.1f", qhr.energyDelivered80to50Wh))</div>
-                    <div class="metric-label">\(lang == "ru" ? "Энергия 80→50%" : "Energy 80→50%")</div>
-                    <div class="metric-sublabel">Wh</div>
-                  </div>
-                </div>
-                
-                <div class="temperature-analysis">
-                  <h5>\(lang == "ru" ? "Температурный анализ" : "Temperature Analysis")</h5>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Средняя температура:" : "Average Temperature:")</span>
-                    <span class="value">\(String(format: "%.1f", qhr.averageTemperature))°C</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Качество условий:" : "Conditions Quality:")</span>
-                    <span class="value">\(String(format: "%.0f", qhr.temperatureQuality))%</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Нормализованный SOH:" : "Normalized SOH:")</span>
-                    <span class="value">\(String(format: "%.1f", qhr.normalizedSOH))%</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Микро‑дропы/час:" : "Micro-drops/h:")</span>
-                    <span class="value">\(String(format: "%.2f", qhr.microDropRatePerHour))</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Стабильность под нагрузкой:" : "Load stability:")</span>
-                    <span class="value">\(qhr.unstableUnderLoad ? (lang == "ru" ? "Нестабилен (≥20% SOC)" : "Unstable (≥20% SOC)") : (lang == "ru" ? "Стабилен" : "Stable"))</span>
-                  </div>
-                </div>
-                <div class="temperature-analysis">
-                  <h5>\(lang == "ru" ? "Детализация стабильности" : "Stability Breakdown")</h5>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Микро‑дропы ≥20% SOC:" : "Micro-drops ≥20% SOC:")</span>
-                    <span class="value">\(qhr.microDropCountAbove20) (\(String(format: "%.2f", qhr.microDropRateAbove20PerHour)) /h)</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">\(lang == "ru" ? "Микро‑дропы <20% SOC:" : "Micro-drops <20% SOC:")</span>
-                    <span class="value">\(qhr.microDropCountBelow20) (\(String(format: "%.2f", qhr.microDropRateBelow20PerHour)) /h)</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            """
-        }()
+        // No load generator or quick health sections for generic reports
 
         let html = """
         <!doctype html>
@@ -1022,7 +868,6 @@ enum ReportGenerator {
                 <h4 style=\"color: var(--text-primary); margin-bottom: 0.5rem;\">\(lang == "ru" ? "Рекомендация" : "Recommendation"):</h4>
                 <p style=\"font-size: 1rem; line-height: 1.6;\">\(result.recommendation)</p>
                 \(anomaliesHTML)
-                \(loadGeneratorHTML)
               </div>
             </section>
 
@@ -1081,10 +926,6 @@ enum ReportGenerator {
               </div>
             </div>
 
-            \(calibrationHTML)
-            
-            \(quickHealthHTML)
-
             <!-- Charts Section -->
             <section style="margin: 3rem 0;">
               <div style="text-align: center; margin-bottom: 2rem;">
@@ -1096,9 +937,9 @@ enum ReportGenerator {
               \(generateDischargeRateChart(history: recent, lang: lang))
               \(generatePowerChart(history: recent, lang: lang))
               \(generateTemperatureChart(history: recent, lang: lang))
-              \(generateDCIRChart(quickHealthResult: quickHealthResult, lang: lang))
-              \(generateOCVChart(history: history, quickHealthResult: quickHealthResult, lang: lang))
-              \(generateEnergyMetricsChart(result: result, snapshot: snapshot, history: recent, quickHealthResult: quickHealthResult, lang: lang))
+              \(generateDCIRChart(quickHealthResult: nil, lang: lang))
+              \(generateOCVChart(history: history, quickHealthResult: nil, lang: lang))
+              \(generateEnergyMetricsChart(result: result, snapshot: snapshot, history: recent, quickHealthResult: nil, lang: lang))
             </section>
 
             <!-- Footer -->
@@ -1793,6 +1634,866 @@ enum ReportGenerator {
         }
         
         return labels.joined(separator: "\n            ")
+    }
+    
+    // MARK: - Specialized Report Generation
+    
+    /// Создаёт специализированный HTML‑отчёт для полного теста калибровки
+    static func generateCalibrationReport(
+        result: BatteryAnalysis,
+        snapshot: BatterySnapshot,
+        history: [BatteryReading],
+        calibration: CalibrationResult,
+        loadGeneratorMetadata: LoadGeneratorMetadata? = nil
+    ) -> String? {
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .short
+        
+        let lang = getReportLanguage()
+        let recent = history
+        
+        // Загружаем логотип Battry
+        let logoDataURL = loadImageAsDataURL(named: "battry_logo_alpha_horizontal")
+        
+        // Device info
+        let deviceModel = {
+            var systemInfo = utsname()
+            uname(&systemInfo)
+            let machine = withUnsafePointer(to: &systemInfo.machine) {
+                $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+                    String(validatingUTF8: $0) ?? "Unknown Mac"
+                }
+            }
+            return machine
+        }()
+        let macOSVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        
+        // Generate calibration section
+        let startDateStr = df.string(from: calibration.startedAt)
+        let endDateStr = df.string(from: calibration.finishedAt)
+        let durationStr = String(format: "%.1f", calibration.durationHours)
+        let avgDischargeStr = String(format: "%.1f", calibration.avgDischargePerHour)
+        let runtimeStr = String(format: "%.1f", calibration.estimatedRuntimeFrom100To0Hours)
+        
+        // Prepare formatted values
+        let wearText = String(format: "%.0f%%", snapshot.wearPercent)
+        let avgDisText = String(format: "%.1f", result.avgDischargePerHour)
+        let trendDisText = String(format: "%.1f", result.trendDischargePerHour)
+        let runtimeText = String(format: "%.1f", result.estimatedRuntimeFrom100To0Hours)
+        
+        // Generate load generator metadata section
+        let loadGeneratorHTML: String = {
+            guard let metadata = loadGeneratorMetadata, metadata.wasUsed else { return "" }
+            let title = lang == "ru" ? "Генератор нагрузки" : "Load Generator"
+            let profileText = metadata.profile ?? (lang == "ru" ? "Неизвестно" : "Unknown")
+            
+            var autoStopsHTML = ""
+            if !metadata.autoStopReasons.isEmpty {
+                let autoStopsTitle = lang == "ru" ? "Автостопы:" : "Auto-stops:"
+                let stopItems = metadata.autoStopReasons.map { "<li>\($0)</li>" }.joined()
+                autoStopsHTML = """
+                <div class="auto-stops">
+                  <h5>\(autoStopsTitle)</h5>
+                  <ul>\(stopItems)</ul>
+                </div>
+                """
+            }
+            
+            return """
+            <div class="card">
+              <div class="card-header">
+                <div class="card-icon">⚙️</div>
+                <h3>\(title)</h3>
+              </div>
+              <div class="card-content">
+                <div class="detail-row">
+                  <span class="label">\(lang == "ru" ? "Профиль:" : "Profile:")</span>
+                  <span class="value">\(profileText)</span>
+                </div>
+                \(autoStopsHTML)
+              </div>
+            </div>
+            """
+        }()
+        
+        let html = """
+        <!doctype html>
+        <html lang=\"\(lang)\">
+        <head>
+          <meta charset=\"utf-8\">
+          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=yes\">
+          <title>Battry • \(lang == "ru" ? "Отчёт о калибровке батареи" : "Battery Calibration Report")</title>
+          <meta name=\"description\" content=\"\(lang == "ru" ? "Подробный отчёт о калибровке батареи MacBook" : "Detailed MacBook battery calibration report")\">
+          <style>
+            /* CSS Custom Properties with Dark/Light Theme */
+            :root {
+              /* Light theme colors */
+              --bg-primary: #ffffff;
+              --bg-secondary: #f8fafc;
+              --bg-card: #ffffff;
+              --text-primary: #1e293b;
+              --text-secondary: #475569;
+              --text-muted: #64748b;
+              --border-subtle: #e2e8f0;
+              --border-light: #f1f5f9;
+              --accent-primary: #0ea5e9;
+              --accent-secondary: #8b5cf6;
+              --success: #10b981;
+              --warning: #f59e0b;
+              --danger: #ef4444;
+              --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+              --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+              --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            }
+            
+            @media (prefers-color-scheme: dark) {
+              :root {
+                --bg-primary: #0f172a;
+                --bg-secondary: #1e293b;
+                --bg-card: #1e293b;
+                --text-primary: #f1f5f9;
+                --text-secondary: #cbd5e1;
+                --text-muted: #94a3b8;
+                --border-subtle: #334155;
+                --border-light: #475569;
+                --accent-primary: #38bdf8;
+                --accent-secondary: #a78bfa;
+                --success: #34d399;
+                --warning: #fbbf24;
+                --danger: #f87171;
+              }
+            }
+            
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              background: var(--bg-primary);
+              color: var(--text-primary);
+              line-height: 1.6;
+              font-size: 14px;
+            }
+            
+            .container {
+              max-width: 1200px;
+              margin: 0 auto;
+              padding: 2rem;
+            }
+            
+            .header {
+              text-align: center;
+              margin-bottom: 3rem;
+              padding-bottom: 2rem;
+              border-bottom: 2px solid var(--border-subtle);
+            }
+            
+            .logo {
+              width: 200px;
+              height: auto;
+              margin-bottom: 1rem;
+            }
+            
+            .title {
+              font-size: 2.5rem;
+              font-weight: 800;
+              margin-bottom: 0.5rem;
+              background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+            }
+            
+            .subtitle {
+              font-size: 1.2rem;
+              color: var(--text-secondary);
+              margin-bottom: 1rem;
+            }
+            
+            .test-info {
+              background: var(--bg-secondary);
+              padding: 1rem;
+              border-radius: 1rem;
+              margin-top: 1.5rem;
+            }
+            
+            .card {
+              background: var(--bg-card);
+              border-radius: 1rem;
+              border: 1px solid var(--border-subtle);
+              box-shadow: var(--shadow-md);
+              margin-bottom: 2rem;
+              overflow: hidden;
+            }
+            
+            .card-header {
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+              padding: 1.5rem;
+              background: var(--bg-secondary);
+              border-bottom: 1px solid var(--border-subtle);
+            }
+            
+            .card-icon {
+              font-size: 2rem;
+            }
+            
+            .card-content {
+              padding: 1.5rem;
+            }
+            
+            .metrics-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 1rem;
+              margin: 1.5rem 0;
+            }
+            
+            .metric-card {
+              background: var(--bg-secondary);
+              padding: 1.5rem;
+              border-radius: 0.75rem;
+              text-align: center;
+              border: 1px solid var(--border-light);
+            }
+            
+            .metric-value {
+              font-size: 2rem;
+              font-weight: 800;
+              color: var(--accent-primary);
+              margin-bottom: 0.5rem;
+            }
+            
+            .metric-label {
+              color: var(--text-secondary);
+              font-weight: 600;
+            }
+            
+            .detail-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 0.75rem 0;
+              border-bottom: 1px solid var(--border-light);
+            }
+            
+            .detail-row:last-child {
+              border-bottom: none;
+            }
+            
+            .label {
+              color: var(--text-secondary);
+              font-weight: 500;
+            }
+            
+            .value {
+              color: var(--text-primary);
+              font-weight: 600;
+            }
+            
+            .footer {
+              text-align: center;
+              padding: 2rem 0;
+              border-top: 1px solid var(--border-subtle);
+              color: var(--text-muted);
+              margin-top: 3rem;
+            }
+            
+            .footer a {
+              color: var(--accent-primary);
+              text-decoration: none;
+            }
+            
+            .footer a:hover {
+              text-decoration: underline;
+            }
+          </style>
+        </head>
+        <body>
+          <div class=\"container\">
+            <!-- Header -->
+            <header class=\"header\">
+              \(logoDataURL != nil ? "<img src=\"\(logoDataURL!)\" alt=\"Battry\" class=\"logo\">" : "")
+              <h1 class=\"title\">\(lang == "ru" ? "Калибровка батареи" : "Battery Calibration")</h1>
+              <p class=\"subtitle\">\(lang == "ru" ? "Полный тест автономности работы" : "Complete Battery Runtime Test")</p>
+              
+              <div class=\"test-info\">
+                <strong>\(deviceModel)</strong> • macOS \(macOSVersion)<br>
+                \(lang == "ru" ? "Период тестирования:" : "Test Period:") \(startDateStr) → \(endDateStr)<br>
+                \(lang == "ru" ? "Длительность:" : "Duration:") \(durationStr) \(lang == "ru" ? "ч" : "h")
+              </div>
+            </header>
+            
+            <!-- Calibration Results -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">🔋</div>
+                <h2>\(lang == "ru" ? "Результаты тестирования" : "Calibration Test Results")</h2>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"metrics-grid\">
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(avgDischargeStr)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "%/ч разряд" : "%/h discharge")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(runtimeStr)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "ч автономность" : "h runtime")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(calibration.startPercent) → \(calibration.endPercent)%</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "SOC диапазон" : "SOC Range")</div>
+                  </div>
+                </div>
+                
+                <div class=\"detail-row\">
+                  <span class=\"label\">\(lang == "ru" ? "Начало теста:" : "Test Started:")</span>
+                  <span class=\"value\">\(startDateStr)</span>
+                </div>
+                <div class=\"detail-row\">
+                  <span class=\"label\">\(lang == "ru" ? "Завершение теста:" : "Test Completed:")</span>
+                  <span class=\"value\">\(endDateStr)</span>
+                </div>
+                <div class=\"detail-row\">
+                  <span class=\"label\">\(lang == "ru" ? "Общая длительность:" : "Total Duration:")</span>
+                  <span class=\"value\">\(durationStr) \(lang == "ru" ? "ч" : "h")</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Battery Health Summary -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">💚</div>
+                <h3>\(lang == "ru" ? "Состояние батареи" : "Battery Health")</h3>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"metrics-grid\">
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.0f", result.healthScore))</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Общий скор" : "Health Score")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(wearText)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Износ" : "Wear")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(snapshot.cycleCount)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Циклы" : "Cycles")</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Discharge Analysis -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">📊</div>
+                <h3>\(lang == "ru" ? "Анализ разряда" : "Discharge Analysis")</h3>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"detail-row\">
+                  <span class=\"label\">\(lang == "ru" ? "Средняя скорость разряда:" : "Average Discharge Rate:")</span>
+                  <span class=\"value\">\(avgDisText) %/h</span>
+                </div>
+                <div class=\"detail-row\">
+                  <span class=\"label\">\(lang == "ru" ? "Тренд скорости разряда:" : "Discharge Rate Trend:")</span>
+                  <span class=\"value\">\(trendDisText) %/h</span>
+                </div>
+                <div class=\"detail-row\">
+                  <span class=\"label\">\(lang == "ru" ? "Оценочная автономность 100→0%:" : "Estimated Runtime 100→0%:")</span>
+                  <span class=\"value\">\(runtimeText) h</span>
+                </div>
+              </div>
+            </div>
+            
+            \(loadGeneratorHTML)
+            
+            <!-- Charts Section -->
+            <section class=\"charts-section\">
+              <h2 style=\"text-align: center; margin-bottom: 2rem; color: var(--text-primary);\">\(lang == "ru" ? "Графики разряда" : "Discharge Charts")</h2>
+              \(generateChargeChart(history: recent, lang: lang))
+              \(generateDischargeRateChart(history: recent, lang: lang))
+            </section>
+            
+            <!-- Footer -->
+            <footer class=\"footer\">
+              <p>\(lang == "ru" ? "Сгенерировано приложением" : "Generated by") <a href=\"https://github.com/region23/Battry\" target=\"_blank\">Battry</a> • \(lang == "ru" ? "Мониторинг состояния батареи macOS" : "macOS Battery Health Monitoring")</p>
+            </footer>
+          </div>
+        </body>
+        </html>
+        """
+        
+        return html
+    }
+    
+    /// Создаёт специализированный HTML‑отчёт для быстрого теста здоровья
+    static func generateQuickHealthReport(
+        result: QuickHealthTest.QuickHealthResult,
+        batterySnapshot: BatterySnapshot
+    ) -> String? {
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .short
+        
+        let lang = getReportLanguage()
+        
+        // Загружаем логотип Battry
+        let logoDataURL = loadImageAsDataURL(named: "battry_logo_alpha_horizontal")
+        
+        // Device info
+        let deviceModel = {
+            var systemInfo = utsname()
+            uname(&systemInfo)
+            let machine = withUnsafePointer(to: &systemInfo.machine) {
+                $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+                    String(validatingUTF8: $0) ?? "Unknown Mac"
+                }
+            }
+            return machine
+        }()
+        let macOSVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        
+        // Health status calculation
+        let healthStatus: (color: String, label: String) = {
+            let score = result.healthScore
+            if score >= 85 { return ("success", lang == "ru" ? "Отлично" : "Excellent") }
+            if score >= 70 { return ("warning", lang == "ru" ? "Хорошо" : "Good") }
+            if score >= 50 { return ("orange", lang == "ru" ? "Удовлетворительно" : "Fair") }
+            return ("danger", lang == "ru" ? "Требует внимания" : "Needs Attention")
+        }()
+        
+        let html = """
+        <!doctype html>
+        <html lang=\"\(lang)\">
+        <head>
+          <meta charset=\"utf-8\">
+          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=yes\">
+          <title>Battry • \(lang == "ru" ? "Быстрый тест здоровья батареи" : "Quick Battery Health Test")</title>
+          <meta name=\"description\" content=\"\(lang == "ru" ? "Результаты быстрого теста здоровья батареи MacBook" : "MacBook quick battery health test results")\">
+          <style>
+            /* CSS Custom Properties with Dark/Light Theme */
+            :root {
+              /* Light theme colors */
+              --bg-primary: #ffffff;
+              --bg-secondary: #f8fafc;
+              --bg-card: #ffffff;
+              --text-primary: #1e293b;
+              --text-secondary: #475569;
+              --text-muted: #64748b;
+              --border-subtle: #e2e8f0;
+              --border-light: #f1f5f9;
+              --accent-primary: #0ea5e9;
+              --accent-secondary: #8b5cf6;
+              --success: #10b981;
+              --warning: #f59e0b;
+              --danger: #ef4444;
+              --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+              --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+              --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            }
+            
+            @media (prefers-color-scheme: dark) {
+              :root {
+                --bg-primary: #0f172a;
+                --bg-secondary: #1e293b;
+                --bg-card: #1e293b;
+                --text-primary: #f1f5f9;
+                --text-secondary: #cbd5e1;
+                --text-muted: #94a3b8;
+                --border-subtle: #334155;
+                --border-light: #475569;
+                --accent-primary: #38bdf8;
+                --accent-secondary: #a78bfa;
+                --success: #34d399;
+                --warning: #fbbf24;
+                --danger: #f87171;
+              }
+            }
+            
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              background: var(--bg-primary);
+              color: var(--text-primary);
+              line-height: 1.6;
+              font-size: 14px;
+            }
+            
+            .container {
+              max-width: 1200px;
+              margin: 0 auto;
+              padding: 2rem;
+            }
+            
+            .header {
+              text-align: center;
+              margin-bottom: 3rem;
+              padding-bottom: 2rem;
+              border-bottom: 2px solid var(--border-subtle);
+            }
+            
+            .logo {
+              width: 200px;
+              height: auto;
+              margin-bottom: 1rem;
+            }
+            
+            .title {
+              font-size: 2.5rem;
+              font-weight: 800;
+              margin-bottom: 0.5rem;
+              background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+            }
+            
+            .subtitle {
+              font-size: 1.2rem;
+              color: var(--text-secondary);
+              margin-bottom: 1rem;
+            }
+            
+            .test-info {
+              background: var(--bg-secondary);
+              padding: 1rem;
+              border-radius: 1rem;
+              margin-top: 1.5rem;
+            }
+            
+            .card {
+              background: var(--bg-card);
+              border-radius: 1rem;
+              border: 1px solid var(--border-subtle);
+              box-shadow: var(--shadow-md);
+              margin-bottom: 2rem;
+              overflow: hidden;
+            }
+            
+            .card-header {
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+              padding: 1.5rem;
+              background: var(--bg-secondary);
+              border-bottom: 1px solid var(--border-subtle);
+            }
+            
+            .card-icon {
+              font-size: 2rem;
+            }
+            
+            .card-content {
+              padding: 1.5rem;
+            }
+            
+            .health-score {
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+              margin-bottom: 2rem;
+            }
+            
+            .score-circle {
+              width: 120px;
+              height: 120px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-direction: column;
+              font-size: 2rem;
+              font-weight: 800;
+              color: white;
+            }
+            
+            .score-circle.excellent { background: var(--success); }
+            .score-circle.good { background: var(--warning); }
+            .score-circle.fair { background: #f97316; }
+            .score-circle.poor { background: var(--danger); }
+            
+            .score-details h3 {
+              font-size: 1.5rem;
+              margin-bottom: 0.5rem;
+            }
+            
+            .metrics-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 1rem;
+              margin: 1.5rem 0;
+            }
+            
+            .metric-card {
+              background: var(--bg-secondary);
+              padding: 1.5rem;
+              border-radius: 0.75rem;
+              text-align: center;
+              border: 1px solid var(--border-light);
+            }
+            
+            .metric-value {
+              font-size: 2rem;
+              font-weight: 800;
+              color: var(--accent-primary);
+              margin-bottom: 0.5rem;
+            }
+            
+            .metric-label {
+              color: var(--text-secondary);
+              font-weight: 600;
+            }
+            
+            .metric-sublabel {
+              color: var(--text-muted);
+              font-size: 0.9rem;
+              margin-top: 0.25rem;
+            }
+            
+            .detail-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 0.75rem 0;
+              border-bottom: 1px solid var(--border-light);
+            }
+            
+            .detail-row:last-child {
+              border-bottom: none;
+            }
+            
+            .label {
+              color: var(--text-secondary);
+              font-weight: 500;
+            }
+            
+            .value {
+              color: var(--text-primary);
+              font-weight: 600;
+            }
+            
+            .recommendation {
+              background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+              color: white;
+              padding: 1.5rem;
+              border-radius: 1rem;
+              margin-top: 2rem;
+              text-align: center;
+            }
+            
+            .dcir-chart {
+              margin: 1.5rem 0;
+            }
+            
+            .stability-section {
+              margin-top: 1.5rem;
+            }
+            
+            .stability-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+              gap: 1rem;
+              margin-top: 1rem;
+            }
+            
+            .footer {
+              text-align: center;
+              padding: 2rem 0;
+              border-top: 1px solid var(--border-subtle);
+              color: var(--text-muted);
+              margin-top: 3rem;
+            }
+            
+            .footer a {
+              color: var(--accent-primary);
+              text-decoration: none;
+            }
+            
+            .footer a:hover {
+              text-decoration: underline;
+            }
+          </style>
+        </head>
+        <body>
+          <div class=\"container\">
+            <!-- Header -->
+            <header class=\"header\">
+              \(logoDataURL != nil ? "<img src=\"\(logoDataURL!)\" alt=\"Battry\" class=\"logo\">" : "")
+              <h1 class=\"title\">\(lang == "ru" ? "Быстрый тест здоровья" : "Quick Health Test")</h1>
+              <p class=\"subtitle\">\(lang == "ru" ? "Профессиональная диагностика состояния батареи" : "Professional Battery Health Diagnostics")</p>
+              
+              <div class=\"test-info\">
+                <strong>\(deviceModel)</strong> • macOS \(macOSVersion)<br>
+                \(lang == "ru" ? "Дата теста:" : "Test Date:") \(df.string(from: result.startedAt))<br>
+                \(lang == "ru" ? "Длительность:" : "Duration:") \(String(format: "%.1f", result.durationMinutes)) \(lang == "ru" ? "мин" : "min")
+              </div>
+            </header>
+            
+            <!-- Health Score Overview -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">💚</div>
+                <h2>\(lang == "ru" ? "Общая оценка здоровья" : "Overall Health Score")</h2>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"health-score\">
+                  <div class=\"score-circle \(healthStatus.color == "success" ? "excellent" : (healthStatus.color == "warning" ? "good" : (healthStatus.color == "orange" ? "fair" : "poor")))\">
+                    <div>\(String(format: "%.0f", result.healthScore))</div>
+                    <div style=\"font-size: 0.8rem;\">/ 100</div>
+                  </div>
+                  <div class=\"score-details\">
+                    <h3>\(healthStatus.label)</h3>
+                    <p style=\"color: var(--text-secondary); margin-bottom: 1rem;\">\(result.recommendation)</p>
+                    <div class=\"detail-row\">
+                      <span class=\"label\">\(lang == "ru" ? "Тестовый пресет:" : "Test Preset:")</span>
+                      <span class=\"value\">\(result.powerPreset) (\(String(format: "%.1f", result.targetPower))W)</span>
+                    </div>
+                    <div class=\"detail-row\">
+                      <span class=\"label\">\(lang == "ru" ? "Качество CP-контроля:" : "CP Control Quality:")</span>
+                      <span class=\"value\">\(String(format: "%.0f", result.powerControlQuality))%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Energy Analysis -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">⚡</div>
+                <h3>\(lang == "ru" ? "Энергетический анализ" : "Energy Analysis")</h3>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"metrics-grid\">
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.1f", result.sohEnergy))%</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "SOH по энергии" : "SOH Energy")</div>
+                    <div class=\"metric-sublabel\">\(lang == "ru" ? "Реальная энергоотдача" : "Actual energy delivery")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.1f", result.energyDelivered80to50Wh))</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Энергия 80→65%" : "Energy 80→65%")</div>
+                    <div class=\"metric-sublabel\">Wh</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.1f", result.averagePower))</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Средняя мощность" : "Average Power")</div>
+                    <div class=\"metric-sublabel\">W</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.1f", result.normalizedSOH))</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Нормализованный SOH" : "Normalized SOH")</div>
+                    <div class=\"metric-sublabel\">\(lang == "ru" ? "С учетом температуры" : "Temperature adjusted")</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- DCIR Analysis -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">🔬</div>
+                <h3>\(lang == "ru" ? "Анализ внутреннего сопротивления (DCIR)" : "Internal Resistance Analysis (DCIR)")</h3>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"metrics-grid\">
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(result.dcirAt50Percent.map { String(format: "%.1f", $0) } ?? "N/A")</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "DCIR @50% SOC" : "DCIR @50% SOC")</div>
+                    <div class=\"metric-sublabel\">\(lang == "ru" ? "мОм" : "mΩ")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(result.dcirAt20Percent.map { String(format: "%.1f", $0) } ?? "N/A")</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "DCIR @20% SOC" : "DCIR @20% SOC")</div>
+                    <div class=\"metric-sublabel\">\(lang == "ru" ? "мОм" : "mΩ")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(result.kneeSOC.map { String(format: "%.0f", $0) } ?? "N/A")%</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Колено OCV" : "OCV Knee")</div>
+                    <div class=\"metric-sublabel\">\(lang == "ru" ? "Индекс: " : "Index: ")\(String(format: "%.0f", result.kneeIndex))</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Stability Analysis -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">📊</div>
+                <h3>\(lang == "ru" ? "Анализ стабильности" : "Stability Analysis")</h3>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"metrics-grid\">
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(result.microDropCount)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Микро-дропы (всего)" : "Micro-drops (total)")</div>
+                    <div class=\"metric-sublabel\">\(String(format: "%.2f", result.microDropRatePerHour)) /h</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(result.microDropCountAbove20)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "≥20% SOC" : "≥20% SOC")</div>
+                    <div class=\"metric-sublabel\">\(String(format: "%.2f", result.microDropRateAbove20PerHour)) /h</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(result.microDropCountBelow20)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "<20% SOC" : "<20% SOC")</div>
+                    <div class=\"metric-sublabel\">\(String(format: "%.2f", result.microDropRateBelow20PerHour)) /h</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.0f", result.stabilityScore))%</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Общая стабильность" : "Overall Stability")</div>
+                    <div class=\"metric-sublabel\">\(result.unstableUnderLoad ? (lang == "ru" ? "Нестабилен под нагрузкой" : "Unstable under load") : (lang == "ru" ? "Стабилен" : "Stable"))</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Temperature Analysis -->
+            <div class=\"card\">
+              <div class=\"card-header\">
+                <div class=\"card-icon\">🌡️</div>
+                <h3>\(lang == "ru" ? "Температурный анализ" : "Temperature Analysis")</h3>
+              </div>
+              <div class=\"card-content\">
+                <div class=\"metrics-grid\">
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.1f", result.averageTemperature))°C</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Средняя температура" : "Average Temperature")</div>
+                  </div>
+                  <div class=\"metric-card\">
+                    <div class=\"metric-value\">\(String(format: "%.0f", result.temperatureQuality))%</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Качество условий" : "Conditions Quality")</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Recommendation -->
+            <div class=\"recommendation\">
+              <h3 style=\"margin-bottom: 1rem;\">\(lang == "ru" ? "Рекомендация" : "Recommendation")</h3>
+              <p style=\"font-size: 1.1rem;\">\(result.recommendation)</p>
+            </div>
+            
+            <!-- Footer -->
+            <footer class=\"footer\">
+              <p>\(lang == "ru" ? "Сгенерировано приложением" : "Generated by") <a href=\"https://github.com/region23/Battry\" target=\"_blank\">Battry</a> • \(lang == "ru" ? "Мониторинг состояния батареи macOS" : "macOS Battery Health Monitoring")</p>
+            </footer>
+          </div>
+        </body>
+        </html>
+        """
+        
+        return html
     }
 
 }
