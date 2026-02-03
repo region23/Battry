@@ -6,6 +6,7 @@ struct BatteryReading: Codable, Equatable {
     var timestamp: Date
     var percentage: Int
     var isCharging: Bool
+    var powerSource: PowerSource = .unknown
     var voltage: Double
     var temperature: Double
     var maxCapacity: Int?
@@ -14,6 +15,71 @@ struct BatteryReading: Codable, Equatable {
     
     /// Мгновенная мощность (Вт)
     var power: Double { voltage * amperage / 1000.0 } // in W
+
+    /// True if reading is from battery (and not charging)
+    var isOnBattery: Bool { powerSource == .battery && !isCharging }
+
+    private enum CodingKeys: String, CodingKey {
+        case timestamp
+        case percentage
+        case isCharging
+        case powerSource
+        case voltage
+        case temperature
+        case maxCapacity
+        case designCapacity
+        case amperage
+    }
+
+    init(
+        timestamp: Date,
+        percentage: Int,
+        isCharging: Bool,
+        powerSource: PowerSource = .unknown,
+        voltage: Double,
+        temperature: Double,
+        maxCapacity: Int?,
+        designCapacity: Int?,
+        amperage: Double = 0
+    ) {
+        self.timestamp = timestamp
+        self.percentage = percentage
+        self.isCharging = isCharging
+        self.powerSource = powerSource
+        self.voltage = voltage
+        self.temperature = temperature
+        self.maxCapacity = maxCapacity
+        self.designCapacity = designCapacity
+        self.amperage = amperage
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        percentage = try container.decode(Int.self, forKey: .percentage)
+        isCharging = try container.decode(Bool.self, forKey: .isCharging)
+        voltage = try container.decode(Double.self, forKey: .voltage)
+        temperature = try container.decode(Double.self, forKey: .temperature)
+        maxCapacity = try container.decodeIfPresent(Int.self, forKey: .maxCapacity)
+        designCapacity = try container.decodeIfPresent(Int.self, forKey: .designCapacity)
+        amperage = try container.decodeIfPresent(Double.self, forKey: .amperage) ?? 0
+
+        if let decodedSource = try container.decodeIfPresent(PowerSource.self, forKey: .powerSource) {
+            powerSource = decodedSource
+        } else {
+            // Legacy history.json (no powerSource). Best-effort inference.
+            powerSource = Self.inferPowerSource(isCharging: isCharging, amperage: amperage)
+        }
+    }
+
+    private static func inferPowerSource(isCharging: Bool, amperage: Double) -> PowerSource {
+        if isCharging { return .ac }
+        // Heuristic: on macOS discharging current is typically negative, charging positive.
+        // Use a small dead-zone to avoid near-zero noise.
+        if amperage < -50 { return .battery }
+        if amperage > 50 { return .ac }
+        return .unknown
+    }
 }
 
 /// Событие для отображения маркеров на графиках
@@ -81,6 +147,7 @@ final class HistoryStore: ObservableObject {
         let r = BatteryReading(timestamp: Date(),
                                percentage: snapshot.percentage,
                                isCharging: snapshot.isCharging,
+                               powerSource: snapshot.powerSource,
                                voltage: snapshot.voltage,
                                temperature: snapshot.temperature,
                                maxCapacity: snapshot.maxCapacity > 0 ? snapshot.maxCapacity : nil,
@@ -151,10 +218,19 @@ final class HistoryStore: ObservableObject {
             let avgA = slice.map(\.amperage).reduce(0.0, +) / Double(max(1, slice.count))
             let ts = slice[slice.startIndex].timestamp
             let ch = slice.contains(where: { $0.isCharging })
-            out.append(BatteryReading(timestamp: ts, percentage: avgP, isCharging: ch, voltage: avgV, temperature: avgT, maxCapacity: nil, designCapacity: nil, amperage: avgA))
+            let ps = Self.aggregatePowerSource(slice)
+            out.append(BatteryReading(timestamp: ts, percentage: avgP, isCharging: ch, powerSource: ps, voltage: avgV, temperature: avgT, maxCapacity: nil, designCapacity: nil, amperage: avgA))
             i = j
         }
         return out
+    }
+
+    private static func aggregatePowerSource<S: Sequence>(_ readings: S) -> PowerSource where S.Element == BatteryReading {
+        let hasBattery = readings.contains(where: { $0.powerSource == .battery })
+        let hasAC = readings.contains(where: { $0.powerSource == .ac })
+        if hasBattery && !hasAC { return .battery }
+        if hasAC && !hasBattery { return .ac }
+        return .unknown
     }
 
     private func trimIfNeeded() {
@@ -191,7 +267,8 @@ final class HistoryStore: ObservableObject {
                 let avgV = block.map(\.voltage).reduce(0.0, +) / Double(block.count)
                 let avgT = block.map(\.temperature).reduce(0.0, +) / Double(block.count)
                 let ch = block.contains(where: { $0.isCharging })
-                bucketed.append(BatteryReading(timestamp: start, percentage: avgP, isCharging: ch, voltage: avgV, temperature: avgT, maxCapacity: nil, designCapacity: nil))
+                let ps = Self.aggregatePowerSource(block)
+                bucketed.append(BatteryReading(timestamp: start, percentage: avgP, isCharging: ch, powerSource: ps, voltage: avgV, temperature: avgT, maxCapacity: nil, designCapacity: nil))
             }
         }
 
@@ -208,9 +285,17 @@ final class HistoryStore: ObservableObject {
     }
 
     private func load() {
-        if let data = try? Data(contentsOf: url),
-           let arr = try? JSONDecoder().decode([BatteryReading].self, from: data) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        let isLegacyWithoutPowerSource: Bool = {
+            guard let s = String(data: data, encoding: .utf8) else { return false }
+            return !s.contains("\"powerSource\"")
+        }()
+        if let arr = try? JSONDecoder().decode([BatteryReading].self, from: data) {
             items = arr
+            // One-time migration: rewrite legacy history.json with inferred powerSource values.
+            if isLegacyWithoutPowerSource {
+                save()
+            }
         }
     }
     

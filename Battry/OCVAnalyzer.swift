@@ -91,12 +91,14 @@ struct OCVAnalyzer {
             return sample.voltage
         }
         
-        // Компенсируем падение напряжения: V_OC = V_measured + I × R
+        // Компенсируем падение/подъём напряжения на внутреннем сопротивлении:
+        // V_measured = V_OC + I × R  →  V_OC = V_measured - I × R
         let dcirOhm = dcirMohm / 1000.0 // мОм -> Ом
         let currentA = sample.amperage / 1000.0 // мА -> А
         
-        // При разряде ток отрицательный, поэтому добавляем I×R чтобы получить более высокое OCV
-        let compensatedVoltage = sample.voltage + (currentA * dcirOhm)
+        // В macOS ток разряда отрицательный, поэтому вычитание I×R корректно поднимает OCV при разряде
+        // и опускает при зарядке.
+        let compensatedVoltage = sample.voltage - (currentA * dcirOhm)
         
         return compensatedVoltage
     }

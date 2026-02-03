@@ -18,7 +18,7 @@ struct EnergyCalculator {
     
     /// Интегрирует энергию по выборкам батареи методом трапеций
     /// - Parameter samples: Упорядоченные по времени выборки
-    /// - Returns: Энергия в Вт⋅ч (всегда положительная)
+    /// - Returns: Энергия, отданная батареей, в Вт⋅ч (всегда положительная)
     static func integrateEnergy(samples: [BatteryReading]) -> Double {
         guard samples.count >= 2 else { return 0.0 }
         
@@ -39,13 +39,15 @@ struct EnergyCalculator {
             // Средняя мощность за интервал (метод трапеций)
             let avgPower = (powerPrev + powerCurr) / 2.0
             
-            // Энергия в джоулях (Вт⋅с)
-            totalJoules += avgPower * deltaTime
+            // Энергия в джоулях (Вт⋅с).
+            // В macOS ток разряда отрицательный, поэтому "отданная батареей" энергия соответствует -P.
+            // Игнорируем зарядные интервалы (P >= 0), чтобы не смешивать энергию заряда и разряда.
+            let dischargePower = max(0.0, -avgPower)
+            totalJoules += dischargePower * deltaTime
         }
         
-        // Конвертируем в Вт⋅ч и возвращаем абсолютное значение
-        // (при разряде ток отрицательный, поэтому энергия получается отрицательной)
-        return abs(totalJoules) / 3600.0
+        // Конвертируем в Вт⋅ч
+        return totalJoules / 3600.0
     }
     
     /// Анализирует энергетические характеристики батареи за заданный период
@@ -71,7 +73,7 @@ struct EnergyCalculator {
         var sohEnergy: Double = 100.0
         if let designWh = designCapacityWh, designWh > 0 {
             // Нормализуем на полный разряд (примерно)
-            let socChange = abs(Double(firstSample.percentage - lastSample.percentage))
+            let socChange = Double(max(0, firstSample.percentage - lastSample.percentage))
             if socChange > 0 {
                 let estimatedFullEnergy = energyDelivered * (100.0 / socChange)
                 sohEnergy = min(100.0, max(0.0, (estimatedFullEnergy / designWh) * 100.0))

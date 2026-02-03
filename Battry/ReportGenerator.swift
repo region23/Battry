@@ -1100,7 +1100,7 @@ enum ReportGenerator {
             
             <!-- Charge line and micro-drop markers -->
             <path d="\(pathData)" fill="none" stroke="var(--accent-primary)" stroke-width="2.5" opacity="0.9"/>
-            \(generateMicroDropMarkers(history: history, minTime: minTime, timeRange: timeRange, marginLeft: marginLeft, marginTop: marginTop, chartHeight: chartHeight))
+            \(generateMicroDropMarkers(history: history, minTime: minTime, timeRange: timeRange, marginLeft: marginLeft, marginTop: marginTop, chartWidth: chartWidth, chartHeight: chartHeight))
             
             <!-- Axes -->
             <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
@@ -1132,7 +1132,7 @@ enum ReportGenerator {
             let prev = history[i-1]
             let curr = history[i]
             
-            if !prev.isCharging && !curr.isCharging {
+            if prev.isOnBattery && curr.isOnBattery {
                 let timeDiff = curr.timestamp.timeIntervalSince(prev.timestamp) / 3600.0 // hours
                 if timeDiff > 0 && timeDiff < 2 { // Only consider reasonable time intervals
                     let percentageDiff = Double(prev.percentage - curr.percentage)
@@ -1190,7 +1190,7 @@ enum ReportGenerator {
             
             <!-- Discharge rate line -->
             <path d="\(pathData)" fill="none" stroke="var(--accent-secondary)" stroke-width="2.5" opacity="0.9"/>
-            \(generateMicroDropMarkers(history: history, minTime: minTime, timeRange: timeRange, marginLeft: marginLeft, marginTop: marginTop, chartHeight: chartHeight))
+            \(generateMicroDropMarkers(history: history, minTime: minTime, timeRange: timeRange, marginLeft: marginLeft, marginTop: marginTop, chartWidth: chartWidth, chartHeight: chartHeight))
             
             <!-- Axes -->
             <line x1="\(marginLeft)" y1="\(marginTop)" x2="\(marginLeft)" y2="\(marginTop + chartHeight)" stroke="var(--border-default)" stroke-width="1"/>
@@ -1283,7 +1283,7 @@ enum ReportGenerator {
     }
 
     /// Micro-drop markers for SOC chart
-    private static func generateMicroDropMarkers(history: [BatteryReading], minTime: Double, timeRange: Double, marginLeft: Int, marginTop: Int, chartHeight: Int) -> String {
+    private static func generateMicroDropMarkers(history: [BatteryReading], minTime: Double, timeRange: Double, marginLeft: Int, marginTop: Int, chartWidth: Int, chartHeight: Int) -> String {
         guard history.count >= 2 else { return "" }
         var markers: [String] = []
         for i in 1..<history.count {
@@ -1291,8 +1291,8 @@ enum ReportGenerator {
             let cur = history[i]
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
             let d = prev.percentage - cur.percentage
-            if !prev.isCharging && !cur.isCharging && dt <= 120 && d >= 2 {
-                let x = Int(Double(marginLeft) + (Double(marginLeft) + Double((cur.timestamp.timeIntervalSince1970 - minTime) / timeRange) * Double((chartHeight))))
+            if prev.isOnBattery && cur.isOnBattery && dt <= 120 && d >= 2 {
+                let x = Int(Double(marginLeft) + (Double((cur.timestamp.timeIntervalSince1970 - minTime) / timeRange) * Double(chartWidth)))
                 let y = Int(Double(marginTop) + Double(chartHeight) * (1.0 - Double(cur.percentage) / 100.0))
                 markers.append("<circle cx=\"\(x)\" cy=\"\(y)\" r=\"4\" fill=\"var(--danger)\" stroke=\"white\" stroke-width=\"1.5\"/>")
             }

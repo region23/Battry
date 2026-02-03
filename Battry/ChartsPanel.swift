@@ -444,7 +444,7 @@ struct ChartsPanel: View {
             let cur = raw[i]
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
             let d = cur.percentage - prev.percentage
-            if !cur.isCharging && !prev.isCharging && dt <= 120 && d <= -2 {
+            if prev.isOnBattery && cur.isOnBattery && dt <= 120 && d <= -2 {
                 out.append((cur.timestamp, cur.percentage))
             }
         }
@@ -455,7 +455,7 @@ struct ChartsPanel: View {
         (Date, Int)?, (Date, Int)?
     ) {
         // Расчёт линии тренда по методу наименьших квадратов
-        let points = raw.filter { !$0.isCharging }
+        let points = raw.filter { $0.isOnBattery }
         guard points.count >= 2, let first = points.first,
             let last = points.last
         else { return (nil, nil) }
@@ -495,7 +495,7 @@ struct ChartsPanel: View {
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp) / 3600.0
             guard dt > 0 else { continue }
             let dPercent = Double(prev.percentage - cur.percentage)
-            if !prev.isCharging && !cur.isCharging && dPercent >= 0 {
+            if prev.isOnBattery && cur.isOnBattery && dPercent >= 0 {
                 out.append((cur.timestamp, dPercent / dt))
             }
         }
@@ -514,7 +514,7 @@ struct ChartsPanel: View {
 
     private func trendDrain(_ raw: [BatteryReading]) -> Double {
         // Тренд разряда %/ч по регрессии (без зарядки)
-        let pts = raw.filter { !$0.isCharging }
+        let pts = raw.filter { $0.isOnBattery }
         guard pts.count >= 2 else { return 0 }
         let t0 = pts.first!.timestamp.timeIntervalSince1970
         var xs: [Double] = []
@@ -544,7 +544,7 @@ struct ChartsPanel: View {
         for r in raw {
             let p = abs(r.power)
             // Безопасная проверка значений
-            if !r.isCharging && p >= 0 && p.isFinite { 
+            if r.isOnBattery && p >= 0 && p.isFinite {
                 out.append((r.timestamp, p)) 
             }
         }
@@ -604,7 +604,7 @@ struct ChartsPanel: View {
         for idx in 1..<raw.count {
             let prev = raw[idx - 1]
             let cur = raw[idx]
-            if prev.isCharging || cur.isCharging { continue }
+            if !prev.isOnBattery || !cur.isOnBattery { continue }
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
             if dt <= 0 || dt > 3.0 { continue }
             let dP = abs(cur.power) - abs(prev.power)
@@ -634,7 +634,7 @@ struct ChartsPanel: View {
             let prev = raw[idx-1]
             let cur = raw[idx]
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
-            if prev.isCharging || cur.isCharging || dt <= 0 || dt > 3 { continue }
+            if !prev.isOnBattery || !cur.isOnBattery || dt <= 0 || dt > 3 { continue }
             let dP = abs(cur.power) - abs(prev.power)
             if abs(dP) >= 3.0 {
                 if let pt = DCIRCalculator.estimateDCIR(samples: raw, pulseStartIndex: idx, windowSeconds: 3.0) {

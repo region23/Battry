@@ -3,7 +3,7 @@ import IOKit.ps
 import IOKit
 
 /// Источник питания устройства
-enum PowerSource: String {
+enum PowerSource: String, Codable {
     case ac, battery, unknown
 }
 

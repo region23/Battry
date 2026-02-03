@@ -95,7 +95,7 @@ final class AnalyticsEngine: ObservableObject {
 
     /// Оценивает средний разряд (%/ч) на интервале без зарядки
     static func estimateDischargePerHour(history: [BatteryReading]) -> Double {
-        let discharging = history.filter { !$0.isCharging }
+        let discharging = history.filter { $0.isOnBattery }
         guard discharging.count >= 2,
               let first = discharging.first,
               let last = discharging.last,
@@ -130,7 +130,7 @@ final class AnalyticsEngine: ObservableObject {
     /// Проверяет достаточность данных для расчета разряда за 1 час
     func hasEnoughData1h(history: [BatteryReading]) -> Bool {
         let discharging = history.filter { 
-            !$0.isCharging && $0.timestamp >= Date().addingTimeInterval(-3600) 
+            $0.isOnBattery && $0.timestamp >= Date().addingTimeInterval(-3600)
         }
         guard discharging.count >= 2, let first = discharging.first, let last = discharging.last else { return false }
         let span = last.timestamp.timeIntervalSince(first.timestamp)
@@ -142,7 +142,7 @@ final class AnalyticsEngine: ObservableObject {
     /// Проверяет достаточность данных для расчета разряда за 24 часа
     func hasEnoughData24h(history: [BatteryReading]) -> Bool {
         let discharging = history.filter { 
-            !$0.isCharging && $0.timestamp >= Date().addingTimeInterval(-24 * 3600) 
+            $0.isOnBattery && $0.timestamp >= Date().addingTimeInterval(-24 * 3600)
         }
         guard discharging.count >= 4, let first = discharging.first, let last = discharging.last else { return false }
         let span = last.timestamp.timeIntervalSince(first.timestamp)
@@ -154,7 +154,7 @@ final class AnalyticsEngine: ObservableObject {
     /// Проверяет достаточность данных для расчета разряда за 7 дней
     func hasEnoughData7d(history: [BatteryReading]) -> Bool {
         let discharging = history.filter { 
-            !$0.isCharging && $0.timestamp >= Date().addingTimeInterval(-7 * 24 * 3600) 
+            $0.isOnBattery && $0.timestamp >= Date().addingTimeInterval(-7 * 24 * 3600)
         }
         guard discharging.count >= 6, let first = discharging.first, let last = discharging.last else { return false }
         let span = last.timestamp.timeIntervalSince(first.timestamp)
@@ -177,7 +177,7 @@ final class AnalyticsEngine: ObservableObject {
 
     /// Линейная регрессия по точкам без зарядки для оценки тренда разряда (со сглаживанием)
     private static func regressionDischargePerHour(history: [BatteryReading]) -> Double {
-        let pointsRaw = history.filter { !$0.isCharging }
+        let pointsRaw = history.filter { $0.isOnBattery }
         let points: [BatteryReading]
         if pointsRaw.count >= 3 {
             // применим легкое сглаживание по процентам
@@ -211,22 +211,23 @@ final class AnalyticsEngine: ObservableObject {
 
     /// Подсчёт микро‑просадок: падение ≥2% за ≤120 секунд без зарядки (скользящее окно)
     private static func countMicroDrops(history: [BatteryReading]) -> Int {
-        guard history.count >= 2 else { return 0 }
+        let batteryOnly = history.filter { $0.isOnBattery }
+        guard batteryOnly.count >= 2 else { return 0 }
         // Небольшое сглаживание процентов для устойчивости
-        let smoothedPct = Self.medianFilter3(history.map { $0.percentage })
+        let smoothedPct = Self.medianFilter3(batteryOnly.map { $0.percentage })
         var cnt = 0
         var i = 0
-        while i < history.count {
-            let start = history[i]
+        while i < batteryOnly.count {
+            let start = batteryOnly[i]
             // Пропускаем точки при зарядке
             if start.isCharging { i += 1; continue }
             // Ищем в окне до 120 секунд точку с падением ≥2%
             var j = i + 1
             var found = false
-            while j < history.count {
-                let dt = history[j].timestamp.timeIntervalSince(start.timestamp)
+            while j < batteryOnly.count {
+                let dt = batteryOnly[j].timestamp.timeIntervalSince(start.timestamp)
                 if dt > 120 { break }
-                if !history[j].isCharging {
+                if !batteryOnly[j].isCharging {
                     let drop = smoothedPct[i] - smoothedPct[j]
                     if drop >= 2 {
                         cnt += 1
@@ -253,8 +254,9 @@ final class AnalyticsEngine: ObservableObject {
     static func performAnalysis(history: [BatteryReading], snapshot: BatterySnapshot) -> BatteryAnalysis {
         var result = BatteryAnalysis()
 
-        result.avgDischargePerHour = Self.estimateDischargePerHour(history: history)
-        result.trendDischargePerHour = Self.regressionDischargePerHour(history: history)
+        let batteryHistory = history.filter { $0.isOnBattery }
+        result.avgDischargePerHour = Self.estimateDischargePerHour(history: batteryHistory)
+        result.trendDischargePerHour = Self.regressionDischargePerHour(history: batteryHistory)
 
         if result.trendDischargePerHour > 0 {
             result.estimatedRuntimeFrom100To0Hours = 100.0 / result.trendDischargePerHour
@@ -265,20 +267,20 @@ final class AnalyticsEngine: ObservableObject {
         // Энергетический анализ
         if snapshot.designCapacity > 0 {
             // Используем среднее V_OC для расчёта эталонной энергии (вместо фикс. 11.1 В)
-            let avgVOC = OCVAnalyzer.averageVOC(from: history) ?? 11.1
+            let avgVOC = OCVAnalyzer.averageVOC(from: batteryHistory) ?? 11.1
             let designEnergyWh = EnergyCalculator.designEnergyCapacity(fromCapacityMah: snapshot.designCapacity, nominalVoltage: avgVOC)
-            if let energyAnalysis = EnergyCalculator.analyzeEnergyPerformance(samples: history, designCapacityWh: designEnergyWh) {
+            if let energyAnalysis = EnergyCalculator.analyzeEnergyPerformance(samples: batteryHistory, designCapacityWh: designEnergyWh) {
                 result.sohEnergy = energyAnalysis.sohEnergy
                 result.averagePower = energyAnalysis.averagePower
             }
         }
         
         // Микро‑просадки
-        let micro = Self.countMicroDrops(history: history)
+        let micro = Self.countMicroDrops(history: batteryHistory)
         result.microDropEvents = micro
         
         // Пытаемся получить DCIR из истории (если есть пульс-тесты)
-        let dcirPoints = Self.extractDCIRFromHistory(history: history)
+        let dcirPoints = Self.extractDCIRFromHistory(history: batteryHistory)
         if !dcirPoints.isEmpty {
             let dcirAnalysis = DCIRCalculator.analyzeDCIR(dcirPoints: dcirPoints)
             result.dcirAt50Percent = dcirAnalysis.dcirAt50Percent
@@ -286,12 +288,12 @@ final class AnalyticsEngine: ObservableObject {
             
             // OCV анализ
             let ocvAnalyzer = OCVAnalyzer(dcirPoints: dcirPoints)
-            let ocvAnalysis = ocvAnalyzer.analyzeOCV(from: history)
+            let ocvAnalysis = ocvAnalyzer.analyzeOCV(from: batteryHistory)
             result.kneeIndex = ocvAnalysis.kneeIndex
             result.kneeSOC = ocvAnalysis.kneeSOC
         } else {
             // Fallback: пытаемся получить DCIR из более мягких переходов мощности
-            let fallbackDcirPoints = Self.extractDCIRFromHistoryLowThreshold(history: history)
+            let fallbackDcirPoints = Self.extractDCIRFromHistoryLowThreshold(history: batteryHistory)
             if !fallbackDcirPoints.isEmpty {
                 let dcirAnalysis = DCIRCalculator.analyzeDCIR(dcirPoints: fallbackDcirPoints)
                 result.dcirAt50Percent = dcirAnalysis.dcirAt50Percent
@@ -300,12 +302,12 @@ final class AnalyticsEngine: ObservableObject {
         }
         
         // Температурная нормализация (согласно рекомендациям профессора)
-        let temperatures = history.compactMap { $0.temperature }.filter { $0 > 0 }
+        let temperatures = batteryHistory.compactMap { $0.temperature }.filter { $0 > 0 }
         let avgTemperature = temperatures.isEmpty ? 25.0 : temperatures.reduce(0, +) / Double(temperatures.count)
         
         // Композитный health score по формуле эксперта (унифицировано с QuickHealthTest)
         let durationHours: Double = {
-            guard let first = history.first, let last = history.last else { return 1 }
+            guard let first = batteryHistory.first, let last = batteryHistory.last else { return 1 }
             return max(1e-6, last.timestamp.timeIntervalSince(first.timestamp) / 3600.0)
         }()
         let dropsPerHour = Double(micro) / durationHours
@@ -461,7 +463,7 @@ final class AnalyticsEngine: ObservableObject {
             let prev = history[idx - 1]
             let cur = history[idx]
             // Пропускаем зарядку
-            if prev.isCharging || cur.isCharging { continue }
+            if !prev.isOnBattery || !cur.isOnBattery { continue }
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
             if dt <= 0 || dt > 3.0 { continue }
             let pPrev = abs(prev.power)
@@ -501,7 +503,7 @@ final class AnalyticsEngine: ObservableObject {
             let prev = history[idx - 1]
             let cur = history[idx]
             // Пропускаем зарядку
-            if prev.isCharging || cur.isCharging { continue }
+            if !prev.isOnBattery || !cur.isOnBattery { continue }
             let dt = cur.timestamp.timeIntervalSince(prev.timestamp)
             if dt <= 0 || dt > 5.0 { continue } // расширенное временное окно
             let pPrev = abs(prev.power)
@@ -599,7 +601,7 @@ final class AnalyticsEngine: ObservableObject {
     func getAveragePowerLast15Min(history: [BatteryReading]) -> Double {
         let now = Date()
         let cutoff = now.addingTimeInterval(-15 * 60) // 15 минут назад
-        let recent = history.filter { $0.timestamp >= cutoff && abs($0.power) > 0.1 }
+        let recent = history.filter { $0.isOnBattery && $0.timestamp >= cutoff && abs($0.power) > 0.1 }
         
         guard !recent.isEmpty else { return 0 }
         

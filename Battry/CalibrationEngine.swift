@@ -284,6 +284,7 @@ final class CalibrationEngine: ObservableObject {
             let reading = BatteryReading(timestamp: Date(),
                                          percentage: snapshot.percentage,
                                          isCharging: snapshot.isCharging,
+                                         powerSource: snapshot.powerSource,
                                          voltage: snapshot.voltage,
                                          temperature: snapshot.temperature,
                                          maxCapacity: snapshot.maxCapacity,

@@ -501,6 +501,7 @@ final class QuickHealthTest: ObservableObject {
             timestamp: Date(),
             percentage: snapshot.percentage,
             isCharging: snapshot.isCharging,
+            powerSource: snapshot.powerSource,
             voltage: snapshot.voltage,
             temperature: snapshot.temperature,
             maxCapacity: snapshot.maxCapacity,
@@ -605,6 +606,8 @@ final class QuickHealthTest: ObservableObject {
         performPulseTests(at: targetSOC) {
             // Ветка CP-окна: единожды на уровне 80% в соответствии с span
             if targetSOC == 80 {
+                // Mark 80% stage as completed so 60% stage won't run twice.
+                self.currentTargetIndex = 1
                 let target = max(5, 80 - self.energyWindowSpanPct)
                 self.startEnergyWindow(to: target)
                 return
@@ -719,6 +722,15 @@ final class QuickHealthTest: ObservableObject {
     }
     
     private func analyzeResults() {
+        // Ensure no active CP/load keeps running while we analyze results
+        // (especially important for forced-stop paths from watchdog timers).
+        constantPowerController.stop()
+        applyLoad(.off)
+        if let idx = cpIntervals.indices.last, cpIntervals[idx].endIdx == nil {
+            cpIntervals[idx].endIdx = samples.count
+        }
+        energyWindowTargetSOC = nil
+
         state = .analyzing
         currentStep = "Analyzing test results..."
         progress = max(progress, 0.95)
