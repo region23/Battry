@@ -1,8 +1,8 @@
 import Foundation
 import SwiftUI
 
-/// Пресеты мощности на основе рекомендаций профессора для стандартизации тестов
-/// Использует C-rate (отношение тока разряда к номинальной емкости)
+/// Пресеты мощности для стандартизированных synthetic workload тестов
+/// Используют эквивалентный power-based C-rate как удобную внутреннюю шкалу
 enum PowerPreset: String, CaseIterable, Identifiable {
     case light = "0.1C"    // ~5W для веб-серфинга, чтения
     case medium = "0.2C"   // ~10W для офисной работы
@@ -10,7 +10,7 @@ enum PowerPreset: String, CaseIterable, Identifiable {
     
     var id: String { rawValue }
     
-    /// Множитель C-rate для расчета мощности
+    /// Эквивалентный C-rate для расчета целевой мощности
     var cRate: Double {
         switch self {
         case .light: return 0.1
@@ -22,9 +22,9 @@ enum PowerPreset: String, CaseIterable, Identifiable {
     /// Описание пресета для UI
     var description: String {
         switch self {
-        case .light: return "Quick test (web browsing, reading) - 2 pulses per SOC level"
-        case .medium: return "Standard test (office work, development) - 3 pulses per SOC level"
-        case .heavy: return "Intensive test (gaming, video editing) - 2 longer pulses per SOC level"
+        case .light: return "Quick test (light equivalent workload) - 2 pulses per SOC level"
+        case .medium: return "Standard test (medium equivalent workload) - 3 pulses per SOC level"
+        case .heavy: return "Intensive test (heavy equivalent workload) - 2 longer pulses per SOC level"
         }
     }
     
@@ -75,7 +75,7 @@ struct PowerCalculator {
         // Энергоемкость батареи в Втч
         let energyCapacityWh = Double(designCapacityMah) * nominalVoltage / 1000.0
         
-        // Целевая мощность = C-rate × Энергоемкость
+        // Целевая мощность = эквивалентный C-rate × энергоемкость
         let targetPowerW = preset.cRate * energyCapacityWh
         
         // Ограничиваем разумными пределами

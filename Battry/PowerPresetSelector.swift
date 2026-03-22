@@ -164,7 +164,7 @@ struct PowerPresetSelector: View {
                     Text("\(i18n.t("target.power")): \(String(format: "%.1f", targetPower))W")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("(\(selectedPreset.rawValue))")
+                    Text(i18n.language == .ru ? "(экв. \(selectedPreset.rawValue))" : "(eq. \(selectedPreset.rawValue))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -604,6 +604,13 @@ extension CalibrationPanel {
                         .buttonStyle(.bordered)
                         .font(.caption)
                     }
+                    Text("\(quick.batteryCondition.label(language: i18n.language)) • \(quick.measurementConfidence.label(language: i18n.language))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(quick.recommendation)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
                 .padding(10)
                 .background(
@@ -884,6 +891,9 @@ extension CalibrationPanel {
                         ))
                         .toggleStyle(.checkbox)
                         .font(.caption)
+                        .help(i18n.language == .ru ?
+                            "Экспериментальная GPU-ветка может ухудшать воспроизводимость теста и повышать тепловую нагрузку." :
+                            "Experimental GPU branch can reduce test reproducibility and increase thermal load.")
                     }
                 }
                 
@@ -1140,6 +1150,9 @@ extension CalibrationPanel {
                 .buttonStyle(.borderless)
                 .help(result.reportPath != nil ? i18n.t("reports.open") : "Generate Report")
             }
+            Text("\(result.batteryCondition.label(language: i18n.language)) • \(result.measurementConfidence.label(language: i18n.language))")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .padding(10)
         .background(
@@ -1397,6 +1410,13 @@ extension CalibrationPanel {
                         .buttonStyle(.bordered)
                         .font(.caption)
                     }
+                    Text("\(result.batteryCondition.label(language: i18n.language)) • \(result.measurementConfidence.label(language: i18n.language))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(result.recommendation)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
                 
             case .error(let message):

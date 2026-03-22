@@ -1532,11 +1532,15 @@ enum ReportGenerator {
         let averagePower = quickHealthResult?.averagePower ?? result.averagePower
         let targetPower = quickHealthResult?.targetPower ?? 10.0
         let powerQuality = quickHealthResult?.powerControlQuality ?? 100.0
-        // Runtime forecasts for 0.1C/0.2C/0.3C using E_design with avg V_OC
+        // Runtime forecasts for equivalent low/medium/high workload presets
         let avgVOC = OCVAnalyzer.averageVOC(from: history, dcirPoints: quickHealthResult?.dcirPoints ?? []) ?? 11.1
         let designWh = Double(max(0, snapshot.designCapacity)) * max(5.0, avgVOC) / 1000.0
         let effectiveWh = designWh * max(0.0, min(1.0, sohEnergy / 100.0))
         let forecasts = runtimeForecastsHHMM(designWh: designWh, effectiveWh: effectiveWh)
+        let energyWindowLabel = quickHealthResult?.energyWindowDisplayLabel ?? "80→65%"
+        let energyWindowStatus = quickHealthResult?.energyEstimateIsProvisional == true
+            ? (lang == "ru" ? "Неполное окно — оценка предварительная" : "Partial window - provisional estimate")
+            : (lang == "ru" ? "Измеренное окно" : "Measured window")
         
         return """
         <div class="svg-chart-container" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; box-shadow: var(--shadow-md);">
@@ -1566,15 +1570,15 @@ enum ReportGenerator {
             
             <div class="energy-metric" style="text-align: center; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
               <div style="font-size: 2rem; font-weight: 800; color: var(--accent-secondary);">\(String(format: "%.1f", quickHealthResult?.energyDelivered80to50Wh ?? 0))Wh</div>
-              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Энергия 80→50%" : "Energy 80→50%")</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(lang == "ru" ? "Измеренное окно" : "Measured window")</div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Энергия \(energyWindowLabel)" : "Energy \(energyWindowLabel)")</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">\(energyWindowStatus)</div>
             </div>
             
             <div class="energy-metric" style="text-align: left; padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem;">
-              <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">\(lang == "ru" ? "Прогноз автономности (CP)" : "Runtime Forecast (CP)")</div>
-              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">0.1C: <strong>\(forecasts.f0)</strong></div>
-              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.2rem;">0.2C: <strong>\(forecasts.f1)</strong></div>
-              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.2rem;">0.3C: <strong>\(forecasts.f2)</strong></div>
+              <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">\(lang == "ru" ? "Прогноз автономности (эквивалентные нагрузки)" : "Runtime Forecast (Equivalent workloads)")</div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">\(lang == "ru" ? "Легкая экв.:" : "Light eq.:") <strong>\(forecasts.f0)</strong></div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.2rem;">\(lang == "ru" ? "Средняя экв.:" : "Medium eq.:") <strong>\(forecasts.f1)</strong></div>
+              <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.2rem;">\(lang == "ru" ? "Тяжелая экв.:" : "Heavy eq.:") <strong>\(forecasts.f2)</strong></div>
             </div>
           </div>
         </div>
@@ -2067,6 +2071,10 @@ enum ReportGenerator {
             if score >= 50 { return ("orange", lang == "ru" ? "Удовлетворительно" : "Fair") }
             return ("danger", lang == "ru" ? "Требует внимания" : "Needs Attention")
         }()
+        let reportLanguage = AppLanguage(rawValue: lang) ?? .en
+        let batteryConditionLabel = result.batteryCondition.label(language: reportLanguage)
+        let measurementConfidenceLabel = result.measurementConfidence.label(language: reportLanguage)
+        let sohCapacityText = result.sohCapacity.map { String(format: "%.1f%%", $0) } ?? "N/A"
         
         let html = """
         <!doctype html>
@@ -2355,6 +2363,14 @@ enum ReportGenerator {
                     <h3>\(healthStatus.label)</h3>
                     <p style=\"color: var(--text-secondary); margin-bottom: 1rem;\">\(result.recommendation)</p>
                     <div class=\"detail-row\">
+                      <span class=\"label\">\(lang == "ru" ? "Состояние батареи:" : "Battery Condition:")</span>
+                      <span class=\"value\">\(batteryConditionLabel)</span>
+                    </div>
+                    <div class=\"detail-row\">
+                      <span class=\"label\">\(lang == "ru" ? "Достоверность измерения:" : "Measurement Confidence:")</span>
+                      <span class=\"value\">\(measurementConfidenceLabel)</span>
+                    </div>
+                    <div class=\"detail-row\">
                       <span class=\"label\">\(lang == "ru" ? "Тестовый пресет:" : "Test Preset:")</span>
                       <span class=\"value\">\(result.powerPreset) (\(String(format: "%.1f", result.targetPower))W)</span>
                     </div>
@@ -2382,8 +2398,8 @@ enum ReportGenerator {
                   </div>
                   <div class=\"metric-card\">
                     <div class=\"metric-value\">\(String(format: "%.1f", result.energyDelivered80to50Wh))</div>
-                    <div class=\"metric-label\">\(lang == "ru" ? "Энергия 80→65%" : "Energy 80→65%")</div>
-                    <div class=\"metric-sublabel\">Wh</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "Энергия \(result.energyWindowDisplayLabel)" : "Energy \(result.energyWindowDisplayLabel)")</div>
+                    <div class=\"metric-sublabel\">\(result.energyEstimateIsProvisional ? (lang == "ru" ? "Wh • предварительно" : "Wh • provisional") : "Wh")</div>
                   </div>
                   <div class=\"metric-card\">
                     <div class=\"metric-value\">\(String(format: "%.1f", result.averagePower))</div>
@@ -2391,9 +2407,9 @@ enum ReportGenerator {
                     <div class=\"metric-sublabel\">W</div>
                   </div>
                   <div class=\"metric-card\">
-                    <div class=\"metric-value\">\(String(format: "%.1f", result.normalizedSOH))</div>
-                    <div class=\"metric-label\">\(lang == "ru" ? "Нормализованный SOH" : "Normalized SOH")</div>
-                    <div class=\"metric-sublabel\">\(lang == "ru" ? "С учетом температуры" : "Temperature adjusted")</div>
+                    <div class=\"metric-value\">\(sohCapacityText)</div>
+                    <div class=\"metric-label\">\(lang == "ru" ? "SOH по емкости" : "SOH Capacity")</div>
+                    <div class=\"metric-sublabel\">\(lang == "ru" ? "maxCapacity / designCapacity" : "maxCapacity / designCapacity")</div>
                   </div>
                 </div>
               </div>

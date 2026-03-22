@@ -106,7 +106,7 @@ final class HistoryStore: ObservableObject {
     /// Путь к файлу истории в Application Support
     private let url: URL = {
         let fm = FileManager.default
-        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let base = AppSupportPaths.applicationSupportDirectory(fileManager: fm)
         let newDir = base.appendingPathComponent("Battry", isDirectory: true)
         let oldDir = base.appendingPathComponent("BatMon", isDirectory: true)
         // Migrate old data if present

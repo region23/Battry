@@ -19,7 +19,7 @@ const translations = {
         'features.charts.title': 'Interactive Charts',
         'features.charts.desc': 'Красивые графики с историей заряда, температуры и скорости разряда вашей батареи',
         'features.loadgen.title': 'Load Generator',
-        'features.loadgen.desc': 'Встроенный тест нагрузки для проверки реальной работы батареи под нагрузкой',
+        'features.loadgen.desc': 'Built-in synthetic load generator with CPU presets and an experimental GPU branch for controlled discharge testing',
         'features.reports.title': 'HTML Reports',
         'features.reports.desc': 'Красивые отчёты, которыми можно поделиться, с графиками и полной информацией о тесте',
 
@@ -83,7 +83,7 @@ const translations = {
         'features.charts.title': 'Интерактивные графики',
         'features.charts.desc': 'Красивые графики с историей заряда, температуры и скорости разряда вашей батареи',
         'features.loadgen.title': 'Генератор нагрузки',
-        'features.loadgen.desc': 'Встроенный тест нагрузки для проверки реальной работы батареи под нагрузкой',
+        'features.loadgen.desc': 'Встроенный генератор синтетической нагрузки с CPU-пресетами и GPU-веткой в experimental-режиме для контролируемого теста разряда',
         'features.reports.title': 'HTML отчеты',
         'features.reports.desc': 'Красивые отчёты, которыми можно поделиться, с графиками и полной информацией о тесте',
 

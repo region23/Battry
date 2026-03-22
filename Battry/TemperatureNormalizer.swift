@@ -223,11 +223,7 @@ struct TemperatureNormalizer {
 extension TemperatureNormalizer {
     // MARK: - Self-learning storage paths
     private static var appSupportDir: URL {
-        let fm = FileManager.default
-        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let dir = base.appendingPathComponent("Battry", isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+        AppSupportPaths.battryDirectory()
     }
     private static var coeffsURL: URL { appSupportDir.appendingPathComponent("temperature_coeffs.json") }
     private static var observationsURL: URL { appSupportDir.appendingPathComponent("temperature_observations.json") }

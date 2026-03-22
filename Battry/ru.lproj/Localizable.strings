@@ -117,10 +117,10 @@
 "health.zone.poor" = "Плохо (<70)";
 "micro.drops.count" = "Микро-дропы: %d";
 "soh.energy.percent" = "SOH Энергии: %s%%";
-"health.recommendation.excellent" = "Аккумулятор в отличном состоянии.";
-"health.recommendation.acceptable" = "Приемлемое состояние. Контролируйте регулярно.";
-"health.recommendation.poor" = "Планируйте замену аккумулятора. Избегайте высоких нагрузок.";
-"health.recommendation.critical" = "Требуется замена аккумулятора в ближайшее время.";
+"health.recommendation.excellent" = "По истории батарея выглядит исправной.";
+"health.recommendation.acceptable" = "По истории состояние приемлемое. Контролируйте регулярно.";
+"health.recommendation.poor" = "История указывает на деградацию. Подтвердите это Quick Health Test перед планированием замены.";
+"health.recommendation.critical" = "История показывает сильные признаки износа. Подтвердите это Quick Health Test как можно скорее.";
 "charging.shade" = "Зарядка";
 "microdrop" = "Микро‑просадка";
 
@@ -323,7 +323,7 @@
 "knee.index" = "Плавность разряда";
 "average.power.15min" = "Мощность (15 мин)";
 "power.presets" = "Прогнозы времени";
-"load.generator.enable.gpu" = "Включить GPU ветку";
+"load.generator.enable.gpu" = "Включить GPU ветку (Experimental)";
 "export.pdf" = "Экспорт в PDF";
 "show.details" = "Показать детали";
 "hide.details" = "Скрыть детали";
@@ -457,6 +457,7 @@
 "recommendation.poor" = "Планируйте замену батареи. %@";
 "recommendation.acceptable" = "Состояние приемлемое. %@";
 "recommendation.excellent" = "Батарея в отличном состоянии. %@";
+"recommendation.history.quicktest.note" = "Это оценка по истории. Перед решением о замене запустите Quick Health Test.";
 "power.recommendations.excellent" = "Рекомендуемые нагрузки: до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч), до %.0f Вт (~%.1f ч).";
 "power.recommendations.good" = "Избегайте нагрузок выше %.0f Вт. Оптимально: %.0f Вт (~%.1f ч).";
 "power.recommendations.moderate" = "Ограничьте нагрузку до %.0f Вт (~%.1f ч). При тяжелой работе возможны сбои.";

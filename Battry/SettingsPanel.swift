@@ -239,9 +239,7 @@ struct SettingsPanel: View {
     }
     
     private func openDataFolder() {
-        let fm = FileManager.default
-        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let dataDir = base.appendingPathComponent("Battry", isDirectory: true)
+        let dataDir = AppSupportPaths.battryDirectory()
         NSWorkspace.shared.open(dataDir)
     }
 
@@ -488,6 +486,5 @@ struct SettingsLabel: View {
         }
     }
 }
-
 
 

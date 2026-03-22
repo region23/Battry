@@ -7,51 +7,76 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		76C464472E4574E4001472E5 /* Battry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Battry.app; sourceTree = BUILT_PRODUCTS_DIR; };
+			76C464472E4574E4001472E5 /* Battry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Battry.app; sourceTree = BUILT_PRODUCTS_DIR; };
+			B71000012F00000000000001 /* BattryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BattryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		76C464492E4574E4001472E5 /* Battry */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Battry;
-			sourceTree = "<group>";
-		};
+			76C464492E4574E4001472E5 /* Battry */ = {
+				isa = PBXFileSystemSynchronizedRootGroup;
+				path = Battry;
+				sourceTree = "<group>";
+			};
+			B71000012F00000000000002 /* BattryTests */ = {
+				isa = PBXFileSystemSynchronizedRootGroup;
+				path = BattryTests;
+				sourceTree = "<group>";
+			};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
+/* Begin PBXContainerItemProxy section */
+			B71000012F00000000000008 /* PBXContainerItemProxy */ = {
+				isa = PBXContainerItemProxy;
+				containerPortal = 76C4643F2E4574E4001472E5 /* Project object */;
+				proxyType = 1;
+				remoteGlobalIDString = 76C464462E4574E4001472E5;
+				remoteInfo = Battry;
+			};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFrameworksBuildPhase section */
-		76C464442E4574E4001472E5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+			76C464442E4574E4001472E5 /* Frameworks */ = {
+				isa = PBXFrameworksBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+			B71000012F00000000000003 /* Frameworks */ = {
+				isa = PBXFrameworksBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		76C4643E2E4574E4001472E5 = {
-			isa = PBXGroup;
-			children = (
-				76C464492E4574E4001472E5 /* Battry */,
-				76C464482E4574E4001472E5 /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		76C464482E4574E4001472E5 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				76C464472E4574E4001472E5 /* Battry.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
+			76C4643E2E4574E4001472E5 = {
+				isa = PBXGroup;
+				children = (
+					76C464492E4574E4001472E5 /* Battry */,
+					B71000012F00000000000002 /* BattryTests */,
+					76C464482E4574E4001472E5 /* Products */,
+				);
+				sourceTree = "<group>";
+			};
+			76C464482E4574E4001472E5 /* Products */ = {
+				isa = PBXGroup;
+				children = (
+					76C464472E4574E4001472E5 /* Battry.app */,
+					B71000012F00000000000001 /* BattryTests.xctest */,
+				);
+				name = Products;
+				sourceTree = "<group>";
+			};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		76C464462E4574E4001472E5 /* Battry */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 76C464522E4574E5001472E5 /* Build configuration list for PBXNativeTarget "Battry" */;
-			buildPhases = (
+			76C464462E4574E4001472E5 /* Battry */ = {
+				isa = PBXNativeTarget;
+				buildConfigurationList = 76C464522E4574E5001472E5 /* Build configuration list for PBXNativeTarget "Battry" */;
+				buildPhases = (
 				76C464432E4574E4001472E5 /* Sources */,
 				76C464442E4574E4001472E5 /* Frameworks */,
 				76C464452E4574E4001472E5 /* Resources */,
@@ -67,9 +92,32 @@
 			packageProductDependencies = (
 			);
 			productName = Battry;
-			productReference = 76C464472E4574E4001472E5 /* Battry.app */;
-			productType = "com.apple.product-type.application";
-		};
+				productReference = 76C464472E4574E4001472E5 /* Battry.app */;
+				productType = "com.apple.product-type.application";
+			};
+			B71000012F00000000000006 /* BattryTests */ = {
+				isa = PBXNativeTarget;
+				buildConfigurationList = B71000012F00000000000009 /* Build configuration list for PBXNativeTarget "BattryTests" */;
+				buildPhases = (
+					B71000012F00000000000004 /* Sources */,
+					B71000012F00000000000003 /* Frameworks */,
+					B71000012F00000000000005 /* Resources */,
+				);
+				buildRules = (
+				);
+				dependencies = (
+					B71000012F00000000000007 /* PBXTargetDependency */,
+				);
+				fileSystemSynchronizedGroups = (
+					B71000012F00000000000002 /* BattryTests */,
+				);
+				name = BattryTests;
+				packageProductDependencies = (
+				);
+				productName = BattryTests;
+				productReference = B71000012F00000000000001 /* BattryTests.xctest */;
+				productType = "com.apple.product-type.bundle.unit-test";
+			};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -79,12 +127,16 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
-				TargetAttributes = {
-					76C464462E4574E4001472E5 = {
-						CreatedOnToolsVersion = 26.0;
+					TargetAttributes = {
+						76C464462E4574E4001472E5 = {
+							CreatedOnToolsVersion = 26.0;
+						};
+						B71000012F00000000000006 = {
+							CreatedOnToolsVersion = 26.0;
+							TestTargetID = 76C464462E4574E4001472E5;
+						};
 					};
 				};
-			};
 			buildConfigurationList = 76C464422E4574E4001472E5 /* Build configuration list for PBXProject "Battry" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -98,32 +150,55 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 76C464482E4574E4001472E5 /* Products */;
 			projectDirPath = "";
-			projectRoot = "";
-			targets = (
-				76C464462E4574E4001472E5 /* Battry */,
-			);
-		};
+				projectRoot = "";
+				targets = (
+					76C464462E4574E4001472E5 /* Battry */,
+					B71000012F00000000000006 /* BattryTests */,
+				);
+			};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		76C464452E4574E4001472E5 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+			76C464452E4574E4001472E5 /* Resources */ = {
+				isa = PBXResourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+			B71000012F00000000000005 /* Resources */ = {
+				isa = PBXResourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		76C464432E4574E4001472E5 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
+			76C464432E4574E4001472E5 /* Sources */ = {
+				isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+			B71000012F00000000000004 /* Sources */ = {
+				isa = PBXSourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+			B71000012F00000000000007 /* PBXTargetDependency */ = {
+				isa = PBXTargetDependency;
+				target = 76C464462E4574E4001472E5 /* Battry */;
+				targetProxy = B71000012F00000000000008 /* PBXContainerItemProxy */;
+			};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		76C464502E4574E5001472E5 /* Debug */ = {
@@ -293,9 +368,9 @@
 			};
 			name = Debug;
 		};
-		76C464542E4574E5001472E5 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
+			76C464542E4574E5001472E5 /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -337,9 +412,65 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				};
+				name = Release;
 			};
-			name = Release;
-		};
+			B71000012F0000000000000A /* Debug */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					BUNDLE_LOADER = "$(TEST_HOST)";
+					"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+					CODE_SIGN_STYLE = Automatic;
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = HRRVYGCCFY;
+					GENERATE_INFOPLIST_FILE = YES;
+					LD_RUNPATH_SEARCH_PATHS = (
+						"$(inherited)",
+						"@executable_path/../Frameworks",
+						"@loader_path/../Frameworks",
+					);
+					MACOSX_DEPLOYMENT_TARGET = 14.6;
+					PRODUCT_BUNDLE_IDENTIFIER = region23.BattryTests;
+					PRODUCT_NAME = "$(TARGET_NAME)";
+					STRING_CATALOG_GENERATE_SYMBOLS = YES;
+					SWIFT_APPROACHABLE_CONCURRENCY = YES;
+					SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+					SWIFT_EMIT_LOC_STRINGS = NO;
+					SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+					SWIFT_VERSION = 5.0;
+					TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Battry.app/Contents/MacOS/Battry";
+					TEST_TARGET_NAME = Battry;
+				};
+				name = Debug;
+			};
+			B71000012F0000000000000B /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					BUNDLE_LOADER = "$(TEST_HOST)";
+					"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+					CODE_SIGN_STYLE = Automatic;
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = HRRVYGCCFY;
+					GENERATE_INFOPLIST_FILE = YES;
+					LD_RUNPATH_SEARCH_PATHS = (
+						"$(inherited)",
+						"@executable_path/../Frameworks",
+						"@loader_path/../Frameworks",
+					);
+					MACOSX_DEPLOYMENT_TARGET = 14.6;
+					PRODUCT_BUNDLE_IDENTIFIER = region23.BattryTests;
+					PRODUCT_NAME = "$(TARGET_NAME)";
+					STRING_CATALOG_GENERATE_SYMBOLS = YES;
+					SWIFT_APPROACHABLE_CONCURRENCY = YES;
+					SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+					SWIFT_EMIT_LOC_STRINGS = NO;
+					SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+					SWIFT_VERSION = 5.0;
+					TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Battry.app/Contents/MacOS/Battry";
+					TEST_TARGET_NAME = Battry;
+				};
+				name = Release;
+			};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -352,15 +483,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		76C464522E4574E5001472E5 /* Build configuration list for PBXNativeTarget "Battry" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				76C464532E4574E5001472E5 /* Debug */,
-				76C464542E4574E5001472E5 /* Release */,
+			76C464522E4574E5001472E5 /* Build configuration list for PBXNativeTarget "Battry" */ = {
+				isa = XCConfigurationList;
+				buildConfigurations = (
+					76C464532E4574E5001472E5 /* Debug */,
+					76C464542E4574E5001472E5 /* Release */,
 			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
+				defaultConfigurationIsVisible = 0;
+				defaultConfigurationName = Release;
+			};
+			B71000012F00000000000009 /* Build configuration list for PBXNativeTarget "BattryTests" */ = {
+				isa = XCConfigurationList;
+				buildConfigurations = (
+					B71000012F0000000000000A /* Debug */,
+					B71000012F0000000000000B /* Release */,
+				);
+				defaultConfigurationIsVisible = 0;
+				defaultConfigurationName = Release;
+			};
 /* End XCConfigurationList section */
 	};
 	rootObject = 76C4643F2E4574E4001472E5 /* Project object */;

@@ -89,10 +89,12 @@ final class CalibrationEngine: ObservableObject {
     private weak var historyStore: HistoryStore?
     /// Токен активности, предотвращающий сон системы
     private var activity: NSObjectProtocol?
+    /// Флаг, чтобы парно трекать старт/стоп стандартной нагрузки в истории
+    private var loadEventRecorded = false
     /// Путь к файлу с состоянием/результатами
     private var storeURL: URL = {
         let fm = FileManager.default
-        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let base = AppSupportPaths.applicationSupportDirectory(fileManager: fm)
         let newDir = base.appendingPathComponent("Battry", isDirectory: true)
         let oldDir = base.appendingPathComponent("BatMon", isDirectory: true)
         // Migrate old data if present
@@ -171,6 +173,7 @@ final class CalibrationEngine: ObservableObject {
         samples.removeAll()
         lastSampleAt = nil
         autoResetDueToGap = false
+        loadEventRecorded = false
         // Обнуляем метаданные генератора
         currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata()
         save()
@@ -240,11 +243,6 @@ final class CalibrationEngine: ObservableObject {
                 state = .running(start: Date(), atPercent: snapshot.percentage)
                 samples.removeAll()
                 lastSampleAt = Date()
-                
-                // Автозапуск генератора если включен
-                if loadGeneratorSettings.isEnabled && loadGeneratorSettings.autoStart {
-                    startLoadGenerators()
-                }
 
                 // Вычисляем целевую мощность для CP-режима и запускаем контроллер
                 // Используем среднее V_OC из недавней истории, fallback на 11.1 В
@@ -260,6 +258,7 @@ final class CalibrationEngine: ObservableObject {
                     designCapacityMah: snapshot.designCapacity,
                     nominalVoltage: avgVOC
                 )
+                beginStandardizedCPDischarge()
                 setupCPController()
                 constantPowerController.start(targetPower: cpTargetPowerW)
                 
@@ -536,6 +535,17 @@ final class CalibrationEngine: ObservableObject {
         activity = nil
     }
 
+    private func beginStandardizedCPDischarge() {
+        let profileName = Localization.shared.t("cp.discharge")
+        currentLoadMetadata = ReportGenerator.LoadGeneratorMetadata(
+            wasUsed: true,
+            profile: profileName,
+            autoStopReasons: []
+        )
+        historyStore?.addEvent(.generatorStarted, details: profileName)
+        loadEventRecorded = true
+    }
+
     // MARK: - CP Controller Setup
     private func setupCPController() {
         constantPowerController.setCallbacks(
@@ -545,13 +555,25 @@ final class CalibrationEngine: ObservableObject {
             },
             loadControl: { [weak self] duty in
                 guard let self = self else { return }
-                // Управляем CPU‑генератором
+                guard let loadGenerator = self.loadGenerator else { return }
+
+                if let recommendation = self.constantPowerController.getRecommendedLoadIntensity() {
+                    if recommendation.intensity < 0.05 {
+                        loadGenerator.stop(reason: .userStopped)
+                    } else {
+                        loadGenerator.ensureProfile(recommendation.profile)
+                        loadGenerator.setIntensity(recommendation.intensity)
+                    }
+                    return
+                }
+
+                // Fallback на случай отсутствия рекомендации регулятора
                 if duty <= 0.05 {
-                    self.loadGenerator?.stop(reason: .userStopped)
+                    loadGenerator.stop(reason: .userStopped)
                 } else {
-                    // Подбор профиля по duty
                     let profile: LoadProfile = duty < 0.4 ? .light : (duty < 0.7 ? .medium : .heavy)
-                    self.loadGenerator?.start(profile: profile)
+                    loadGenerator.ensureProfile(profile)
+                    loadGenerator.setIntensity(duty)
                 }
             }
         )
@@ -559,8 +581,10 @@ final class CalibrationEngine: ObservableObject {
 
     /// Кодирует Codable-структуру в словарь для JSON
     private func encode<T: Codable>(_ value: T) -> [String: Any] {
-        let data = try! JSONEncoder().encode(value)
-        let obj = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+        guard let data = try? JSONEncoder().encode(value),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
         return obj
     }
 
@@ -577,9 +601,13 @@ final class CalibrationEngine: ObservableObject {
         switch state {
         case .waitingFull:
             // Ускоренный опрос при ожидании начала теста
+            vm.disableTestMode()
             vm.enableFastMode()
-        case .idle, .running, .paused, .completed:
-            // Обычный опрос в остальных случаях
+        case .running:
+            vm.enableTestMode()
+        case .idle, .paused, .completed:
+            // Возвращаем стандартный polling вне активного CP-разряда
+            vm.disableTestMode()
             vm.disableFastMode()
         }
     }
@@ -602,6 +630,7 @@ final class CalibrationEngine: ObservableObject {
         
         // Трекируем событие запуска CPU генератора
         historyStore?.addEvent(.generatorStarted, details: loadGeneratorSettings.profile.localizationKey)
+        loadEventRecorded = true
         
         // Запускаем видео если включено
         // video load removed
@@ -613,8 +642,11 @@ final class CalibrationEngine: ObservableObject {
     private func stopLoadGenerators() {
         if loadGenerator?.isRunning == true {
             loadGenerator?.stop(reason: .userStopped)
-            // Трекируем событие остановки CPU генератора
+        }
+
+        if loadEventRecorded {
             historyStore?.addEvent(.generatorStopped)
+            loadEventRecorded = false
         }
         
         // video load removed
@@ -665,7 +697,7 @@ final class CalibrationEngine: ObservableObject {
         
         // Определяем путь для сохранения (та же папка, что и history.json)
         let fm = FileManager.default
-        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let base = AppSupportPaths.applicationSupportDirectory(fileManager: fm)
         let battryDir = base.appendingPathComponent("Battry", isDirectory: true)
         try? fm.createDirectory(at: battryDir, withIntermediateDirectories: true)
         

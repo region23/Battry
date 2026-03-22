@@ -589,7 +589,7 @@ struct MenuContent: View {
         }
     }
 
-    /// Время работы для эквивалентного C‑рейта (0.1C/0.2C/0.3C) по рекомендациям эксперта
+    /// Время работы для эквивалентных пресетов нагрузки (light/medium/heavy)
     private func getRuntimeForCRate(_ cRate: Double) -> String {
         let designMah = battery.state.designCapacity
         guard designMah > 0, cRate > 0 else { return "—" }

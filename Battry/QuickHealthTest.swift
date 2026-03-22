@@ -11,7 +11,7 @@ final class QuickHealthTest: ObservableObject {
         case idle
         case calibrating // калибровка в покое (2-3 мин)
         case pulseTesting(targetSOC: Int) // пульс-тест на определенном уровне SOC
-        case energyWindow // измерение энергии 80→50%
+        case energyWindow // измерение энергии в стандартном окне 80→65%
         case analyzing // анализ результатов
         case completed(result: QuickHealthResult)
         case error(message: String)
@@ -42,6 +42,43 @@ final class QuickHealthTest: ObservableObject {
             }
         }
     }
+
+    enum BatteryCondition: String, Codable, Equatable {
+        case healthy
+        case worn
+        case degraded
+        case replacementRecommended
+
+        func label(language: AppLanguage) -> String {
+            switch (self, language) {
+            case (.healthy, .ru): return "Состояние хорошее"
+            case (.worn, .ru): return "Есть рабочий износ"
+            case (.degraded, .ru): return "Заметная деградация"
+            case (.replacementRecommended, .ru): return "Замена вероятна"
+            case (.healthy, .en): return "Condition looks healthy"
+            case (.worn, .en): return "Normal wear detected"
+            case (.degraded, .en): return "Meaningful degradation"
+            case (.replacementRecommended, .en): return "Replacement likely"
+            }
+        }
+    }
+
+    enum MeasurementConfidence: String, Codable, Equatable {
+        case low
+        case medium
+        case high
+
+        func label(language: AppLanguage) -> String {
+            switch (self, language) {
+            case (.low, .ru): return "Низкая достоверность"
+            case (.medium, .ru): return "Средняя достоверность"
+            case (.high, .ru): return "Высокая достоверность"
+            case (.low, .en): return "Low confidence"
+            case (.medium, .en): return "Medium confidence"
+            case (.high, .en): return "High confidence"
+            }
+        }
+    }
     
     /// Результат быстрого теста здоровья
     struct QuickHealthResult: Codable, Equatable {
@@ -50,11 +87,17 @@ final class QuickHealthTest: ObservableObject {
         let durationMinutes: Double
         
         // Энергетические метрики
+        // Legacy field name retained for storage compatibility; фактическое окно описывают поля ниже.
         let energyDelivered80to50Wh: Double
         let sohEnergy: Double // %
+        let sohCapacity: Double?
         let averagePower: Double // W
         let targetPower: Double // W (целевая мощность для CP-теста)
         let powerPreset: String // используемый пресет (0.1C/0.2C/0.3C)
+        let energyWindowStartPercent: Int?
+        let energyWindowEndPercent: Int?
+        let energyWindowTargetEndPercent: Int?
+        let energyWindowExpectedSpanPercent: Int?
         
         // DCIR метрики
         let dcirPoints: [DCIRCalculator.DCIRPoint]
@@ -85,14 +128,59 @@ final class QuickHealthTest: ObservableObject {
         
         // Композитный скор здоровья
         let healthScore: Double // 0-100
+        let batteryConditionCode: String?
+        let measurementConfidenceCode: String?
         let recommendation: String
         
         // Путь к сгенерированному HTML отчету
         var reportPath: String? = nil
         
-        var isHealthy: Bool { healthScore >= 70 }
-        var needsAttention: Bool { healthScore < 70 && healthScore >= 50 }
-        var critical: Bool { healthScore < 50 }
+        var batteryCondition: BatteryCondition {
+            if let batteryConditionCode,
+               let condition = BatteryCondition(rawValue: batteryConditionCode) {
+                return condition
+            }
+            return QuickHealthTest.inferBatteryCondition(for: self)
+        }
+
+        var measurementConfidence: MeasurementConfidence {
+            if let measurementConfidenceCode,
+               let confidence = MeasurementConfidence(rawValue: measurementConfidenceCode) {
+                return confidence
+            }
+            return QuickHealthTest.inferMeasurementConfidence(for: self)
+        }
+
+        var isHealthy: Bool { batteryCondition == .healthy || batteryCondition == .worn }
+        var needsAttention: Bool { batteryCondition == .degraded }
+        var critical: Bool { batteryCondition == .replacementRecommended }
+
+        var energyWindowMeasuredSpanPercent: Int? {
+            guard let start = energyWindowStartPercent, let end = energyWindowEndPercent else { return nil }
+            return max(0, start - end)
+        }
+
+        var energyWindowDisplayLabel: String {
+            guard let start = energyWindowStartPercent else {
+                if let targetEnd = energyWindowTargetEndPercent {
+                    return "80→\(targetEnd)%"
+                }
+                return "80→65%"
+            }
+            if let end = energyWindowEndPercent {
+                return "\(start)→\(end)%"
+            }
+            if let targetEnd = energyWindowTargetEndPercent {
+                return "\(start)→\(targetEnd)%"
+            }
+            return "\(start)%"
+        }
+
+        var energyEstimateIsProvisional: Bool {
+            guard let measuredSpan = energyWindowMeasuredSpanPercent,
+                  let expectedSpan = energyWindowExpectedSpanPercent else { return false }
+            return measuredSpan < max(1, expectedSpan - 1)
+        }
     }
     
     // MARK: - Published Properties
@@ -159,6 +247,7 @@ final class QuickHealthTest: ObservableObject {
     private var totalPulsesPerSOC: Int { pulseSequence.count }
     private var averageDischargeRatePercentPerMinute: Double = 0.5 // estimated default (will adapt via EMA)
     private var dischargeRateWithLightLoad: Double = 0.9 // conservative default for wait-time estimates (% per minute)
+    private var expectedEnergyWindowEndSOC: Int { max(5, 80 - energyWindowSpanPct) }
     
     /// Возвращает последовательность пульсов на основе выбранного пресета
     private var pulseSequence: [(LoadLevel, String)] {
@@ -193,11 +282,7 @@ final class QuickHealthTest: ObservableObject {
     
     /// Путь к директории с данными Quick Health Test
     private static var appSupportDir: URL {
-        let fm = FileManager.default
-        let base = try! fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let dir = base.appendingPathComponent("Battry", isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+        AppSupportPaths.battryDirectory()
     }
     
     /// Путь к файлу с историей результатов
@@ -351,8 +436,6 @@ final class QuickHealthTest: ObservableObject {
         // Reset tracking variables
         testStartTime = nil
         currentPulseIndex = 0
-        
-        cancellables.removeAll()
     }
     
     /// Сбрасывает завершенный тест к начальному состоянию без остановки активных процессов
@@ -442,9 +525,9 @@ final class QuickHealthTest: ObservableObject {
             }
         }
         
-        // Адаптивная корректировка: если тест идет дольше 90 минут и SOC > 55%, ускоряем завершение
+        // Адаптивная корректировка: если тест идет дольше 90 минут и окно почти собрано, завершаем анализ
         if elapsedTime > 90 * 60 && currentSOC > 55 {
-            // Принудительно завершаем energy window на текущем SOC вместо ожидания 50%
+            // Принудительно завершаем energy window на текущем SOC вместо дальнейшего ожидания
             if case .energyWindow = state, let targetSOC = energyWindowTargetSOC, currentSOC < targetSOC + 10 {
                 analyzeResults()
             }
@@ -489,8 +572,8 @@ final class QuickHealthTest: ObservableObject {
     }
     
     private func estimateTimeForEnergyWindow(fromSOC: Int) -> TimeInterval {
-        if fromSOC > 65 { // energy window is 80->65 (15%)
-            let socDiff = Double(max(0, fromSOC - 65))
+        if fromSOC > expectedEnergyWindowEndSOC {
+            let socDiff = Double(max(0, fromSOC - expectedEnergyWindowEndSOC))
             return (socDiff / averageDischargeRatePercentPerMinute) * 60
         }
         return 0
@@ -608,8 +691,7 @@ final class QuickHealthTest: ObservableObject {
             if targetSOC == 80 {
                 // Mark 80% stage as completed so 60% stage won't run twice.
                 self.currentTargetIndex = 1
-                let target = max(5, 80 - self.energyWindowSpanPct)
-                self.startEnergyWindow(to: target)
+                self.startEnergyWindow(to: self.expectedEnergyWindowEndSOC)
                 return
             }
 
@@ -748,6 +830,7 @@ final class QuickHealthTest: ObservableObject {
                 
                 // Разрешаем системе засыпать после завершения теста
                 self.endPreventingSleep()
+                self.batteryViewModel?.disableTestMode()
                 
                 // Автоматически сохраняем результат
                 self.saveResult(result)
@@ -764,11 +847,17 @@ final class QuickHealthTest: ObservableObject {
         var energyWhTotal: Double = 0
         var cpDurationSec: Double = 0
         var collectedSocSpan: Double = 0
+        var actualEnergyWindowStartSOC: Int? = nil
+        var actualEnergyWindowEndSOC: Int? = nil
         for interval in cpIntervals {
             guard let endIdx = interval.endIdx, interval.startIdx < endIdx, endIdx <= samples.count else { continue }
             let slice = Array(samples[interval.startIdx..<endIdx])
             energyWhTotal += EnergyCalculator.integrateEnergy(samples: slice)
             if let f = slice.first, let l = slice.last {
+                if actualEnergyWindowStartSOC == nil {
+                    actualEnergyWindowStartSOC = f.percentage
+                }
+                actualEnergyWindowEndSOC = l.percentage
                 cpDurationSec += l.timestamp.timeIntervalSince(f.timestamp)
                 collectedSocSpan += max(0, Double(f.percentage - l.percentage))
             }
@@ -783,6 +872,10 @@ final class QuickHealthTest: ObservableObject {
         let socSpan = max(1.0, collectedSocSpan)
         let estimatedFullEnergyWh = energyWhTotal * (100.0 / socSpan)
         let sohEnergyPct = (designWh > 0) ? max(0, min(100, (estimatedFullEnergyWh / designWh) * 100.0)) : 100.0
+        let measuredWindowSpan = max(0, (actualEnergyWindowStartSOC ?? 80) - (actualEnergyWindowEndSOC ?? 80))
+        let energyWindowIsComplete = actualEnergyWindowStartSOC != nil &&
+            actualEnergyWindowEndSOC != nil &&
+            measuredWindowSpan >= max(1, energyWindowSpanPct - 1)
         
         // Анализ DCIR
         let dcirAnalysis = DCIRCalculator.analyzeDCIR(dcirPoints: dcirMeasurements)
@@ -821,18 +914,39 @@ final class QuickHealthTest: ObservableObject {
         let lastMax = samples.last?.maxCapacity ?? batteryViewModel?.state.maxCapacity ?? 0
         let sohCapacityPct: Double = (lastDesign > 0 && lastMax > 0) ? min(100, max(0, Double(lastMax) / Double(lastDesign) * 100.0)) : 100.0
 
+        let batteryCondition = Self.assessBatteryCondition(
+            sohEnergy: sohEnergyPct,
+            sohCapacity: sohCapacityPct,
+            energyWindowIsComplete: energyWindowIsComplete,
+            dcirAt50: dcirAnalysis.dcirAt50Percent,
+            unstableUnderLoad: unstable,
+            microDropRatePerHour: microDropRate
+        )
+        let measurementConfidence = Self.assessMeasurementConfidence(
+            energyWindowIsComplete: energyWindowIsComplete,
+            measuredWindowSpan: measuredWindowSpan,
+            expectedWindowSpan: energyWindowSpanPct,
+            powerControlQuality: constantPowerController.controlQuality,
+            temperatureQuality: tempQuality,
+            dcirPointCount: dcirMeasurements.count,
+            averageTemperature: avgTemperature
+        )
+
         // Композитный скор здоровья (по формуле эксперта)
         let healthScore = calculateCompositeHealthScore(
-            sohEnergy: tempNormalization.normalizedSOH,
+            sohEnergy: energyWindowIsComplete ? tempNormalization.normalizedSOH : sohCapacityPct,
             sohCapacity: sohCapacityPct,
             dcirAt50: tempNormalization.normalizedDCIR,
             dcirAt20: dcirAnalysis.dcirAt20Percent,
             stabilityScore: stabilityScore,
             temperatureQuality: tempQuality
         )
-        
+
         // Рекомендация
-        let recommendation = generateRecommendation(healthScore: healthScore)
+        let recommendation = generateRecommendation(
+            condition: batteryCondition,
+            confidence: measurementConfidence
+        )
         
         return QuickHealthResult(
             startedAt: startTime,
@@ -840,9 +954,14 @@ final class QuickHealthTest: ObservableObject {
             durationMinutes: durationMinutes,
             energyDelivered80to50Wh: energyWhTotal,
             sohEnergy: sohEnergyPct,
+            sohCapacity: lastDesign > 0 && lastMax > 0 ? sohCapacityPct : nil,
             averagePower: avgPowerDuringCP,
             targetPower: targetPowerW,
             powerPreset: selectedPowerPreset.rawValue,
+            energyWindowStartPercent: actualEnergyWindowStartSOC,
+            energyWindowEndPercent: actualEnergyWindowEndSOC,
+            energyWindowTargetEndPercent: expectedEnergyWindowEndSOC,
+            energyWindowExpectedSpanPercent: energyWindowSpanPct,
             dcirPoints: dcirMeasurements,
             dcirAt50Percent: dcirAnalysis.dcirAt50Percent,
             dcirAt20Percent: dcirAnalysis.dcirAt20Percent,
@@ -861,6 +980,8 @@ final class QuickHealthTest: ObservableObject {
             temperatureQuality: tempQuality,
             powerControlQuality: constantPowerController.controlQuality,
             healthScore: healthScore,
+            batteryConditionCode: batteryCondition.rawValue,
+            measurementConfidenceCode: measurementConfidence.rawValue,
             recommendation: recommendation
         )
     }
@@ -892,6 +1013,130 @@ final class QuickHealthTest: ObservableObject {
         // 5% - температурная терпимость
         score += 0.05 * max(0, min(100, temperatureQuality))
         return max(0, min(100, score))
+    }
+
+    static func inferBatteryCondition(for result: QuickHealthResult) -> BatteryCondition {
+        assessBatteryCondition(
+            sohEnergy: result.sohEnergy,
+            sohCapacity: result.sohCapacity ?? result.normalizedSOH,
+            energyWindowIsComplete: !result.energyEstimateIsProvisional,
+            dcirAt50: result.dcirAt50Percent,
+            unstableUnderLoad: result.unstableUnderLoad,
+            microDropRatePerHour: result.microDropRatePerHour
+        )
+    }
+
+    static func inferMeasurementConfidence(for result: QuickHealthResult) -> MeasurementConfidence {
+        assessMeasurementConfidence(
+            energyWindowIsComplete: !result.energyEstimateIsProvisional,
+            measuredWindowSpan: result.energyWindowMeasuredSpanPercent ?? 0,
+            expectedWindowSpan: result.energyWindowExpectedSpanPercent ?? 15,
+            powerControlQuality: result.powerControlQuality,
+            temperatureQuality: result.temperatureQuality,
+            dcirPointCount: result.dcirPoints.count,
+            averageTemperature: result.averageTemperature
+        )
+    }
+
+    private static func assessBatteryCondition(
+        sohEnergy: Double,
+        sohCapacity: Double,
+        energyWindowIsComplete: Bool,
+        dcirAt50: Double?,
+        unstableUnderLoad: Bool,
+        microDropRatePerHour: Double
+    ) -> BatteryCondition {
+        var severeSignals = 0
+        var moderateSignals = 0
+
+        if sohCapacity < 80 {
+            severeSignals += 1
+        } else if sohCapacity < 87 {
+            moderateSignals += 1
+        }
+
+        if energyWindowIsComplete {
+            if sohEnergy < 80 {
+                severeSignals += 1
+            } else if sohEnergy < 85 {
+                moderateSignals += 1
+            }
+        }
+
+        if let dcirAt50 {
+            if dcirAt50 >= 220 {
+                severeSignals += 1
+            } else if dcirAt50 >= 180 {
+                moderateSignals += 1
+            }
+        }
+
+        if unstableUnderLoad || microDropRatePerHour >= 3.0 {
+            severeSignals += 1
+        } else if microDropRatePerHour >= 1.5 {
+            moderateSignals += 1
+        }
+
+        if severeSignals >= 2 || (severeSignals == 1 && moderateSignals >= 1) {
+            return .replacementRecommended
+        }
+        if severeSignals == 1 || moderateSignals >= 2 {
+            return .degraded
+        }
+        if moderateSignals == 1 {
+            return .worn
+        }
+        return .healthy
+    }
+
+    private static func assessMeasurementConfidence(
+        energyWindowIsComplete: Bool,
+        measuredWindowSpan: Int,
+        expectedWindowSpan: Int,
+        powerControlQuality: Double,
+        temperatureQuality: Double,
+        dcirPointCount: Int,
+        averageTemperature: Double
+    ) -> MeasurementConfidence {
+        var score = 100.0
+
+        if !energyWindowIsComplete {
+            score -= 35
+        }
+        if measuredWindowSpan > 0 && measuredWindowSpan < max(8, expectedWindowSpan - 4) {
+            score -= 10
+        }
+
+        if powerControlQuality < 70 {
+            score -= 25
+        } else if powerControlQuality < 85 {
+            score -= 12
+        }
+
+        if temperatureQuality < 60 {
+            score -= 25
+        } else if temperatureQuality < 80 {
+            score -= 12
+        }
+
+        if dcirPointCount < 2 {
+            score -= 10
+        } else if dcirPointCount < 4 {
+            score -= 5
+        }
+
+        if averageTemperature < 15 || averageTemperature > 35 {
+            score -= 10
+        }
+
+        switch max(0, min(100, score)) {
+        case 85...:
+            return .high
+        case 65..<85:
+            return .medium
+        default:
+            return .low
+        }
     }
     
     private func countMicroDrops(in samples: [BatteryReading]) -> Int {
@@ -1010,16 +1255,48 @@ final class QuickHealthTest: ObservableObject {
         return max(0, min(100, 100 - dropsPerHour * 25))
     }
     
-    private func generateRecommendation(healthScore: Double) -> String {
-        switch healthScore {
-        case 85...:
-            return "Battery health is excellent. No action required."
-        case 70..<85:
-            return "Battery health is good. Monitor periodically."
-        case 50..<70:
-            return "Battery health is fair. Consider replacement planning."
-        default:
-            return "Battery health is poor. Replacement recommended soon."
+    private func generateRecommendation(condition: BatteryCondition, confidence: MeasurementConfidence) -> String {
+        switch (i18n.language, condition, confidence) {
+        case (.ru, .healthy, .high), (.ru, .healthy, .medium):
+            return "Батарея выглядит исправной. Оснований для замены сейчас нет."
+        case (.ru, .worn, .high):
+            return "Есть рабочий износ, но замена пока не показана. Наблюдайте за автономностью."
+        case (.ru, .worn, .medium):
+            return "Есть признаки штатного износа. Замена пока не показана, но тест стоит повторить позже."
+        case (.ru, .degraded, .high):
+            return "Деградация уже заметна. Если текущая автономность мешает работе, планируйте замену."
+        case (.ru, .degraded, .medium):
+            return "Есть признаки деградации, но достоверность средняя. Повторите тест перед решением о замене."
+        case (.ru, .replacementRecommended, .high):
+            return "Батарея показывает выраженную деградацию под стандартизованной нагрузкой. Замена вероятно оправдана."
+        case (.ru, .replacementRecommended, .medium):
+            return "Батарея, вероятно, требует замены, но перед окончательным решением лучше подтвердить это повторным тестом."
+        case (.ru, .healthy, .low), (.ru, .worn, .low):
+            return "Достоверность этого прогона низкая. Повторите стандартизованный тест перед любым решением о замене."
+        case (.ru, .degraded, .low):
+            return "Есть признаки деградации, но достоверность прогона низкая. Повторите стандартизованный тест перед планированием замены."
+        case (.ru, .replacementRecommended, .low):
+            return "Батарея, вероятно, близка к замене, но этот прогон имеет низкую достоверность. Повторите тест как можно скорее для подтверждения."
+        case (.en, .healthy, .high), (.en, .healthy, .medium):
+            return "Battery condition looks healthy. Replacement is not indicated right now."
+        case (.en, .worn, .high):
+            return "Normal wear is present, but replacement is not indicated yet. Monitor runtime over time."
+        case (.en, .worn, .medium):
+            return "Normal wear is present. Replacement is not indicated yet, but repeat the test later."
+        case (.en, .degraded, .high):
+            return "Battery degradation is meaningful. If runtime is already inconvenient, plan replacement."
+        case (.en, .degraded, .medium):
+            return "Battery shows degradation, but confidence is only medium. Repeat the test before planning replacement."
+        case (.en, .replacementRecommended, .high):
+            return "Battery shows strong degradation under standardized load. Replacement is likely justified."
+        case (.en, .replacementRecommended, .medium):
+            return "Battery likely needs replacement, but confirm it with one repeat test before making the final call."
+        case (.en, .healthy, .low), (.en, .worn, .low):
+            return "Measurement confidence is low. Repeat the standardized test before making replacement decisions."
+        case (.en, .degraded, .low):
+            return "Battery shows signs of degradation, but this run has low confidence. Repeat the standardized test before planning replacement."
+        case (.en, .replacementRecommended, .low):
+            return "Battery likely needs replacement, but this run has low confidence. Repeat the test soon to confirm."
         }
     }
     

@@ -340,6 +340,7 @@ final class AnalyticsEngine: ObservableObject {
             designCapacity: snapshot.designCapacity,
             maxCapacity: snapshot.maxCapacity
         )
+        let quickTestConfirmationNote = Localization.shared.t("recommendation.history.quicktest.note")
         
         if result.healthScore < 50 {
             result.recommendation = String(format: String(localized: "recommendation.critical"), powerRecommendations.critical)
@@ -350,6 +351,7 @@ final class AnalyticsEngine: ObservableObject {
         } else {
             result.recommendation = String(format: String(localized: "recommendation.excellent"), powerRecommendations.excellent)
         }
+        result.recommendation += " " + quickTestConfirmationNote
         result.averageTemperature = avgTemperature
         
         if result.sohEnergy > 0 {

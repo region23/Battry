@@ -117,10 +117,10 @@
 "health.zone.poor" = "Poor (<70)";
 "micro.drops.count" = "Micro-drops: %d";
 "soh.energy.percent" = "SOH Energy: %s%%";
-"health.recommendation.excellent" = "Battery in excellent condition.";
-"health.recommendation.acceptable" = "Acceptable condition. Monitor regularly.";
-"health.recommendation.poor" = "Plan battery replacement. Avoid high loads.";
-"health.recommendation.critical" = "Battery replacement required soon.";
+"health.recommendation.excellent" = "History-based estimate looks healthy.";
+"health.recommendation.acceptable" = "History-based estimate is acceptable. Monitor regularly.";
+"health.recommendation.poor" = "History suggests degradation. Confirm with Quick Health Test before planning replacement.";
+"health.recommendation.critical" = "History shows strong wear signals. Confirm with Quick Health Test soon.";
 "charging.shade" = "Charging";
 "microdrop" = "Micro-drop";
 
@@ -323,7 +323,7 @@
 "knee.index" = "Discharge Smoothness";
 "average.power.15min" = "Power (15 min)";
 "power.presets" = "Runtime estimates";
-"load.generator.enable.gpu" = "Enable GPU branch";
+"load.generator.enable.gpu" = "Enable GPU branch (Experimental)";
 "export.pdf" = "Export to PDF";
 "show.details" = "Show Details";
 "hide.details" = "Hide Details";
@@ -457,6 +457,7 @@
 "recommendation.poor" = "Plan battery replacement. %@";
 "recommendation.acceptable" = "Condition is acceptable. %@";
 "recommendation.excellent" = "Battery in excellent condition. %@";
+"recommendation.history.quicktest.note" = "This is a history-based estimate. Run Quick Health Test before deciding on replacement.";
 "power.recommendations.excellent" = "Recommended loads: up to %.0f W (~%.1f h), up to %.0f W (~%.1f h), up to %.0f W (~%.1f h).";
 "power.recommendations.good" = "Avoid loads above %.0f W. Optimal: %.0f W (~%.1f h).";
 "power.recommendations.moderate" = "Limit load to %.0f W (~%.1f h). Heavy work may cause failures.";
