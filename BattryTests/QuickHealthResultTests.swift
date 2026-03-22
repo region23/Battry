@@ -94,6 +94,22 @@ final class QuickHealthResultTests: XCTestCase {
         XCTAssertFalse(result.critical)
     }
 
+    func testDeduplicatedResultsKeepSingleEntryPerStartedAt() {
+        var base = makeResult(
+            energyWindowStartPercent: 80,
+            energyWindowEndPercent: 65,
+            energyWindowTargetEndPercent: 65,
+            energyWindowExpectedSpanPercent: 15
+        )
+        var withReport = base
+        withReport.reportPath = "/tmp/report.html"
+
+        let deduplicated = QuickHealthTest.deduplicatedResults([base, withReport, base])
+
+        XCTAssertEqual(deduplicated.count, 1)
+        XCTAssertEqual(deduplicated.first?.reportPath, "/tmp/report.html")
+    }
+
     private func makeResult(
         energyWindowStartPercent: Int?,
         energyWindowEndPercent: Int?,

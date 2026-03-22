@@ -177,7 +177,7 @@ struct MenuContent: View {
         .padding(10)
         .frame(minWidth: 650, minHeight: 480)
         .safeAreaPadding(.top, topPadding)
-        .animation(.default, value: battery.state)
+        .animation(.default, value: panel)
         .onAppear {
             // Проверяем наличие челки на текущем экране для корректного позиционирования окна
             // На MacBook'ах с челкой (M2+) окно может провалиться под челку при скрытом меню-баре

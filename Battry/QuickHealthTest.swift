@@ -190,6 +190,7 @@ final class QuickHealthTest: ObservableObject {
     @Published private(set) var progress: Double = 0.0
     @Published private(set) var estimatedTimeRemaining: TimeInterval?
     @Published private(set) var lastResult: QuickHealthResult?
+    @Published private(set) var resultsHistory: [QuickHealthResult] = []
     /// Статус того, как была выполнена начальная калибровка (baseline)
     enum BaselineWindowStatus: Equatable { case ideal, outside, skipped }
     @Published private(set) var baselineWindowStatus: BaselineWindowStatus? = nil
@@ -248,6 +249,8 @@ final class QuickHealthTest: ObservableObject {
     private var averageDischargeRatePercentPerMinute: Double = 0.5 // estimated default (will adapt via EMA)
     private var dischargeRateWithLightLoad: Double = 0.9 // conservative default for wait-time estimates (% per minute)
     private var expectedEnergyWindowEndSOC: Int { max(5, 80 - energyWindowSpanPct) }
+    private var isPerformingPulseTests = false
+    private var analysisStarted = false
     
     /// Возвращает последовательность пульсов на основе выбранного пресета
     private var pulseSequence: [(LoadLevel, String)] {
@@ -384,6 +387,8 @@ final class QuickHealthTest: ObservableObject {
         energyWindowTargetSOC = nil
         cpPhase = 0
         baselineWindowStatus = nil
+        isPerformingPulseTests = false
+        analysisStarted = false
         
         // Initialize progress tracking
         testStartTime = Date()
@@ -436,6 +441,8 @@ final class QuickHealthTest: ObservableObject {
         // Reset tracking variables
         testStartTime = nil
         currentPulseIndex = 0
+        isPerformingPulseTests = false
+        analysisStarted = false
     }
     
     /// Сбрасывает завершенный тест к начальному состоянию без остановки активных процессов
@@ -451,6 +458,8 @@ final class QuickHealthTest: ObservableObject {
         // Reset tracking variables
         testStartTime = nil
         currentPulseIndex = 0
+        isPerformingPulseTests = false
+        analysisStarted = false
     }
     
     // MARK: - Private Methods
@@ -684,9 +693,12 @@ final class QuickHealthTest: ObservableObject {
         
         // Stop waiting discharge load when we reach the target
         applyLoad(.off)
+        guard !isPerformingPulseTests else { return }
+        isPerformingPulseTests = true
         
         // Выполняем серию пульс-тестов на этом уровне SOC
         performPulseTests(at: targetSOC) {
+            self.isPerformingPulseTests = false
             // Ветка CP-окна: единожды на уровне 80% в соответствии с span
             if targetSOC == 80 {
                 // Mark 80% stage as completed so 60% stage won't run twice.
@@ -804,6 +816,8 @@ final class QuickHealthTest: ObservableObject {
     }
     
     private func analyzeResults() {
+        guard !analysisStarted else { return }
+        analysisStarted = true
         // Ensure no active CP/load keeps running while we analyze results
         // (especially important for forced-stop paths from watchdog timers).
         constantPowerController.stop()
@@ -1434,28 +1448,13 @@ final class QuickHealthTest: ObservableObject {
     
     /// Обновляет файл с историей всех результатов
     private func updateResultsHistory(with newResult: QuickHealthResult) {
-        var results = loadResults()
-        
-        // Добавляем новый результат
+        var results = resultsHistory
+        if results.isEmpty {
+            results = loadResults()
+        }
         results.append(newResult)
-        
-        // Сортируем по дате (новые сначала)
-        results.sort { $0.startedAt > $1.startedAt }
-        
-        // Ограничиваем количество результатов (например, последние 50)
-        if results.count > 50 {
-            results = Array(results.prefix(50))
-        }
-        
-        // Сохраняем обновленную историю
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(results)
-            try data.write(to: Self.resultsHistoryURL)
-        } catch {
-            alertManager.showSaveError(error, operation: "quick health test history")
-        }
+        let deduplicated = Self.deduplicatedResults(results)
+        persistResultsHistory(deduplicated)
     }
     
     /// Загружает историю всех результатов
@@ -1468,7 +1467,15 @@ final class QuickHealthTest: ObservableObject {
             let data = try Data(contentsOf: Self.resultsHistoryURL)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode([QuickHealthResult].self, from: data)
+            let decoded = try decoder.decode([QuickHealthResult].self, from: data)
+            let deduplicated = Self.deduplicatedResults(decoded)
+            if deduplicated.count != decoded.count {
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                let cleanData = try encoder.encode(deduplicated)
+                try cleanData.write(to: Self.resultsHistoryURL)
+            }
+            return deduplicated
         } catch {
             alertManager.showLoadError(error, operation: "quick health test results")
             return []
@@ -1482,7 +1489,9 @@ final class QuickHealthTest: ObservableObject {
     
     /// Инициализирует последний результат при старте
     func initializeFromStorage() {
-        lastResult = loadLastResult()
+        let loaded = loadResults()
+        resultsHistory = loaded
+        lastResult = loaded.first
     }
     
     // MARK: - HTML Report Generation
@@ -1547,8 +1556,52 @@ final class QuickHealthTest: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(result)
             try data.write(to: fileURL)
+            if let index = resultsHistory.firstIndex(where: { $0.startedAt == result.startedAt }) {
+                resultsHistory[index] = result
+                persistResultsHistory(Self.deduplicatedResults(resultsHistory))
+            }
         } catch {
             print("Failed to update stored result: \(error)")
         }
+    }
+
+    private func persistResultsHistory(_ results: [QuickHealthResult]) {
+        var limited = Self.deduplicatedResults(results)
+        if limited.count > 50 {
+            limited = Array(limited.prefix(50))
+        }
+
+        resultsHistory = limited
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(limited)
+            try data.write(to: Self.resultsHistoryURL)
+        } catch {
+            alertManager.showSaveError(error, operation: "quick health test history")
+        }
+    }
+
+    static func deduplicatedResults(_ results: [QuickHealthResult]) -> [QuickHealthResult] {
+        let sorted = results.sorted { $0.startedAt > $1.startedAt }
+        var unique: [Date: QuickHealthResult] = [:]
+
+        for result in sorted {
+            if let existing = unique[result.startedAt] {
+                unique[result.startedAt] = preferredStoredResult(existing, result)
+            } else {
+                unique[result.startedAt] = result
+            }
+        }
+
+        return unique.values.sorted { $0.startedAt > $1.startedAt }
+    }
+
+    private static func preferredStoredResult(_ lhs: QuickHealthResult, _ rhs: QuickHealthResult) -> QuickHealthResult {
+        let lhsHasReport = lhs.reportPath?.isEmpty == false
+        let rhsHasReport = rhs.reportPath?.isEmpty == false
+        if rhsHasReport && !lhsHasReport { return rhs }
+        return lhs
     }
 }

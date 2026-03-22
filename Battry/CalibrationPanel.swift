@@ -624,7 +624,7 @@ extension CalibrationPanel {
             }
             
             // Показываем историю быстрых тестов (до 3 предыдущих, исключая последний если он уже показан выше)
-            let allQuickResults = quickHealthTest.loadResults()
+            let allQuickResults = quickHealthTest.resultsHistory
             let quickHistoryResults: [QuickHealthTest.QuickHealthResult] = {
                 if quickHealthTest.lastResult != nil && !allQuickResults.isEmpty {
                     // Исключаем последний результат, если он уже показан выше
